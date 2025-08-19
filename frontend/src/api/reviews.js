@@ -1,40 +1,7 @@
 // Product Reviews API Service
 // Frontend service for managing product reviews and ratings
 
-import { API_URL } from './config';
-
-// Get authentication token
-const getAuthToken = () => {
-  return localStorage.getItem('token');
-};
-
-// Base API request function
-const apiRequest = async (endpoint, options = {}) => {
-  const token = getAuthToken();
-  
-  const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...options.headers,
-    },
-    ...options,
-  };
-
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, config);
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error(`API request failed for ${endpoint}:`, error);
-    throw error;
-  }
-};
+import api from './config';
 
 // Get reviews for a specific product
 export const getProductReviews = async (productId, options = {}) => {
@@ -50,12 +17,12 @@ export const getProductReviews = async (productId, options = {}) => {
       sort
     });
     
-    const response = await apiRequest(`/reviews?${queryParams}`);
-    
-    if (response.success) {
-      return response.data;
+    const response = await api.get(`/reviews?${queryParams}`);
+
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(response.message || 'Failed to fetch product reviews');
+      throw new Error(response.data.message || 'Failed to fetch product reviews');
     }
   } catch (error) {
     console.error('Error fetching product reviews:', error);
@@ -74,20 +41,17 @@ export const createReview = async (reviewData) => {
       throw new Error('Product ID and valid rating (1-5) are required');
     }
     
-    const response = await apiRequest('/reviews', {
-      method: 'POST',
-      body: JSON.stringify({
-        product_id: productId,
-        rating: parseInt(rating),
-        review_title: title || null,
-        review_text: text || null
-      })
+    const response = await api.post('/reviews', {
+      product_id: productId,
+      rating: parseInt(rating),
+      review_title: title || null,
+      review_text: text || null
     });
-    
-    if (response.success) {
-      return response.data;
+
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(response.message || 'Failed to create review');
+      throw new Error(response.data.message || 'Failed to create review');
     }
   } catch (error) {
     console.error('Error creating review:', error);
@@ -117,15 +81,12 @@ export const updateReview = async (reviewId, reviewData) => {
       throw new Error('No valid fields to update');
     }
     
-    const response = await apiRequest(`/reviews?review_id=${reviewId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updateData)
-    });
-    
-    if (response.success) {
-      return response.data;
+    const response = await api.put(`/reviews?review_id=${reviewId}`, updateData);
+
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(response.message || 'Failed to update review');
+      throw new Error(response.data.message || 'Failed to update review');
     }
   } catch (error) {
     console.error('Error updating review:', error);
@@ -137,15 +98,13 @@ export const updateReview = async (reviewId, reviewData) => {
 export const deleteReview = async (reviewId) => {
   try {
     console.log(`🗑️ Deleting review ${reviewId}`);
-    
-    const response = await apiRequest(`/reviews?review_id=${reviewId}`, {
-      method: 'DELETE'
-    });
-    
-    if (response.success) {
+
+    const response = await api.delete(`/reviews?review_id=${reviewId}`);
+
+    if (response.data.success) {
       return true;
     } else {
-      throw new Error(response.message || 'Failed to delete review');
+      throw new Error(response.data.message || 'Failed to delete review');
     }
   } catch (error) {
     console.error('Error deleting review:', error);
@@ -157,19 +116,16 @@ export const deleteReview = async (reviewId) => {
 export const voteReviewHelpfulness = async (reviewId, isHelpful) => {
   try {
     console.log(`👍 Voting on review ${reviewId}: ${isHelpful ? 'helpful' : 'not helpful'}`);
-    
-    const response = await apiRequest('/reviews/helpful', {
-      method: 'POST',
-      body: JSON.stringify({
-        review_id: reviewId,
-        is_helpful: isHelpful
-      })
+
+    const response = await api.post('/reviews/helpful', {
+      review_id: reviewId,
+      is_helpful: isHelpful
     });
-    
-    if (response.success) {
-      return response.data;
+
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(response.message || 'Failed to vote on review helpfulness');
+      throw new Error(response.data.message || 'Failed to vote on review helpfulness');
     }
   } catch (error) {
     console.error('Error voting on review helpfulness:', error);
@@ -181,13 +137,13 @@ export const voteReviewHelpfulness = async (reviewId, isHelpful) => {
 export const getReviewHelpfulness = async (reviewId) => {
   try {
     console.log(`👍 Fetching helpfulness votes for review ${reviewId}`);
-    
-    const response = await apiRequest(`/reviews/helpful?review_id=${reviewId}`);
-    
-    if (response.success) {
-      return response.data;
+
+    const response = await api.get(`/reviews/helpful?review_id=${reviewId}`);
+
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(response.message || 'Failed to fetch review helpfulness');
+      throw new Error(response.data.message || 'Failed to fetch review helpfulness');
     }
   } catch (error) {
     console.error('Error fetching review helpfulness:', error);
@@ -199,15 +155,13 @@ export const getReviewHelpfulness = async (reviewId) => {
 export const removeHelpfulnessVote = async (reviewId) => {
   try {
     console.log(`🗑️ Removing helpfulness vote for review ${reviewId}`);
-    
-    const response = await apiRequest(`/reviews/helpful?review_id=${reviewId}`, {
-      method: 'DELETE'
-    });
-    
-    if (response.success) {
+
+    const response = await api.delete(`/reviews/helpful?review_id=${reviewId}`);
+
+    if (response.data.success) {
       return true;
     } else {
-      throw new Error(response.message || 'Failed to remove helpfulness vote');
+      throw new Error(response.data.message || 'Failed to remove helpfulness vote');
     }
   } catch (error) {
     console.error('Error removing helpfulness vote:', error);
@@ -219,13 +173,13 @@ export const removeHelpfulnessVote = async (reviewId) => {
 export const getUserReviewVote = async (reviewId) => {
   try {
     console.log(`👤 Getting user vote for review ${reviewId}`);
-    
-    const response = await apiRequest(`/reviews/helpful/user?review_id=${reviewId}`);
-    
-    if (response.success) {
-      return response.data;
+
+    const response = await api.get(`/reviews/helpful/user?review_id=${reviewId}`);
+
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(response.message || 'Failed to get user vote');
+      throw new Error(response.data.message || 'Failed to get user vote');
     }
   } catch (error) {
     console.error('Error getting user vote:', error);
@@ -246,12 +200,12 @@ export const getAllReviews = async (options = {}) => {
       status
     });
     
-    const response = await apiRequest(`/reviews?${queryParams}`);
-    
-    if (response.success) {
-      return response.data;
+    const response = await api.get(`/reviews?${queryParams}`);
+
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(response.message || 'Failed to fetch all reviews');
+      throw new Error(response.data.message || 'Failed to fetch all reviews');
     }
   } catch (error) {
     console.error('Error fetching all reviews:', error);
@@ -264,17 +218,14 @@ export const moderateReview = async (reviewId, isApproved) => {
   try {
     console.log(`🛡️ Moderating review ${reviewId}: ${isApproved ? 'approved' : 'rejected'}`);
     
-    const response = await apiRequest(`/reviews?review_id=${reviewId}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        is_approved: isApproved
-      })
+    const response = await api.put(`/reviews?review_id=${reviewId}`, {
+      is_approved: isApproved
     });
-    
-    if (response.success) {
-      return response.data;
+
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(response.message || 'Failed to moderate review');
+      throw new Error(response.data.message || 'Failed to moderate review');
     }
   } catch (error) {
     console.error('Error moderating review:', error);

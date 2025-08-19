@@ -1,4 +1,4 @@
-const { supabase } = require('../../lib/supabase')
+const { supabaseAdmin } = require('../../lib/supabase')
 const jwt = require('jsonwebtoken')
 
 // Helper function to verify JWT token
@@ -62,7 +62,7 @@ async function getHelpfulnessVotes(req, res, reviewId) {
     console.log(`👍 Fetching helpfulness votes for review ${reviewId}`)
     
     // Get vote counts
-    const { data: votes, error: votesError } = await supabase
+    const { data: votes, error: votesError } = await supabaseAdmin
       .from('review_helpfulness')
       .select('is_helpful')
       .eq('review_id', reviewId)
@@ -113,7 +113,7 @@ async function voteHelpfulness(req, res, body) {
     }
     
     // Check if review exists
-    const { data: review, error: reviewError } = await supabase
+    const { data: review, error: reviewError } = await supabaseAdmin
       .from('product_reviews')
       .select('id')
       .eq('id', review_id)
@@ -124,7 +124,7 @@ async function voteHelpfulness(req, res, body) {
     }
     
     // Check if user has already voted on this review
-    const { data: existingVote } = await supabase
+    const { data: existingVote } = await supabaseAdmin
       .from('review_helpfulness')
       .select('id, is_helpful')
       .eq('user_id', user.id)
@@ -134,7 +134,7 @@ async function voteHelpfulness(req, res, body) {
     if (existingVote) {
       // Update existing vote if different
       if (existingVote.is_helpful !== is_helpful) {
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
           .from('review_helpfulness')
           .update({ is_helpful })
           .eq('id', existingVote.id)
@@ -159,7 +159,7 @@ async function voteHelpfulness(req, res, body) {
       }
     } else {
       // Create new vote
-      const { data: vote, error: voteError } = await supabase
+      const { data: vote, error: voteError } = await supabaseAdmin
         .from('review_helpfulness')
         .insert([{
           review_id: parseInt(review_id),
@@ -211,7 +211,7 @@ async function updateHelpfulnessVote(req, res, body) {
     }
     
     // Find existing vote
-    const { data: existingVote } = await supabase
+    const { data: existingVote } = await supabaseAdmin
       .from('review_helpfulness')
       .select('id')
       .eq('user_id', user.id)
@@ -223,7 +223,7 @@ async function updateHelpfulnessVote(req, res, body) {
     }
     
     // Update the vote
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('review_helpfulness')
       .update({ is_helpful })
       .eq('id', existingVote.id)
@@ -263,7 +263,7 @@ async function removeHelpfulnessVote(req, res, reviewId) {
     }
     
     // Find and delete the vote
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseAdmin
       .from('review_helpfulness')
       .delete()
       .eq('user_id', user.id)
@@ -303,7 +303,7 @@ async function getUserVote(req, res, reviewId) {
     console.log(`👤 Getting user ${user.id} vote for review ${reviewId}`)
     
     // Get user's vote
-    const { data: vote, error: voteError } = await supabase
+    const { data: vote, error: voteError } = await supabaseAdmin
       .from('review_helpfulness')
       .select('is_helpful')
       .eq('user_id', user.id)

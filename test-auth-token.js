@@ -34,8 +34,8 @@ async function testAuthToken() {
         // Step 2: Test the review helpfulness endpoint with valid token
         console.log('\n2. Testing review helpfulness with valid token...');
         const helpfulResponse = await axios.post('http://localhost:3000/api/reviews/helpful', {
-          review_id: 1,
-          is_helpful: true
+          review_id: 9, // Use a different review ID
+          is_helpful: false // Try voting "not helpful"
         }, {
           headers: {
             'Authorization': `Bearer ${token}`

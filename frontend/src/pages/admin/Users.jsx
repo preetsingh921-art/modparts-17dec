@@ -110,21 +110,22 @@ const Users = () => {
     try {
       if (editingUser) {
         // Update existing user
-        await updateUser({ ...userData, id: editingUser.id });
+        console.log('🔄 Updating user with data:', userData);
+        const updatedUserData = await updateUser({ ...userData, id: editingUser.id });
+        console.log('✅ Received updated user data:', updatedUserData);
 
-        // Update local state
+        // Update local state with the complete updated user data from API
         setUsers(users.map(user =>
-          user.id === editingUser.id ? { ...user, ...userData } : user
+          user.id === editingUser.id ? updatedUserData : user
         ));
 
         success('User updated successfully');
       } else {
         // Create new user
-        await createUser(userData);
+        const newUserData = await createUser(userData);
 
-        // Refresh the user list to get the new user with ID
-        const updatedUsers = await getUsers();
-        setUsers(updatedUsers);
+        // Add the new user to the local state
+        setUsers([...users, newUserData]);
 
         success('User created successfully');
       }
@@ -132,6 +133,7 @@ const Users = () => {
       // Close modal
       setIsModalOpen(false);
     } catch (err) {
+      console.error('❌ Error saving user:', err);
       showError(err.message || 'Failed to save user');
     }
   };

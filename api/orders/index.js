@@ -77,53 +77,52 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ message: 'Failed to fetch orders' })
       }
 
-      // For each order, fetch user and order items separately to avoid join issues
-      const enrichedOrders = []
+      // Use optimized query with joins to fetch all data at once
+      console.log('🚀 Using optimized query with joins for better performance')
 
-      for (const order of orders || []) {
-        try {
-          // Get user details separately
-          const { data: userData } = await supabase
-            .from('users')
-            .select('id, email, first_name, last_name')
-            .eq('id', order.user_id)
-            .single()
+      let enrichedQuery = supabaseAdmin
+        .from('orders')
+        .select(`
+          *,
+          users!orders_user_id_fkey (
+            id,
+            email,
+            first_name,
+            last_name
+          ),
+          order_items (
+            *,
+            products (
+              id,
+              name,
+              image_url
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
 
-          // Get order items separately
-          const { data: orderItems } = await supabase
-            .from('order_items')
-            .select('*')
-            .eq('order_id', order.id)
+      // If not admin, only show user's own orders
+      if (user.role !== 'admin') {
+        enrichedQuery = enrichedQuery.eq('user_id', userId)
+      }
 
-          // For each order item, get product details
-          const enrichedItems = []
-          for (const item of orderItems || []) {
-            const { data: product } = await supabase
-              .from('products')
-              .select('id, name, image_url')
-              .eq('id', item.product_id)
-              .single()
+      const { data: enrichedOrders, error: enrichedError } = await enrichedQuery
 
-            enrichedItems.push({
-              ...item,
-              product: product || null
-            })
-          }
+      if (enrichedError) {
+        console.error('❌ Error with optimized query, falling back to basic orders:', enrichedError)
+        // Fallback to basic orders if join fails
+        const fallbackOrders = orders?.map(order => ({
+          ...order,
+          user: null,
+          order_items: []
+        })) || []
 
-          enrichedOrders.push({
-            ...order,
-            user: userData || null,
-            order_items: enrichedItems
-          })
-        } catch (itemError) {
-          console.error('Error enriching order:', itemError)
-          // Include order even if enrichment fails
-          enrichedOrders.push({
-            ...order,
-            user: null,
-            order_items: []
-          })
-        }
+        console.log(`✅ Fallback: fetched ${fallbackOrders.length} basic orders`)
+        res.status(200).json({
+          success: true,
+          data: fallbackOrders
+        })
+        return
       }
 
       console.log(`✅ Successfully fetched ${enrichedOrders.length} orders`)

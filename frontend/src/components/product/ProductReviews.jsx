@@ -342,7 +342,7 @@ const ReviewItem = ({ review, currentUser, onDelete, onHelpfulVote }) => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L15 17m-5-3v-10M15 17h4a2 2 0 002-2V7a2 2 0 00-2-2H6.5" />
             </svg>
-            <span>Not Helpful</span>
+            <span>Not Helpful ({review.notHelpfulCount || 0})</span>
           </button>
         </div>
         

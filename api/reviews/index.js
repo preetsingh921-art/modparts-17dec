@@ -134,6 +134,7 @@ async function getProductReviews(req, res, productId, page, limit, sort) {
         review_text,
         is_verified_purchase,
         helpful_count,
+        not_helpful_count,
         created_at,
         updated_at,
         users (
@@ -168,7 +169,8 @@ async function getProductReviews(req, res, productId, page, limit, sort) {
       title: review.review_title,
       text: review.review_text,
       isVerifiedPurchase: review.is_verified_purchase,
-      helpfulCount: review.helpful_count,
+      helpfulCount: review.helpful_count || 0,
+      notHelpfulCount: review.not_helpful_count || 0,
       createdAt: review.created_at,
       updatedAt: review.updated_at,
       user: {

@@ -1,4 +1,4 @@
-const { supabase } = require('../../lib/supabase')
+const { supabaseAdmin } = require('../../lib/supabase')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 
@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       // Get user profile
-      const { data: userProfile, error } = await supabase
+      const { data: userProfile, error } = await supabaseAdmin
         .from('users')
         .select('id, email, first_name, last_name, address, city, state, zip_code, phone, role, created_at')
         .eq('id', user.id)
@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
         }
 
         // Get current user data with password
-        const { data: currentUser, error: userError } = await supabase
+        const { data: currentUser, error: userError } = await supabaseAdmin
           .from('users')
           .select('password')
           .eq('id', user.id)
@@ -88,7 +88,7 @@ module.exports = async function handler(req, res) {
         const hashedNewPassword = await bcrypt.hash(new_password, 10)
 
         // Update user with new password
-        const { data: updatedUser, error: updateError } = await supabase
+        const { data: updatedUser, error: updateError } = await supabaseAdmin
           .from('users')
           .update({
             first_name: first_name || undefined,
@@ -115,7 +115,7 @@ module.exports = async function handler(req, res) {
         })
       } else {
         // Update user without password change
-        const { data: updatedUser, error: updateError } = await supabase
+        const { data: updatedUser, error: updateError } = await supabaseAdmin
           .from('users')
           .update({
             first_name: first_name || undefined,

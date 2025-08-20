@@ -2,10 +2,10 @@ const { createClient } = require('@supabase/supabase-js')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 
-// Initialize Supabase client
+// Initialize Supabase client with service role key for admin operations
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
 // JWT secret for token verification

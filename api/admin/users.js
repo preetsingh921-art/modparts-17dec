@@ -54,7 +54,7 @@ module.exports = async (req, res) => {
       
       const { data: users, error } = await supabase
         .from('users')
-        .select('id, email, first_name, last_name, role, status, created_at, approved_at, phone, address')
+        .select('id, email, first_name, last_name, role, status, created_at, approved_at, phone, address, city, state, zip_code')
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -121,7 +121,7 @@ module.exports = async (req, res) => {
 
     } else if (req.method === 'PUT') {
       // Update user
-      const { id, email, first_name, last_name, role } = req.body
+      const { id, email, first_name, last_name, role, phone, address, city, state, zip_code } = req.body
 
       if (!id) {
         return res.status(400).json({
@@ -131,12 +131,20 @@ module.exports = async (req, res) => {
       }
 
       console.log('📝 Admin updating user:', id)
+      console.log('📝 Update data received:', { email, first_name, last_name, role, phone, address, city, state, zip_code })
 
       const updateData = {}
       if (email) updateData.email = email
       if (first_name) updateData.first_name = first_name
       if (last_name) updateData.last_name = last_name
       if (role) updateData.role = role
+      if (phone !== undefined) updateData.phone = phone
+      if (address !== undefined) updateData.address = address
+      if (city !== undefined) updateData.city = city
+      if (state !== undefined) updateData.state = state
+      if (zip_code !== undefined) updateData.zip_code = zip_code
+
+      console.log('📝 Fields to update:', updateData)
 
       const { data: user, error } = await supabase
         .from('users')

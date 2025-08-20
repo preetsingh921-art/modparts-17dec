@@ -10,6 +10,9 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
     confirm_password: '',
     phone: '',
     address: '',
+    city: '',
+    state: '',
+    zip_code: '',
     role: 'customer'
   });
   
@@ -29,6 +32,9 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
           confirm_password: '',
           phone: user.phone || '',
           address: user.address || '',
+          city: user.city || '',
+          state: user.state || '',
+          zip_code: user.zip_code || '',
           role: user.role || 'customer'
         });
       } else {
@@ -41,6 +47,9 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
           confirm_password: '',
           phone: '',
           address: '',
+          city: '',
+          state: '',
+          zip_code: '',
           role: 'customer'
         });
       }
@@ -120,6 +129,9 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zip_code: formData.zip_code,
         role: formData.role
       };
       
@@ -255,7 +267,48 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
             className="w-full p-2 border border-gray-300 rounded"
           ></textarea>
         </div>
-        
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              City
+            </label>
+            <input
+              type="text"
+              name="city"
+              value={formData.city}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              State
+            </label>
+            <input
+              type="text"
+              name="state"
+              value={formData.state}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              ZIP Code
+            </label>
+            <input
+              type="text"
+              name="zip_code"
+              value={formData.zip_code}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Role

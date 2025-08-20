@@ -1,4 +1,4 @@
-const { supabase } = require('../../lib/supabase')
+const { supabase, supabaseAdmin } = require('../../lib/supabase')
 const jwt = require('jsonwebtoken')
 
 // Helper function to verify JWT token
@@ -125,7 +125,7 @@ async function getProductReviews(req, res, productId, page, limit, sort) {
     }
     
     // Get reviews with user information
-    const { data: reviews, error: reviewsError, count } = await supabase
+    const { data: reviews, error: reviewsError, count } = await supabaseAdmin
       .from('product_reviews')
       .select(`
         id,
@@ -134,7 +134,6 @@ async function getProductReviews(req, res, productId, page, limit, sort) {
         review_text,
         is_verified_purchase,
         helpful_count,
-        not_helpful_count,
         created_at,
         updated_at,
         users (
@@ -162,6 +161,29 @@ async function getProductReviews(req, res, productId, page, limit, sort) {
       console.error('❌ Error fetching rating stats:', statsError)
     }
     
+    // Get helpfulness counts for all reviews in one query
+    const reviewIds = reviews?.map(r => r.id) || []
+    let helpfulnessCounts = {}
+
+    if (reviewIds.length > 0) {
+      const { data: helpfulnessData } = await supabaseAdmin
+        .from('review_helpfulness')
+        .select('review_id, is_helpful')
+        .in('review_id', reviewIds)
+
+      // Calculate counts for each review
+      helpfulnessData?.forEach(vote => {
+        if (!helpfulnessCounts[vote.review_id]) {
+          helpfulnessCounts[vote.review_id] = { helpful: 0, notHelpful: 0 }
+        }
+        if (vote.is_helpful) {
+          helpfulnessCounts[vote.review_id].helpful++
+        } else {
+          helpfulnessCounts[vote.review_id].notHelpful++
+        }
+      })
+    }
+
     // Format reviews data
     const formattedReviews = reviews?.map(review => ({
       id: review.id,
@@ -169,8 +191,8 @@ async function getProductReviews(req, res, productId, page, limit, sort) {
       title: review.review_title,
       text: review.review_text,
       isVerifiedPurchase: review.is_verified_purchase,
-      helpfulCount: review.helpful_count || 0,
-      notHelpfulCount: review.not_helpful_count || 0,
+      helpfulCount: helpfulnessCounts[review.id]?.helpful || 0,
+      notHelpfulCount: helpfulnessCounts[review.id]?.notHelpful || 0,
       createdAt: review.created_at,
       updatedAt: review.updated_at,
       user: {

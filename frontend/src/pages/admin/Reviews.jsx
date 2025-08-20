@@ -7,6 +7,8 @@ import { getAllReviews, moderateReview, deleteReview } from '../../api/reviews';
 import { useToast } from '../../context/ToastContext';
 import StarRating from '../../components/ui/StarRating';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import useConfirm from '../../hooks/useConfirm';
 
 const AdminReviews = () => {
   const [reviews, setReviews] = useState([]);
@@ -17,6 +19,7 @@ const AdminReviews = () => {
   const [pagination, setPagination] = useState({});
   
   const { success, error: showError } = useToast();
+  const { isOpen, confirm, handleClose, handleConfirm, dialogProps } = useConfirm();
 
   useEffect(() => {
     loadReviews();
@@ -55,16 +58,26 @@ const AdminReviews = () => {
   };
 
   const handleDeleteReview = async (reviewId) => {
-    if (!window.confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
-      return;
-    }
-    
     try {
-      await deleteReview(reviewId);
-      success('Review deleted successfully');
-      loadReviews();
-    } catch (err) {
-      showError('Failed to delete review: ' + err.message);
+      await confirm({
+        title: 'Delete Review',
+        message: 'Are you sure you want to delete this review? This action cannot be undone.',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        confirmButtonClass: 'bg-red-600 hover:bg-red-700'
+      });
+
+      // If user confirms, proceed with deletion
+      try {
+        await deleteReview(reviewId);
+        success('Review deleted successfully');
+        loadReviews();
+      } catch (err) {
+        showError('Failed to delete review: ' + err.message);
+      }
+    } catch {
+      // User cancelled the dialog
+      console.log('Review deletion cancelled');
     }
   };
 
@@ -206,6 +219,18 @@ const AdminReviews = () => {
           </button>
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isOpen}
+        onClose={handleClose}
+        onConfirm={handleConfirm}
+        title={dialogProps.title}
+        message={dialogProps.message}
+        confirmText={dialogProps.confirmText}
+        cancelText={dialogProps.cancelText}
+        confirmButtonClass={dialogProps.confirmButtonClass}
+      />
     </div>
   );
 };

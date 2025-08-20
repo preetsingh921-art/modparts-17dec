@@ -4,10 +4,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { 
-  getProductReviews, 
-  createReview, 
-  updateReview, 
+import {
+  getProductReviews,
+  createReview,
+  updateReview,
   deleteReview,
   voteReviewHelpfulness,
   formatReviewDate,
@@ -15,6 +15,8 @@ import {
 } from '../../api/reviews';
 import StarRating, { RatingDisplay, RatingInput, RatingDistribution } from '../ui/StarRating';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import ConfirmDialog from '../ui/ConfirmDialog';
+import useConfirm from '../../hooks/useConfirm';
 
 const ProductReviews = ({ productId, productName }) => {
   const [reviews, setReviews] = useState([]);
@@ -32,6 +34,7 @@ const ProductReviews = ({ productId, productName }) => {
   
   const { user, isAuthenticated } = useAuth();
   const { success, error: showError } = useToast();
+  const { isOpen, confirm, handleClose, handleConfirm, dialogProps } = useConfirm();
 
   // Load reviews on component mount and when filters change
   useEffect(() => {
@@ -82,16 +85,26 @@ const ProductReviews = ({ productId, productName }) => {
   };
 
   const handleDeleteReview = async (reviewId) => {
-    if (!window.confirm('Are you sure you want to delete this review?')) {
-      return;
-    }
-    
     try {
-      await deleteReview(reviewId);
-      success('Review deleted successfully');
-      loadReviews();
-    } catch (err) {
-      showError('Failed to delete review: ' + err.message);
+      await confirm({
+        title: 'Delete Review',
+        message: 'Are you sure you want to delete this review? This action cannot be undone.',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        confirmButtonClass: 'bg-red-600 hover:bg-red-700'
+      });
+
+      // If user confirms, proceed with deletion
+      try {
+        await deleteReview(reviewId);
+        success('Review deleted successfully');
+        loadReviews();
+      } catch (err) {
+        showError('Failed to delete review: ' + err.message);
+      }
+    } catch {
+      // User cancelled the dialog
+      console.log('Review deletion cancelled');
     }
   };
 
@@ -275,6 +288,18 @@ const ProductReviews = ({ productId, productName }) => {
           </div>
         )}
       </div>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isOpen}
+        onClose={handleClose}
+        onConfirm={handleConfirm}
+        title={dialogProps.title}
+        message={dialogProps.message}
+        confirmText={dialogProps.confirmText}
+        cancelText={dialogProps.cancelText}
+        confirmButtonClass={dialogProps.confirmButtonClass}
+      />
     </div>
   );
 };

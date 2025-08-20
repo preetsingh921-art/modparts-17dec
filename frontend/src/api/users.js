@@ -1,35 +1,19 @@
+import api from './config';
+
 // Get all users
 export const getUsers = async () => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await fetch('/api/admin/users', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    console.log('👥 Fetching all users...');
+    const response = await api.get('/admin/users');
+    console.log('✅ Get users response:', response.data);
 
-    if (!response.ok) {
-      const clonedResponse = response.clone();
-      let errorMessage;
-      try {
-        const errorBody = await clonedResponse.json();
-        errorMessage = errorBody.message || `HTTP error! Status: ${response.status}`;
-      } catch (e) {
-        errorMessage = (await response.text()) || `HTTP error! Status: ${response.status}`;
-      }
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
-      return result.data;
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(result.message || 'Failed to fetch users');
+      throw new Error(response.data.message || 'Failed to fetch users');
     }
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('❌ Error fetching users:', error);
     throw error;
   }
 };
@@ -37,35 +21,17 @@ export const getUsers = async () => {
 // Get a single user by ID
 export const getUserById = async (userId) => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`/api/admin/users?id=${userId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    console.log('👤 Fetching user by ID:', userId);
+    const response = await api.get(`/admin/users?id=${userId}`);
+    console.log('✅ Get user by ID response:', response.data);
 
-    if (!response.ok) {
-      const clonedResponse = response.clone();
-      let errorMessage;
-      try {
-        const errorBody = await clonedResponse.json();
-        errorMessage = errorBody.message || `HTTP error! Status: ${response.status}`;
-      } catch (e) {
-        errorMessage = (await response.text()) || `HTTP error! Status: ${response.status}`;
-      }
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
-      return result.data;
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(result.message || 'Failed to fetch user');
+      throw new Error(response.data.message || 'Failed to fetch user');
     }
   } catch (error) {
-    console.error(`Error fetching user with ID ${userId}:`, error);
+    console.error(`❌ Error fetching user with ID ${userId}:`, error);
     throw error;
   }
 };
@@ -73,37 +39,17 @@ export const getUserById = async (userId) => {
 // Create a new user
 export const createUser = async (userData) => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`/api/admin/users`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-    });
+    console.log('➕ Creating new user:', userData);
+    const response = await api.post('/admin/users', userData);
+    console.log('✅ Create user response:', response.data);
 
-    if (!response.ok) {
-      const clonedResponse = response.clone();
-      let errorMessage;
-      try {
-        const errorBody = await clonedResponse.json();
-        errorMessage = errorBody.message || `HTTP error! Status: ${response.status}`;
-      } catch (e) {
-        errorMessage = (await response.text()) || `HTTP error! Status: ${response.status}`;
-      }
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
-      return result.data;
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(result.message || 'Failed to create user');
+      throw new Error(response.data.message || 'Failed to create user');
     }
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error('❌ Error creating user:', error);
     throw error;
   }
 };
@@ -111,37 +57,17 @@ export const createUser = async (userData) => {
 // Update an existing user
 export const updateUser = async (userData) => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`/api/admin/users`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-    });
+    console.log('🔄 Updating user:', userData);
+    const response = await api.put('/admin/users', userData);
+    console.log('✅ Update user response:', response.data);
 
-    if (!response.ok) {
-      const clonedResponse = response.clone();
-      let errorMessage;
-      try {
-        const errorBody = await clonedResponse.json();
-        errorMessage = errorBody.message || `HTTP error! Status: ${response.status}`;
-      } catch (e) {
-        errorMessage = (await response.text()) || `HTTP error! Status: ${response.status}`;
-      }
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
-      return result.data;
+    if (response.data.success) {
+      return response.data.data;
     } else {
-      throw new Error(result.message || 'Failed to update user');
+      throw new Error(response.data.message || 'Failed to update user');
     }
   } catch (error) {
-    console.error(`Error updating user with ID ${userData.id}:`, error);
+    console.error(`❌ Error updating user with ID ${userData.id}:`, error);
     throw error;
   }
 };
@@ -149,36 +75,17 @@ export const updateUser = async (userData) => {
 // Delete a user
 export const deleteUser = async (userId) => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`/api/admin/users?id=${userId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    console.log('🗑️ Deleting user with ID:', userId);
+    const response = await api.delete(`/admin/users?id=${userId}`);
+    console.log('✅ Delete user response:', response.data);
 
-    if (!response.ok) {
-      const clonedResponse = response.clone();
-      let errorMessage;
-      try {
-        const errorBody = await clonedResponse.json();
-        errorMessage = errorBody.message || `HTTP error! Status: ${response.status}`;
-      } catch (e) {
-        errorMessage = (await response.text()) || `HTTP error! Status: ${response.status}`;
-      }
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
-      return result;
+    if (response.data.success) {
+      return response.data;
     } else {
-      throw new Error(result.message || 'Failed to delete user');
+      throw new Error(response.data.message || 'Failed to delete user');
     }
   } catch (error) {
-    console.error(`Error deleting user with ID ${userId}:`, error);
+    console.error(`❌ Error deleting user with ID ${userId}:`, error);
     throw error;
   }
 };

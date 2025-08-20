@@ -14,7 +14,11 @@
     "migrate-images": "node scripts/migrate-images-to-supabase.js",
     "migrate-images:dry-run": "node scripts/migrate-images-to-supabase.js --dry-run",
     "fix-image-urls": "node scripts/fix-nan-image-urls.js",
-    "fix-image-urls:comprehensive": "node scripts/fix-nan-image-urls.js --comprehensive"
+    "fix-image-urls:comprehensive": "node scripts/fix-nan-image-urls.js --comprehensive",
+    "deploy": "node git-deploy.js",
+    "deploy:quick": "node git-deploy.js \"Quick update: $(date)\"",
+    "deploy:dev": "node git-deploy.js \"Development update\" develop",
+    "deploy:prod": "node git-deploy.js \"Production release\" main"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

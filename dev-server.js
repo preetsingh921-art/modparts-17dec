@@ -41,10 +41,14 @@ const PORT = 3000;
 const getAllowedOrigins = () => {
   const origins = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
 
-  // In production, add the Render URL
+  // In production, add the Render URL and custom domain
   if (process.env.NODE_ENV === 'production') {
     // Add common Render URL patterns
     origins.push('https://*.onrender.com');
+
+    // Add custom domain
+    origins.push('https://partsformyrd350.com');
+    origins.push('https://www.partsformyrd350.com');
 
     // If RENDER_EXTERNAL_URL is available, use it
     if (process.env.RENDER_EXTERNAL_URL) {
@@ -70,7 +74,9 @@ app.use((req, res, next) => {
   const allowedOrigins = getAllowedOrigins();
 
   // Set specific origin instead of wildcard when credentials are used
-  if (allowedOrigins.includes(origin) || (origin && origin.includes('.onrender.com'))) {
+  if (allowedOrigins.includes(origin) ||
+      (origin && origin.includes('.onrender.com')) ||
+      (origin && origin.includes('partsformyrd350.com'))) {
     res.header('Access-Control-Allow-Origin', origin);
   } else if (process.env.NODE_ENV === 'production') {
     // In production, allow same-origin requests

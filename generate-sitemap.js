@@ -15,7 +15,7 @@ const { supabase } = require('./lib/supabase');
 
 class SitemapGenerator {
     constructor() {
-        this.baseUrl = 'https://partsformyrd350.com';
+        this.baseUrl = 'https://www.partsformyrd350.com';
         this.currentDate = new Date().toISOString().split('T')[0];
         this.urls = [];
     }

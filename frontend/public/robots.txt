@@ -15,7 +15,7 @@ Allow: /login
 Allow: /register
 
 # Sitemap location
-Sitemap: https://partsformyrd350.com/sitemap.xml
+Sitemap: https://www.partsformyrd350.com/sitemap.xml
 
 # Crawl delay (optional)
 Crawl-delay: 1

@@ -18,7 +18,9 @@
     "deploy": "node git-deploy.js",
     "deploy:quick": "node git-deploy.js \"Quick update: $(date)\"",
     "deploy:dev": "node git-deploy.js \"Development update\" develop",
-    "deploy:prod": "node git-deploy.js \"Production release\" main"
+    "deploy:prod": "node git-deploy.js \"Production release\" main",
+    "sitemap": "node generate-sitemap.js",
+    "sitemap:preview": "node generate-sitemap.js --dry-run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

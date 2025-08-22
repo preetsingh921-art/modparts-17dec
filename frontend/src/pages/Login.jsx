@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
+import GoogleLoginButton from '../components/auth/GoogleLoginButton';
 
 const Login = () => {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -17,6 +19,37 @@ const Login = () => {
 
   // Get the redirect path from location state or default to home
   const from = location.state?.from || '/';
+
+  // Handle OAuth status messages
+  useEffect(() => {
+    const status = searchParams.get('status');
+    const email = searchParams.get('email');
+    const errorParam = searchParams.get('error');
+
+    if (status === 'pending_approval' && email) {
+      setError(`Your account (${email}) is pending admin approval. You will be notified once approved.`);
+    } else if (errorParam) {
+      switch (errorParam) {
+        case 'oauth_failed':
+        case 'oauth_error':
+        case 'oauth_no_user':
+        case 'callback_error':
+          setError('Google authentication failed. Please try again or use email login.');
+          break;
+        case 'account_rejected':
+          setError('Your account has been rejected. Please contact support.');
+          break;
+        case 'account_suspended':
+          setError('Your account has been suspended. Please contact support.');
+          break;
+        case 'account_inactive':
+          setError('Your account is not active. Please contact support.');
+          break;
+        default:
+          setError('Authentication failed. Please try again.');
+      }
+    }
+  }, [searchParams]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -79,6 +112,24 @@ const Login = () => {
       )}
 
       <div className="bg-white rounded-lg shadow p-6">
+        {/* Google Login Button */}
+        <div className="mb-6">
+          <GoogleLoginButton
+            text="Sign in with Google"
+            disabled={loading}
+          />
+        </div>
+
+        {/* Divider */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-gray-700 mb-2">Email</label>

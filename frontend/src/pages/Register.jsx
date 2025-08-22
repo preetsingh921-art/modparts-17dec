@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
+import GoogleLoginButton from '../components/auth/GoogleLoginButton';
 
 const Register = () => {
   const { register, loading } = useAuth();
@@ -112,6 +113,24 @@ const Register = () => {
       )}
       
       <div className="bg-white rounded-lg shadow p-6">
+        {/* Google Registration Button */}
+        <div className="mb-6">
+          <GoogleLoginButton
+            text="Sign up with Google"
+            disabled={loading || success}
+          />
+        </div>
+
+        {/* Divider */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or register with email</span>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>

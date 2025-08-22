@@ -21,6 +21,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import VerifyEmail from './pages/VerifyEmail'
 import ResendVerification from './pages/ResendVerification'
+import AuthCallback from './pages/AuthCallback'
 import AdminDashboard from './pages/admin/Dashboard'
 import AdminProducts from './pages/admin/Products'
 import AdminOrders from './pages/admin/Orders'
@@ -95,6 +96,7 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/resend-verification" element={<ResendVerification />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/loading-demo" element={<LoadingDemo />} />
 
                 {/* Admin Routes */}

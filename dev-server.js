@@ -33,6 +33,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const session = require('express-session');
+const passport = require('./lib/passport-config');
 
 const app = express();
 const PORT = 3000;
@@ -99,8 +101,35 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Session configuration for Passport
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Serve static files from public directory
 app.use(express.static('public'));
+
+// Google OAuth routes (before API handler)
+app.get('/auth/google', (req, res, next) => {
+  console.log('🚀 Google OAuth initiation');
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
+
+app.get('/auth/google/callback', (req, res, next) => {
+  console.log('🔄 Google OAuth callback');
+  const googleHandler = require('./api/auth/google');
+  googleHandler(req, res);
+});
 
 // API route handler - dynamically load API functions
 app.all('/api/*', async (req, res) => {

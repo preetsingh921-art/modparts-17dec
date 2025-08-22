@@ -35,8 +35,13 @@ const Register = () => {
     e.preventDefault();
     setError(null);
 
-    // Validate reCAPTCHA
-    if (!recaptchaToken) {
+    // Validate reCAPTCHA (skip if not configured)
+    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY;
+    const isRecaptchaConfigured = siteKey &&
+      !siteKey.includes('your-recaptcha-site-key') &&
+      !siteKey.includes('your-actual');
+
+    if (isRecaptchaConfigured && !recaptchaToken) {
       setError('Please complete the reCAPTCHA verification to continue');
       return;
     }

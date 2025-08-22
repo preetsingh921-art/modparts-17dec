@@ -41,6 +41,7 @@ const ReCaptcha = forwardRef(({
 
   const handleChange = (token) => {
     console.log('🔐 reCAPTCHA token received:', token ? 'Valid' : 'Expired/Reset');
+    console.log('🔑 Site Key being used:', siteKey ? siteKey.substring(0, 10) + '...' : 'None');
     if (onVerify) {
       onVerify(token);
     }
@@ -61,14 +62,20 @@ const ReCaptcha = forwardRef(({
   };
 
   // Don't render if no site key is available
-  if (!siteKey || siteKey === 'your-recaptcha-site-key') {
+  if (!siteKey || siteKey === 'your-recaptcha-site-key' || siteKey.includes('your-actual')) {
+    console.log('🔍 reCAPTCHA Debug - Site Key:', siteKey || 'undefined');
+    console.log('🔍 reCAPTCHA Debug - Environment:', process.env.NODE_ENV);
+
     return (
-      <div className={`p-4 bg-red-50 border border-red-200 rounded ${className}`}>
-        <p className="text-red-800 text-sm font-medium">
-          🔒 reCAPTCHA Required
+      <div className={`p-4 bg-yellow-50 border border-yellow-200 rounded ${className}`}>
+        <p className="text-yellow-800 text-sm font-medium">
+          ⚠️ reCAPTCHA Configuration Issue
         </p>
-        <p className="text-red-700 text-xs mt-1">
-          reCAPTCHA verification is required for security. Please contact support if this persists.
+        <p className="text-yellow-700 text-xs mt-1">
+          Site Key: {siteKey ? `${siteKey.substring(0, 10)}...` : 'Not Set'}
+        </p>
+        <p className="text-yellow-700 text-xs">
+          Forms will work temporarily without verification.
         </p>
       </div>
     );

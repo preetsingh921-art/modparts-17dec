@@ -65,8 +65,13 @@ const Login = () => {
     e.preventDefault();
     setError(null);
 
-    // Validate reCAPTCHA
-    if (!recaptchaToken) {
+    // Validate reCAPTCHA (only if configured)
+    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY;
+    const isRecaptchaConfigured = siteKey &&
+      siteKey !== 'your-recaptcha-site-key' &&
+      siteKey !== '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+
+    if (isRecaptchaConfigured && !recaptchaToken) {
       setError('Please complete the reCAPTCHA verification');
       return;
     }

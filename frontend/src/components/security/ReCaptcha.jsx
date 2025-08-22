@@ -60,12 +60,15 @@ const ReCaptcha = forwardRef(({
     }
   };
 
-  // Don't render if no site key is available
-  if (!siteKey || siteKey === 'your-recaptcha-site-key') {
+  // Don't render if no site key is available or using test key
+  if (!siteKey || siteKey === 'your-recaptcha-site-key' || siteKey === '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI') {
     return (
       <div className={`p-4 bg-yellow-50 border border-yellow-200 rounded ${className}`}>
         <p className="text-yellow-800 text-sm">
-          ⚠️ reCAPTCHA not configured. Please set REACT_APP_RECAPTCHA_SITE_KEY environment variable.
+          ⚠️ reCAPTCHA not configured. Please set up real reCAPTCHA keys in environment variables.
+        </p>
+        <p className="text-yellow-600 text-xs mt-1">
+          For now, forms will work without reCAPTCHA verification.
         </p>
       </div>
     );

@@ -2,6 +2,7 @@ const { supabaseAdmin } = require('../../lib/supabase');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const { isRecaptchaValid } = require('../../lib/recaptcha-verify');
 
 // Load environment variables
 require('dotenv').config({ path: '.env.local' });
@@ -22,7 +23,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     // Handle password reset request
-    const { email } = req.body;
+    const { email, recaptchaToken } = req.body;
 
     if (!email) {
       return res.status(400).json({
@@ -30,6 +31,24 @@ module.exports = async function handler(req, res) {
         message: 'Email is required'
       });
     }
+
+    // Verify reCAPTCHA
+    console.log('🔐 Verifying reCAPTCHA for password reset...');
+    const recaptchaValid = await isRecaptchaValid(recaptchaToken, {
+      minScore: 0.5,
+      allowedActions: ['password_reset']
+    });
+
+    if (!recaptchaValid) {
+      console.log('❌ reCAPTCHA verification failed for password reset');
+      return res.status(400).json({
+        success: false,
+        message: 'reCAPTCHA verification failed. Please try again.',
+        code: 'RECAPTCHA_FAILED'
+      });
+    }
+
+    console.log('✅ reCAPTCHA verification successful for password reset');
 
     try {
       console.log('📧 Processing password reset for:', email);

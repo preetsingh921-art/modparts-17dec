@@ -12,7 +12,7 @@ const ReCaptcha = forwardRef(({
   const recaptchaRef = useRef(null);
 
   // Get site key from environment
-  const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'; // Test key
+  const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY;
 
   useImperativeHandle(ref, () => ({
     // Reset the reCAPTCHA
@@ -60,15 +60,15 @@ const ReCaptcha = forwardRef(({
     }
   };
 
-  // Don't render if no site key is available or using test key
-  if (!siteKey || siteKey === 'your-recaptcha-site-key' || siteKey === '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI') {
+  // Don't render if no site key is available
+  if (!siteKey || siteKey === 'your-recaptcha-site-key') {
     return (
-      <div className={`p-4 bg-yellow-50 border border-yellow-200 rounded ${className}`}>
-        <p className="text-yellow-800 text-sm">
-          ⚠️ reCAPTCHA not configured. Please set up real reCAPTCHA keys in environment variables.
+      <div className={`p-4 bg-red-50 border border-red-200 rounded ${className}`}>
+        <p className="text-red-800 text-sm font-medium">
+          🔒 reCAPTCHA Required
         </p>
-        <p className="text-yellow-600 text-xs mt-1">
-          For now, forms will work without reCAPTCHA verification.
+        <p className="text-red-700 text-xs mt-1">
+          reCAPTCHA verification is required for security. Please contact support if this persists.
         </p>
       </div>
     );

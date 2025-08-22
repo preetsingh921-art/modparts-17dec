@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
+import ReCaptcha from '../components/security/ReCaptcha';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const recaptchaRef = useRef(null);
 
   const handleChange = (e) => {
     setEmail(e.target.value);
@@ -31,6 +34,11 @@ const ForgotPassword = () => {
       return;
     }
 
+    if (!recaptchaToken) {
+      setError('Please complete the reCAPTCHA verification');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -42,7 +50,7 @@ const ForgotPassword = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, recaptchaToken }),
       });
 
       const data = await response.json();
@@ -57,9 +65,26 @@ const ForgotPassword = () => {
     } catch (err) {
       console.error('❌ Password reset request error:', err);
       setError('An error occurred. Please try again.');
+      // Reset reCAPTCHA on error
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle reCAPTCHA verification
+  const handleRecaptchaVerify = (token) => {
+    setRecaptchaToken(token);
+    if (error && error.includes('reCAPTCHA')) {
+      setError(null);
+    }
+  };
+
+  const handleRecaptchaExpire = () => {
+    setRecaptchaToken(null);
   };
 
   if (success) {
@@ -143,9 +168,20 @@ const ForgotPassword = () => {
               />
             </div>
 
+            {/* reCAPTCHA */}
+            <div className="mb-6">
+              <ReCaptcha
+                ref={recaptchaRef}
+                onVerify={handleRecaptchaVerify}
+                onExpire={handleRecaptchaExpire}
+                size="normal"
+                theme="light"
+              />
+            </div>
+
             <button
               type="submit"
-              disabled={loading || !email}
+              disabled={loading || !email || !recaptchaToken}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
             >
               {loading ? (

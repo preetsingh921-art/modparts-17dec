@@ -1,7 +1,7 @@
 const { supabaseAdmin } = require('../../lib/supabase')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
-const { isRecaptchaValid } = require('../../lib/recaptcha-verify')
+const { isTurnstileValid, getUserIP } = require('../../lib/turnstile-verify')
 const { getRateLimiter } = require('../../lib/rate-limiter')
 
 module.exports = async function handler(req, res) {
@@ -18,29 +18,29 @@ module.exports = async function handler(req, res) {
     console.log('- SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'Set' : 'Missing');
     console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Missing');
 
-    const { email, password, recaptchaToken } = req.body
+    const { email, password, turnstileToken } = req.body
 
     if (!email || !password) {
       console.log('Missing email or password');
       return res.status(400).json({ message: 'Email and password are required' })
     }
 
-    // Verify reCAPTCHA
-    console.log('🔐 Verifying reCAPTCHA for login...')
-    const recaptchaValid = await isRecaptchaValid(recaptchaToken, {
-      minScore: 0.5,
-      allowedActions: ['login']
+    // Verify Turnstile
+    console.log('🔐 Verifying Turnstile for login...')
+    const userIP = getUserIP(req)
+    const turnstileValid = await isTurnstileValid(turnstileToken, {
+      remoteip: userIP
     })
 
-    if (!recaptchaValid) {
-      console.log('❌ reCAPTCHA verification failed for login')
+    if (!turnstileValid) {
+      console.log('❌ Turnstile verification failed for login')
       return res.status(400).json({
-        message: 'reCAPTCHA verification failed. Please try again.',
-        code: 'RECAPTCHA_FAILED'
+        message: 'Security verification failed. Please try again.',
+        code: 'TURNSTILE_FAILED'
       })
     }
 
-    console.log('✅ reCAPTCHA verification successful for login')
+    console.log('✅ Turnstile verification successful for login')
 
     console.log('Attempting Supabase query for user:', email);
 

@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-do
 import { useAuth } from '../context/AuthContext';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
-import ReCaptcha from '../components/security/ReCaptcha';
+import Turnstile from '../components/security/Turnstile';
 
 const Login = () => {
   const { login, loading } = useAuth();
@@ -17,8 +17,8 @@ const Login = () => {
   });
 
   const [error, setError] = useState(null);
-  const [recaptchaToken, setRecaptchaToken] = useState(null);
-  const recaptchaRef = useRef(null);
+  const [turnstileToken, setTurnstileToken] = useState(null);
+  const turnstileRef = useRef(null);
 
   // Get the redirect path from location state or default to home
   const from = location.state?.from || '/';
@@ -65,23 +65,23 @@ const Login = () => {
     e.preventDefault();
     setError(null);
 
-    // Validate reCAPTCHA (skip if not configured)
-    const siteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY;
-    const isRecaptchaConfigured = siteKey &&
-      !siteKey.includes('your-recaptcha-site-key') &&
+    // Validate Turnstile (skip if not configured)
+    const siteKey = process.env.REACT_APP_TURNSTILE_SITE_KEY;
+    const isTurnstileConfigured = siteKey &&
+      !siteKey.includes('your-turnstile-site-key') &&
       !siteKey.includes('your-actual');
 
-    if (isRecaptchaConfigured && !recaptchaToken) {
-      setError('Please complete the reCAPTCHA verification to continue');
+    if (isTurnstileConfigured && !turnstileToken) {
+      setError('Please complete the security verification to continue');
       return;
     }
 
     try {
       console.log('Login form submitted with:', formData);
 
-      // Add reCAPTCHA token to login data
-      const loginData = { ...formData, recaptchaToken };
-      const response = await login(loginData.email, loginData.password, loginData.recaptchaToken);
+      // Add Turnstile token to login data
+      const loginData = { ...formData, turnstileToken };
+      const response = await login(loginData.email, loginData.password, loginData.turnstileToken);
       console.log('Login successful, response:', response);
 
       // Add a small delay before navigation to ensure state is updated
@@ -92,24 +92,24 @@ const Login = () => {
     } catch (err) {
       console.error('Login error in component:', err);
       setError(err.message || 'Login failed');
-      // Reset reCAPTCHA on error
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
-        setRecaptchaToken(null);
+      // Reset Turnstile on error
+      if (turnstileRef.current) {
+        turnstileRef.current.reset();
+        setTurnstileToken(null);
       }
     }
   };
 
-  // Handle reCAPTCHA verification
-  const handleRecaptchaVerify = (token) => {
-    setRecaptchaToken(token);
-    if (error && error.includes('reCAPTCHA')) {
+  // Handle Turnstile verification
+  const handleTurnstileVerify = (token) => {
+    setTurnstileToken(token);
+    if (error && error.includes('security verification')) {
       setError(null);
     }
   };
 
-  const handleRecaptchaExpire = () => {
-    setRecaptchaToken(null);
+  const handleTurnstileExpire = () => {
+    setTurnstileToken(null);
   };
 
   return (
@@ -198,12 +198,12 @@ const Login = () => {
             />
           </div>
 
-          {/* reCAPTCHA */}
+          {/* Cloudflare Turnstile */}
           <div className="mb-6">
-            <ReCaptcha
-              ref={recaptchaRef}
-              onVerify={handleRecaptchaVerify}
-              onExpire={handleRecaptchaExpire}
+            <Turnstile
+              ref={turnstileRef}
+              onVerify={handleTurnstileVerify}
+              onExpire={handleTurnstileExpire}
               size="normal"
               theme="light"
             />

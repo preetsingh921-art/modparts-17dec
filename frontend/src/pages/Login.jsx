@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
+import ReCaptcha from '../components/security/ReCaptcha';
 
 const Login = () => {
   const { login, loading } = useAuth();
@@ -16,6 +17,8 @@ const Login = () => {
   });
 
   const [error, setError] = useState(null);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const recaptchaRef = useRef(null);
 
   // Get the redirect path from location state or default to home
   const from = location.state?.from || '/';
@@ -62,9 +65,18 @@ const Login = () => {
     e.preventDefault();
     setError(null);
 
+    // Validate reCAPTCHA
+    if (!recaptchaToken) {
+      setError('Please complete the reCAPTCHA verification');
+      return;
+    }
+
     try {
       console.log('Login form submitted with:', formData);
-      const response = await login(formData.email, formData.password);
+
+      // Add reCAPTCHA token to login data
+      const loginData = { ...formData, recaptchaToken };
+      const response = await login(loginData.email, loginData.password, loginData.recaptchaToken);
       console.log('Login successful, response:', response);
 
       // Add a small delay before navigation to ensure state is updated
@@ -75,7 +87,24 @@ const Login = () => {
     } catch (err) {
       console.error('Login error in component:', err);
       setError(err.message || 'Login failed');
+      // Reset reCAPTCHA on error
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     }
+  };
+
+  // Handle reCAPTCHA verification
+  const handleRecaptchaVerify = (token) => {
+    setRecaptchaToken(token);
+    if (error && error.includes('reCAPTCHA')) {
+      setError(null);
+    }
+  };
+
+  const handleRecaptchaExpire = () => {
+    setRecaptchaToken(null);
   };
 
   return (
@@ -161,6 +190,17 @@ const Login = () => {
               onChange={handleChange}
               className="w-full p-2 border rounded"
               required
+            />
+          </div>
+
+          {/* reCAPTCHA */}
+          <div className="mb-6">
+            <ReCaptcha
+              ref={recaptchaRef}
+              onVerify={handleRecaptchaVerify}
+              onExpire={handleRecaptchaExpire}
+              size="normal"
+              theme="light"
             />
           </div>
 

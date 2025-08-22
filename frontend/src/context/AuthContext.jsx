@@ -22,12 +22,12 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (email, password, recaptchaToken = null) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await apiLogin(email, password);
+      const response = await apiLogin(email, password, recaptchaToken);
 
       if (response.token) {
         // Save auth data to localStorage

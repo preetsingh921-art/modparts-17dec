@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
+import ReCaptcha from '../components/security/ReCaptcha';
 
 const Register = () => {
   const { register, loading } = useAuth();
@@ -22,6 +23,8 @@ const Register = () => {
   const [success, setSuccess] = useState(false);
   const [approvalRequired, setApprovalRequired] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const recaptchaRef = useRef(null);
   
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -31,7 +34,13 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    
+
+    // Validate reCAPTCHA
+    if (!recaptchaToken) {
+      setError('Please complete the reCAPTCHA verification');
+      return;
+    }
+
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -39,8 +48,9 @@ const Register = () => {
     }
     
     try {
-      // Remove confirmPassword from data sent to API
+      // Remove confirmPassword from data sent to API and add reCAPTCHA token
       const { confirmPassword, ...userData } = formData;
+      userData.recaptchaToken = recaptchaToken;
 
       const response = await register(userData);
 
@@ -58,7 +68,24 @@ const Register = () => {
       }
     } catch (err) {
       setError(err.message || 'Registration failed');
+      // Reset reCAPTCHA on error
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     }
+  };
+
+  // Handle reCAPTCHA verification
+  const handleRecaptchaVerify = (token) => {
+    setRecaptchaToken(token);
+    if (error && error.includes('reCAPTCHA')) {
+      setError(null);
+    }
+  };
+
+  const handleRecaptchaExpire = () => {
+    setRecaptchaToken(null);
   };
   
   return (
@@ -215,7 +242,18 @@ const Register = () => {
               required
             />
           </div>
-          
+
+          {/* reCAPTCHA */}
+          <div className="mb-6">
+            <ReCaptcha
+              ref={recaptchaRef}
+              onVerify={handleRecaptchaVerify}
+              onExpire={handleRecaptchaExpire}
+              size="normal"
+              theme="light"
+            />
+          </div>
+
           <button
             type="submit"
             className="w-full flex items-center justify-center bg-blue-800 text-white py-3 rounded font-semibold hover:bg-blue-700 disabled:bg-gray-400 transition-colors"

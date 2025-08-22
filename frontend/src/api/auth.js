@@ -1,10 +1,14 @@
 import api from './config';
 import axios from 'axios';
 
-export const login = async (email, password) => {
+export const login = async (email, password, recaptchaToken = null) => {
   try {
-    console.log('Attempting login with:', { email, password });
-    const response = await api.post('/auth/login', { email, password });
+    console.log('Attempting login with:', { email, password, recaptcha: !!recaptchaToken });
+    const response = await api.post('/auth/login', {
+      email,
+      password,
+      ...(recaptchaToken && { recaptchaToken })
+    });
     console.log('Login response:', response.data);
     return response.data;
   } catch (error) {

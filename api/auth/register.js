@@ -1,6 +1,8 @@
 const { supabaseAdmin } = require('../../lib/supabase')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const { isRecaptchaValid } = require('../../lib/recaptcha-verify')
+const { getRateLimiter } = require('../../lib/rate-limiter')
 
 // Email verification is optional - only load if nodemailer is available
 let emailService = null
@@ -21,13 +23,30 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { email, password, first_name, last_name, phone, address } = req.body
+    const { email, password, first_name, last_name, phone, address, recaptchaToken } = req.body
 
     if (!email || !password || !first_name || !last_name) {
-      return res.status(400).json({ 
-        message: 'Email, password, first name, and last name are required' 
+      return res.status(400).json({
+        message: 'Email, password, first name, and last name are required'
       })
     }
+
+    // Verify reCAPTCHA
+    console.log('🔐 Verifying reCAPTCHA for registration...')
+    const recaptchaValid = await isRecaptchaValid(recaptchaToken, {
+      minScore: 0.5,
+      allowedActions: ['register']
+    })
+
+    if (!recaptchaValid) {
+      console.log('❌ reCAPTCHA verification failed for registration')
+      return res.status(400).json({
+        message: 'reCAPTCHA verification failed. Please try again.',
+        code: 'RECAPTCHA_FAILED'
+      })
+    }
+
+    console.log('✅ reCAPTCHA verification successful for registration')
 
     // Check if user already exists
     const { data: existingUser } = await supabaseAdmin

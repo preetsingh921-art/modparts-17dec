@@ -35,6 +35,7 @@ const path = require('path');
 const fs = require('fs');
 const session = require('express-session');
 const passport = require('./lib/passport-config');
+const { getRateLimiter } = require('./lib/rate-limiter');
 
 const app = express();
 const PORT = 3000;
@@ -130,6 +131,15 @@ app.get('/auth/google/callback', (req, res, next) => {
   const googleHandler = require('./api/auth/google');
   googleHandler(req, res);
 });
+
+// Apply rate limiting to specific API endpoints
+app.use('/api/auth/register', getRateLimiter('registration'));
+app.use('/api/auth/login', getRateLimiter('auth'));
+app.use('/api/auth/reset-password', getRateLimiter('passwordReset'));
+app.use('/api/auth/verify-email', getRateLimiter('emailVerification'));
+
+// General rate limiting for all other API endpoints
+app.use('/api/*', getRateLimiter('general'));
 
 // API route handler - dynamically load API functions
 app.all('/api/*', async (req, res) => {

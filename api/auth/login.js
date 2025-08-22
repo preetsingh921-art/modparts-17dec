@@ -1,6 +1,8 @@
 const { supabaseAdmin } = require('../../lib/supabase')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const { isRecaptchaValid } = require('../../lib/recaptcha-verify')
+const { getRateLimiter } = require('../../lib/rate-limiter')
 
 module.exports = async function handler(req, res) {
   // CORS is handled by dev-server middleware
@@ -16,12 +18,29 @@ module.exports = async function handler(req, res) {
     console.log('- SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'Set' : 'Missing');
     console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Missing');
 
-    const { email, password } = req.body
+    const { email, password, recaptchaToken } = req.body
 
     if (!email || !password) {
       console.log('Missing email or password');
       return res.status(400).json({ message: 'Email and password are required' })
     }
+
+    // Verify reCAPTCHA
+    console.log('🔐 Verifying reCAPTCHA for login...')
+    const recaptchaValid = await isRecaptchaValid(recaptchaToken, {
+      minScore: 0.5,
+      allowedActions: ['login']
+    })
+
+    if (!recaptchaValid) {
+      console.log('❌ reCAPTCHA verification failed for login')
+      return res.status(400).json({
+        message: 'reCAPTCHA verification failed. Please try again.',
+        code: 'RECAPTCHA_FAILED'
+      })
+    }
+
+    console.log('✅ reCAPTCHA verification successful for login')
 
     console.log('Attempting Supabase query for user:', email);
 

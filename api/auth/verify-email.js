@@ -63,11 +63,12 @@ module.exports = async function handler(req, res) {
       })
     }
 
-    // Update user as verified and clear verification fields
+    // Update user as verified, activate account, and clear verification fields
     const { error: updateError } = await supabaseAdmin
       .from('users')
       .update({
         email_verified: true,
+        status: 'active', // Automatically activate user after email verification
         email_verification_token: null,
         email_verification_expires: null,
         updated_at: new Date().toISOString()

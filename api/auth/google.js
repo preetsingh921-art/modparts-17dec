@@ -42,9 +42,9 @@ module.exports = async function handler(req, res) {
           console.log('User status:', user.status);
 
           // Check user status
-          if (user.status === 'pending_approval') {
-            console.log('⏳ User pending approval, redirecting with message');
-            return res.redirect('/login?status=pending_approval&email=' + encodeURIComponent(user.email));
+          if (user.status === 'pending_verification' || !user.email_verified) {
+            console.log('⏳ User needs email verification, redirecting with message');
+            return res.redirect('/login?status=pending_verification&email=' + encodeURIComponent(user.email));
           }
 
           if (user.status === 'rejected') {

@@ -44,9 +44,9 @@ const Register = () => {
 
       const response = await register(userData);
 
-      // Check if admin approval is required
-      if (response?.approval_required) {
-        setApprovalRequired(true);
+      // Check if email verification is required
+      if (response?.verification_required) {
+        setApprovalRequired(true); // Reuse the same state for verification message
         setUserEmail(userData.email);
         setSuccess(false);
       } else {
@@ -83,16 +83,16 @@ const Register = () => {
             <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
             </svg>
-            <strong>Account Pending Approval</strong>
+            <strong>Email Verification Required</strong>
           </div>
           <p className="mb-3">
-            Your account has been created successfully! However, it requires admin approval before you can login.
+            Your account has been created successfully! Please check your email to verify your account.
           </p>
           <p className="mb-3">
             <strong>Email:</strong> {userEmail}
           </p>
           <p className="mb-3">
-            You will be notified once your account has been approved. This usually takes 1-2 business days.
+            We've sent a verification link to your email address. Click the link to activate your account and start shopping!
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <Link

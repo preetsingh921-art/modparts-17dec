@@ -26,7 +26,9 @@ const Login = () => {
     const email = searchParams.get('email');
     const errorParam = searchParams.get('error');
 
-    if (status === 'pending_approval' && email) {
+    if (status === 'pending_verification' && email) {
+      setError(`Please verify your email address (${email}) to complete your registration. Check your inbox for the verification link.`);
+    } else if (status === 'pending_approval' && email) {
       setError(`Your account (${email}) is pending admin approval. You will be notified once approved.`);
     } else if (errorParam) {
       switch (errorParam) {
@@ -82,11 +84,18 @@ const Login = () => {
 
       {error && (
         <div className={`border px-4 py-3 rounded mb-6 ${
-          error.includes('pending admin approval')
+          error.includes('verify your email') || error.includes('pending admin approval')
             ? 'bg-yellow-100 border-yellow-400 text-yellow-800'
             : 'bg-red-100 border-red-400 text-red-700'
         }`}>
           {error}
+          {error.includes('verify your email') && (
+            <div className="mt-3 pt-3 border-t border-yellow-300">
+              <p className="text-sm">
+                Check your email inbox (and spam folder) for the verification link. The link expires in 24 hours.
+              </p>
+            </div>
+          )}
           {error.includes('pending admin approval') && (
             <div className="mt-3 pt-3 border-t border-yellow-300">
               <p className="text-sm">

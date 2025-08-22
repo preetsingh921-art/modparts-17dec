@@ -48,13 +48,13 @@ module.exports = async function handler(req, res) {
       return res.status(401).json({ message: 'Invalid credentials' })
     }
 
-    // Check if user is approved by admin
-    if (user.status === 'pending_approval') {
-      console.log('Login blocked: User pending admin approval:', user.email)
+    // Check if user needs email verification
+    if (user.status === 'pending_verification' || !user.email_verified) {
+      console.log('Login blocked: User needs email verification:', user.email)
       return res.status(403).json({
-        message: 'Your account is pending admin approval. Please wait for approval before logging in.',
-        approval_required: true,
-        status: 'pending_approval'
+        message: 'Please verify your email address before logging in. Check your inbox for the verification link.',
+        verification_required: true,
+        status: 'pending_verification'
       })
     }
 

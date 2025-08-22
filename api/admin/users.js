@@ -120,8 +120,8 @@ module.exports = async (req, res) => {
       })
 
     } else if (req.method === 'PUT') {
-      // Update user
-      const { id, email, first_name, last_name, role, phone, address, city, state, zip_code } = req.body
+      // Update user (including status for block/unblock functionality)
+      const { id, email, first_name, last_name, role, phone, address, city, state, zip_code, status, approval_reason } = req.body
 
       if (!id) {
         return res.status(400).json({
@@ -143,6 +143,28 @@ module.exports = async (req, res) => {
       if (city !== undefined) updateData.city = city
       if (state !== undefined) updateData.state = state
       if (zip_code !== undefined) updateData.zip_code = zip_code
+
+      // Handle status updates (block/unblock/activate/suspend)
+      if (status) {
+        const validStatuses = ['active', 'blocked', 'suspended', 'pending_verification', 'pending_approval']
+        if (validStatuses.includes(status)) {
+          updateData.status = status
+          updateData.updated_at = new Date().toISOString()
+
+          // Add approval fields if activating
+          if (status === 'active') {
+            updateData.approved_at = new Date().toISOString()
+            updateData.approval_reason = approval_reason || 'Approved by admin'
+          }
+
+          console.log(`🔄 Admin updating user ${id} status to: ${status}`)
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+          })
+        }
+      }
 
       console.log('📝 Fields to update:', updateData)
 

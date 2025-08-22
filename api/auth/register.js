@@ -52,8 +52,8 @@ module.exports = async function handler(req, res) {
       phone: phone || null,
       address: address || null,
       role: 'customer',
-      status: 'pending_approval', // New users need admin approval
-      email_verified: true, // Skip email verification for now
+      status: 'pending_verification', // New users need email verification
+      email_verified: false, // Require email verification
       created_at: new Date().toISOString()
     }
 
@@ -91,9 +91,9 @@ module.exports = async function handler(req, res) {
         first_name: newUser.first_name,
         last_name: newUser.last_name,
         role: newUser.role,
-        status: 'pending_approval'
+        status: 'pending_verification'
       },
-      approval_required: true
+      verification_required: true
     })
 
   } catch (error) {

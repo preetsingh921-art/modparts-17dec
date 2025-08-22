@@ -38,7 +38,8 @@ Set up Gmail App Password for sending reset emails:
 1. Go to **Security** → **App passwords**
 2. Select **Mail** and **Other (Custom name)**
 3. Enter "ModParts Password Reset"
-4. Copy the generated 16-character password
+4. Copy the generated 16-character password nvar muyv zazt aaon
+
 
 #### Step 3: Update Environment Variables
 Add these to your `.env.local` and production environment:

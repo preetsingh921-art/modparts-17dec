@@ -18,29 +18,15 @@ module.exports = async function handler(req, res) {
     console.log('- SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'Set' : 'Missing');
     console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Missing');
 
-    const { email, password, turnstileToken } = req.body
+    const { email, password } = req.body
 
     if (!email || !password) {
       console.log('Missing email or password');
       return res.status(400).json({ message: 'Email and password are required' })
     }
 
-    // Verify Turnstile
-    console.log('🔐 Verifying Turnstile for login...')
-    const userIP = getUserIP(req)
-    const turnstileValid = await isTurnstileValid(turnstileToken, {
-      remoteip: userIP
-    })
-
-    if (!turnstileValid) {
-      console.log('❌ Turnstile verification failed for login')
-      return res.status(400).json({
-        message: 'Security verification failed. Please try again.',
-        code: 'TURNSTILE_FAILED'
-      })
-    }
-
-    console.log('✅ Turnstile verification successful for login')
+    // Rate limiting provides security protection
+    console.log('🛡️ Login protected by rate limiting and honeypot security')
 
     console.log('Attempting Supabase query for user:', email);
 

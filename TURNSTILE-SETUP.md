@@ -1,4 +1,4 @@
-# Cloudflare Turnstile Setup Guide
+ # Cloudflare Turnstile Setup Guide
 
 Complete guide to set up Cloudflare Turnstile for your ModParts website - a free, privacy-focused alternative to Google reCAPTCHA.
 

@@ -1,13 +1,12 @@
 import api from './config';
 import axios from 'axios';
 
-export const login = async (email, password, turnstileToken = null) => {
+export const login = async (email, password) => {
   try {
-    console.log('Attempting login with:', { email, password, turnstile: !!turnstileToken });
+    console.log('Attempting login with:', { email, password });
     const response = await api.post('/auth/login', {
       email,
-      password,
-      ...(turnstileToken && { turnstileToken })
+      password
     });
     console.log('Login response:', response.data);
     return response.data;

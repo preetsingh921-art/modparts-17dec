@@ -22,12 +22,12 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email, password, turnstileToken = null) => {
+  const login = async (email, password) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await apiLogin(email, password, turnstileToken);
+      const response = await apiLogin(email, password);
 
       if (response.token) {
         // Save auth data to localStorage

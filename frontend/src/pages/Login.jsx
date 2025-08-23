@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-do
 import { useAuth } from '../context/AuthContext';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
-import Turnstile from '../components/security/Turnstile';
+import HoneypotProtection from '../components/security/HoneypotProtection';
 
 const Login = () => {
   const { login, loading } = useAuth();
@@ -17,8 +17,8 @@ const Login = () => {
   });
 
   const [error, setError] = useState(null);
-  const [turnstileToken, setTurnstileToken] = useState(null);
-  const turnstileRef = useRef(null);
+  const [isSecurityVerified, setIsSecurityVerified] = useState(false);
+  const honeypotRef = useRef(null);
 
   // Get the redirect path from location state or default to home
   const from = location.state?.from || '/';
@@ -65,23 +65,21 @@ const Login = () => {
     e.preventDefault();
     setError(null);
 
-    // Validate Turnstile (skip if not configured)
-    const siteKey = process.env.REACT_APP_TURNSTILE_SITE_KEY;
-    const isTurnstileConfigured = siteKey &&
-      !siteKey.includes('your-turnstile-site-key') &&
-      !siteKey.includes('your-actual');
-
-    if (isTurnstileConfigured && !turnstileToken) {
-      setError('Please complete the security verification to continue');
-      return;
+    // Verify honeypot protection
+    if (honeypotRef.current) {
+      const isVerified = honeypotRef.current.verify();
+      if (!isVerified) {
+        setError('Security verification failed. Please try again.');
+        return;
+      }
     }
 
     try {
       console.log('Login form submitted with:', formData);
 
-      // Add Turnstile token to login data
-      const loginData = { ...formData, turnstileToken };
-      const response = await login(loginData.email, loginData.password, loginData.turnstileToken);
+      // Login data (no token needed for honeypot)
+      const loginData = { ...formData };
+      const response = await login(loginData.email, loginData.password);
       console.log('Login successful, response:', response);
 
       // Add a small delay before navigation to ensure state is updated
@@ -92,24 +90,19 @@ const Login = () => {
     } catch (err) {
       console.error('Login error in component:', err);
       setError(err.message || 'Login failed');
-      // Reset Turnstile on error
-      if (turnstileRef.current) {
-        turnstileRef.current.reset();
-        setTurnstileToken(null);
+      // Reset honeypot on error
+      if (honeypotRef.current) {
+        honeypotRef.current.reset();
       }
     }
   };
 
-  // Handle Turnstile verification
-  const handleTurnstileVerify = (token) => {
-    setTurnstileToken(token);
+  // Handle security verification
+  const handleSecurityVerify = (isVerified) => {
+    setIsSecurityVerified(isVerified);
     if (error && error.includes('security verification')) {
       setError(null);
     }
-  };
-
-  const handleTurnstileExpire = () => {
-    setTurnstileToken(null);
   };
 
   return (
@@ -198,14 +191,11 @@ const Login = () => {
             />
           </div>
 
-          {/* Cloudflare Turnstile */}
+          {/* Security Protection */}
           <div className="mb-6">
-            <Turnstile
-              ref={turnstileRef}
-              onVerify={handleTurnstileVerify}
-              onExpire={handleTurnstileExpire}
-              size="normal"
-              theme="light"
+            <HoneypotProtection
+              ref={honeypotRef}
+              onVerify={handleSecurityVerify}
             />
           </div>
 

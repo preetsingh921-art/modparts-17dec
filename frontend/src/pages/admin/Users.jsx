@@ -106,6 +106,39 @@ const Users = () => {
     }
   };
 
+  // Update user status (block/unblock)
+  const handleUpdateUserStatus = async (userId, newStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id: userId,
+          status: newStatus
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update local state
+        setUsers(prev => prev.map(u =>
+          u.id === userId ? { ...u, status: newStatus } : u
+        ));
+        success(`User ${newStatus === 'blocked' ? 'blocked' : newStatus === 'active' ? 'unblocked' : newStatus} successfully`);
+      } else {
+        showError(data.message || 'Failed to update user status');
+      }
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      showError('Failed to update user status');
+    }
+  };
+
   const handleSaveUser = async (userData) => {
     try {
       if (editingUser) {
@@ -445,11 +478,11 @@ const Users = () => {
         />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h2 className="text-2xl font-bold text-white">Manage Users</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Manage Users</h2>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button
               onClick={handleAddUser}
-              className="bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 w-full sm:w-auto text-center"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full sm:w-auto text-center"
               disabled={isExporting}
             >
               Add New User
@@ -457,31 +490,29 @@ const Users = () => {
           </div>
         </div>
 
-        <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow p-6 mb-6">
+        <div className="bg-white border border-gray-200 rounded-lg shadow p-6 mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 gap-4">
             <div className="w-full md:w-1/3">
-              <label className="block text-white mb-2">Filter by Role</label>
+              <label className="block text-gray-700 mb-2">Filter by Role</label>
               <select
-                className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded"
+                className="w-full p-2 border border-gray-300 bg-white text-gray-900 rounded"
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                style={{ color: 'white' }}
               >
-                <option value="all" className="bg-midnight-800 text-white">All Roles</option>
-                <option value="admin" className="bg-midnight-800 text-white">Admin</option>
-                <option value="customer" className="bg-midnight-800 text-white">Customer</option>
+                <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="customer">Customer</option>
               </select>
             </div>
 
             <div className="w-full md:w-1/2">
-              <label className="block text-white mb-2">Search Users</label>
+              <label className="block text-gray-700 mb-2">Search Users</label>
               <input
                 type="text"
                 placeholder="Search by name or email..."
-                className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded placeholder-gray-400"
+                className="w-full p-2 border border-gray-300 bg-white text-gray-900 rounded placeholder-gray-400"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ color: 'white' }}
               />
             </div>
           </div>
@@ -506,17 +537,17 @@ const Users = () => {
             </button>
           </div>
         ) : (
-          <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow overflow-hidden">
-            <div className="flex justify-between items-center p-4 bg-midnight-800 border-b border-midnight-700">
+          <div className="bg-white border border-gray-200 rounded-lg shadow overflow-hidden">
+            <div className="flex justify-between items-center p-4 bg-gray-50 border-b border-gray-200">
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   id="select-all-users"
                   checked={selectAll}
                   onChange={handleSelectAll}
-                  className="h-4 w-4 text-midnight-300 rounded border-midnight-600 bg-midnight-700 focus:ring-midnight-500"
+                  className="h-4 w-4 text-blue-600 rounded border-gray-300 bg-white focus:ring-blue-500"
                 />
-                <label htmlFor="select-all-users" className="text-sm font-medium text-midnight-200">
+                <label htmlFor="select-all-users" className="text-sm font-medium text-gray-700">
                 Select All
               </label>
               <span className="text-sm text-gray-500">
@@ -571,47 +602,58 @@ const Users = () => {
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px]">
-              <thead className="bg-midnight-800">
+              <thead className="bg-gray-50">
                 <tr>
                   <th className="p-4 w-10">
                     <span className="sr-only">Select</span>
                   </th>
-                  <th className="text-left p-4 text-white min-w-[200px]">Name</th>
-                  <th className="text-left p-4 text-white min-w-[200px]">Email</th>
-                  <th className="text-center p-4 text-white min-w-[100px]">Role</th>
-                  <th className="text-center p-4 text-white min-w-[120px]">Actions</th>
+                  <th className="text-left p-4 text-gray-700 min-w-[200px]">Name</th>
+                  <th className="text-left p-4 text-gray-700 min-w-[200px]">Email</th>
+                  <th className="text-center p-4 text-gray-700 min-w-[100px]">Role</th>
+                  <th className="text-center p-4 text-gray-700 min-w-[100px]">Status</th>
+                  <th className="text-center p-4 text-gray-700 min-w-[120px]">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {currentUsers.map(user => (
-                  <tr key={user.id} className="border-t border-midnight-700">
+                  <tr key={user.id} className="border-t border-gray-200 hover:bg-gray-50">
                     <td className="p-4 text-center">
                       <input
                         type="checkbox"
                         checked={selectedUsers.includes(user.id)}
                         onChange={(e) => handleSelectUser(user.id, e.target.checked)}
-                        className="h-4 w-4 text-midnight-300 rounded border-midnight-600 bg-midnight-700 focus:ring-midnight-500"
+                        className="h-4 w-4 text-blue-600 rounded border-gray-300 bg-white focus:ring-blue-500"
                       />
                     </td>
                     <td className="p-4">
                       <div>
-                        <p className="font-semibold text-white">{user.first_name} {user.last_name}</p>
-                        <p className="text-sm text-gray-300">{user.phone || 'No phone'}</p>
+                        <p className="font-semibold text-gray-900">{user.first_name} {user.last_name}</p>
+                        <p className="text-sm text-gray-500">{user.phone || 'No phone'}</p>
                       </div>
                     </td>
-                    <td className="p-4 text-white">{user.email}</td>
+                    <td className="p-4 text-gray-900">{user.email}</td>
                     <td className="p-4 text-center">
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                        user.role === 'admin' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'
+                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                       }`}>
                         {user.role}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                        user.status === 'active' ? 'bg-green-100 text-green-800' :
+                        user.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                        user.status === 'suspended' ? 'bg-orange-100 text-orange-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {user.status || 'active'}
                       </span>
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex justify-center space-x-2">
                         <button
                           onClick={() => handleViewUser(user)}
-                          className="text-green-400 hover:text-green-300"
+                          className="text-green-600 hover:text-green-700"
                           title="View Customer Info"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -621,16 +663,39 @@ const Users = () => {
                         </button>
                         <button
                           onClick={() => handleEditUser(user)}
-                          className="text-blue-400 hover:text-blue-300"
+                          className="text-blue-600 hover:text-blue-700"
                           title="Edit Customer"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                           </svg>
                         </button>
+
+                        {/* Block/Unblock Button */}
+                        {user.status === 'active' ? (
+                          <button
+                            onClick={() => handleUpdateUserStatus(user.id, 'blocked')}
+                            className="text-red-600 hover:text-red-700"
+                            title="Block User"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUpdateUserStatus(user.id, 'active')}
+                            className="text-green-600 hover:text-green-700"
+                            title="Unblock User"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-red-600 hover:text-red-700"
                           title="Delete Customer"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

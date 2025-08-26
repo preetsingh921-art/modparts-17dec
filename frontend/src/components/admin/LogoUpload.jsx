@@ -42,12 +42,27 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
 
   const uploadLogo = async (file) => {
     setUploading(true);
-    
+
     try {
+      const token = localStorage.getItem('token');
+
+      // Debug: Check if we have a token
+      console.log('🔍 Token check:', {
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenStart: token ? token.substring(0, 20) + '...' : 'none'
+      });
+
+      if (!token) {
+        error('No authentication token found. Please login again.');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('logo', file);
 
-      const token = localStorage.getItem('token');
+      console.log('📤 Uploading logo with token...');
+
       const response = await fetch('/api/admin/upload-logo', {
         method: 'POST',
         headers: {
@@ -56,7 +71,14 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
         body: formData
       });
 
+      console.log('📥 Upload response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       const data = await response.json();
+      console.log('📋 Response data:', data);
 
       if (data.success) {
         success('Logo uploaded successfully!');
@@ -69,6 +91,7 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
           window.location.reload();
         }, 1000);
       } else {
+        console.error('❌ Upload failed:', data);
         error(data.message || 'Failed to upload logo');
         setPreview(currentLogo); // Reset preview
       }
@@ -109,6 +132,36 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  // Test admin access
+  const testAdminAccess = async () => {
+    const token = localStorage.getItem('token');
+    console.log('🧪 Testing admin access...', {
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0
+    });
+
+    try {
+      const response = await fetch('/api/admin/test-logo', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      console.log('🧪 Test result:', data);
+
+      if (data.success) {
+        success('✅ Admin access verified!');
+      } else {
+        error(`❌ Admin access failed: ${data.message}`);
+      }
+    } catch (err) {
+      console.error('🧪 Test error:', err);
+      error('Failed to test admin access');
+    }
   };
 
   const removeLogo = async () => {
@@ -153,7 +206,15 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Website Logo</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Website Logo</h3>
+        <button
+          onClick={testAdminAccess}
+          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm hover:bg-blue-200"
+        >
+          Test Admin Access
+        </button>
+      </div>
       
       {/* Current Logo Preview */}
       {preview && (

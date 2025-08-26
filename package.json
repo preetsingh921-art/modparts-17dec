@@ -11,6 +11,7 @@
     "prestart": "node fix-bcrypt.js",
     "start": "node index.js",
     "setup-storage": "node scripts/setup-supabase-storage.js",
+    "setup-uploads": "node scripts/setup-upload-dirs.js",
     "migrate-images": "node scripts/migrate-images-to-supabase.js",
     "migrate-images:dry-run": "node scripts/migrate-images-to-supabase.js --dry-run",
     "fix-image-urls": "node scripts/fix-nan-image-urls.js",

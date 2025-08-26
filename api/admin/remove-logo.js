@@ -1,5 +1,33 @@
 const fs = require('fs').promises;
 const path = require('path');
+const jwt = require('jsonwebtoken');
+
+// JWT secret for token verification
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Helper function to verify JWT token and check admin role
+function verifyAdminToken(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Check if user has admin role
+    if (decoded.role !== 'admin') {
+      return null;
+    }
+
+    return decoded;
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return null;
+  }
+}
 
 // Update site configuration to remove logo
 async function updateSiteConfig() {
@@ -53,11 +81,22 @@ async function removeFaviconFiles() {
 }
 
 module.exports = async (req, res) => {
-  // Check if user is admin
-  if (!req.user || req.user.role !== 'admin') {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Verify admin access
+  const adminUser = verifyAdminToken(req);
+  if (!adminUser) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Access denied. Admin privileges required.'
     });
   }
 

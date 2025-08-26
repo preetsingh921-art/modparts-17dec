@@ -1,7 +1,41 @@
+const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
-const sharp = require('sharp');
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// JWT secret for token verification
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Helper function to verify JWT token and check admin role
+function verifyAdminToken(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Check if user has admin role
+    if (decoded.role !== 'admin') {
+      return null;
+    }
+
+    return decoded;
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return null;
+  }
+}
 
 // Configure multer for file upload
 const storage = multer.memoryStorage();
@@ -37,7 +71,7 @@ async function ensureDirectories() {
   }
 }
 
-// Generate favicon from logo
+// Generate basic favicon from logo (simplified version)
 async function generateFavicon(logoBuffer, logoExtension) {
   try {
     if (logoExtension === '.svg') {
@@ -46,33 +80,11 @@ async function generateFavicon(logoBuffer, logoExtension) {
       return;
     }
 
-    // Generate different favicon sizes
-    const sizes = [16, 32, 48, 64, 128, 256];
-    
-    for (const size of sizes) {
-      const faviconBuffer = await sharp(logoBuffer)
-        .resize(size, size, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
-        .png()
-        .toBuffer();
-      
-      await fs.writeFile(`public/uploads/favicons/favicon-${size}x${size}.png`, faviconBuffer);
-    }
+    // For now, just copy the original as favicon.ico
+    // In production, you'd want to use Sharp or similar for resizing
+    await fs.writeFile('public/favicon.ico', logoBuffer);
 
-    // Generate main favicon.ico (32x32)
-    const faviconIco = await sharp(logoBuffer)
-      .resize(32, 32, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
-      .png()
-      .toBuffer();
-    
-    await fs.writeFile('public/favicon.ico', faviconIco);
-    
-    // Generate Apple touch icon (180x180)
-    const appleTouchIcon = await sharp(logoBuffer)
-      .resize(180, 180, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
-      .png()
-      .toBuffer();
-    
-    await fs.writeFile('public/apple-touch-icon.png', appleTouchIcon);
+    console.log('✅ Basic favicon generated');
 
   } catch (error) {
     console.error('Error generating favicon:', error);
@@ -106,11 +118,22 @@ async function updateSiteConfig(logoUrl) {
 }
 
 module.exports = async (req, res) => {
-  // Check if user is admin
-  if (!req.user || req.user.role !== 'admin') {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Verify admin access
+  const adminUser = verifyAdminToken(req);
+  if (!adminUser) {
     return res.status(403).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Access denied. Admin privileges required.'
     });
   }
 

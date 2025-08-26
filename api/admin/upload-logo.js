@@ -37,19 +37,27 @@ function verifyAdminToken(req) {
   }
 }
 
-// Configure multer for file upload
+// Configure multer for file upload with better error handling
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 1
   },
   fileFilter: (req, file, cb) => {
+    console.log('📁 File filter check:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPG, PNG, GIF, WebP, and SVG files are allowed.'));
+      console.error('❌ Invalid file type:', file.mimetype);
+      cb(new Error(`Invalid file type: ${file.mimetype}. Only JPG, PNG, GIF, WebP, and SVG files are allowed.`));
     }
   }
 });
@@ -145,20 +153,27 @@ module.exports = async (req, res) => {
   }
 
   try {
+    console.log('🚀 Starting logo upload process...');
+
     // Ensure upload directories exist
     await ensureDirectories();
+    console.log('✅ Upload directories verified');
 
-    // Handle file upload
+    // Handle file upload with better error handling
     upload.single('logo')(req, res, async (err) => {
+      console.log('📤 Multer processing...');
+
       if (err) {
-        console.error('Upload error:', err);
+        console.error('❌ Multer error:', err);
         return res.status(400).json({
           success: false,
-          message: err.message || 'File upload failed'
+          message: err.message || 'File upload failed',
+          error: err.code || 'UPLOAD_ERROR'
         });
       }
 
       if (!req.file) {
+        console.error('❌ No file in request');
         return res.status(400).json({
           success: false,
           message: 'No file uploaded'
@@ -167,44 +182,61 @@ module.exports = async (req, res) => {
 
       try {
         const file = req.file;
+        console.log('📁 Processing file:', {
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size
+        });
+
         const timestamp = Date.now();
         const extension = path.extname(file.originalname).toLowerCase();
         const filename = `logo-${timestamp}${extension}`;
         const logoPath = `public/uploads/logos/${filename}`;
         const logoUrl = `/uploads/logos/${filename}`;
 
+        console.log('💾 Saving file to:', logoPath);
+
         // Save the original logo
         await fs.writeFile(logoPath, file.buffer);
+        console.log('✅ File saved successfully');
 
         // Generate favicon and other sizes
+        console.log('🎨 Generating favicon...');
         await generateFavicon(file.buffer, extension);
 
         // Update site configuration
+        console.log('⚙️ Updating site config...');
         await updateSiteConfig(logoUrl);
 
-        console.log('✅ Logo uploaded successfully:', logoUrl);
+        console.log('🎉 Logo uploaded successfully:', logoUrl);
 
         res.json({
           success: true,
           message: 'Logo uploaded successfully',
           logoUrl: logoUrl,
-          filename: filename
+          filename: filename,
+          fileSize: file.size,
+          mimeType: file.mimetype
         });
 
       } catch (error) {
-        console.error('Error processing logo upload:', error);
+        console.error('❌ Error processing logo upload:', error);
         res.status(500).json({
           success: false,
-          message: 'Failed to process logo upload'
+          message: 'Failed to process logo upload',
+          error: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
       }
     });
 
   } catch (error) {
-    console.error('Logo upload error:', error);
+    console.error('❌ Logo upload error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: 'Internal server error',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

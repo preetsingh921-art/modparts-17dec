@@ -61,15 +61,28 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
       const formData = new FormData();
       formData.append('logo', file);
 
-      console.log('📤 Uploading logo with token...');
+      console.log('📤 Uploading logo with multer endpoint...');
 
-      const response = await fetch('/api/admin/upload-logo', {
+      // Try the main upload endpoint first
+      let response = await fetch('/api/admin/upload-logo', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
         },
         body: formData
       });
+
+      // If main endpoint fails, try simple upload
+      if (!response.ok) {
+        console.log('⚠️ Main upload failed, trying simple upload...');
+        response = await fetch('/api/admin/simple-upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+      }
 
       console.log('📥 Upload response:', {
         status: response.status,

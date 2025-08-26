@@ -59,8 +59,9 @@
         
         <button onclick="checkToken()">1. Check JWT Token</button>
         <button onclick="testAdminAPI()">2. Test Admin API</button>
-        <button onclick="makeUserAdmin()">3. Make User Admin</button>
+        <button onclick="debugUpload()">3. Debug Upload System</button>
         <button onclick="testLogoUpload()">4. Test Logo Upload</button>
+        <button onclick="testSimpleUpload()">5. Test Simple Upload</button>
         <button onclick="clearResults()">Clear Results</button>
         
         <div id="results"></div>
@@ -198,6 +199,108 @@
             } catch (error) {
                 addResult(`❌ Failed to decode token: ${error.message}`, 'error');
             }
+        }
+
+        async function debugUpload() {
+            clearResults();
+            addResult('🔍 Debugging upload system...', 'info');
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                addResult('❌ No token found. Please login first.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/debug-upload', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addResult('✅ Upload debug info retrieved!', 'success');
+                    addResult(`📋 Debug Info: ${JSON.stringify(data.debug, null, 2)}`, 'info');
+
+                    // Check specific issues
+                    const debug = data.debug;
+
+                    if (!debug.multerAvailable) {
+                        addResult('⚠️ Multer not available - will use simple upload', 'warning');
+                    }
+
+                    if (!debug.directories['public/uploads']?.exists) {
+                        addResult('❌ Upload directory missing', 'error');
+                    }
+
+                    if (debug.existingLogos?.length > 0) {
+                        addResult(`📁 Found ${debug.existingLogos.length} existing logos`, 'info');
+                    }
+
+                } else {
+                    addResult(`❌ Debug failed: ${data.message}`, 'error');
+                }
+
+            } catch (error) {
+                addResult(`❌ Debug error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSimpleUpload() {
+            clearResults();
+            addResult('📤 Testing simple upload API...', 'info');
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                addResult('❌ No token found. Please login first.', 'error');
+                return;
+            }
+
+            // Create a small test file
+            const canvas = document.createElement('canvas');
+            canvas.width = 100;
+            canvas.height = 100;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#28a745';
+            ctx.fillRect(0, 0, 100, 100);
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            ctx.fillText('SIMPLE', 15, 55);
+
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('logo', blob, 'simple-test-logo.png');
+
+                try {
+                    addResult('📤 Sending to simple upload endpoint...', 'info');
+
+                    const response = await fetch('/api/admin/simple-upload', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+
+                    addResult(`📊 Simple Upload Response: ${response.status} ${response.statusText}`,
+                        response.status === 200 ? 'success' : 'error');
+
+                    const data = await response.json();
+                    addResult(`📋 Simple Upload Result: ${JSON.stringify(data, null, 2)}`, 'info');
+
+                    if (data.success) {
+                        addResult('✅ Simple upload working!', 'success');
+                    } else {
+                        addResult(`❌ Simple upload failed: ${data.message}`, 'error');
+                    }
+
+                } catch (error) {
+                    addResult(`❌ Simple upload error: ${error.message}`, 'error');
+                }
+            }, 'image/png');
         }
 
         async function testLogoUpload() {

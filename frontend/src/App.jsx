@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { WishlistProvider } from './context/WishlistContext'
 import { ToastProvider } from './context/ToastContext'
+import { LogoProvider } from './context/LogoContext'
 import { checkCacheReload } from './utils/cache'
 import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
@@ -32,6 +33,7 @@ import UserApproval from './pages/admin/UserApproval'
 import AdminProductForm from './pages/admin/ProductForm'
 import AdminAnalytics from './pages/admin/Analytics'
 import AdminReviews from './pages/admin/Reviews'
+import LogoManagement from './pages/admin/LogoManagement'
 import LoadingDemo from './pages/LoadingDemo'
 import Wishlist from './pages/Wishlist'
 import NotFound from './pages/NotFound'
@@ -47,8 +49,9 @@ function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-        <CartProvider>
-          <WishlistProvider>
+        <LogoProvider>
+          <CartProvider>
+            <WishlistProvider>
           <Router>
             <div className="flex flex-col min-h-screen">
               <Header />
@@ -118,6 +121,7 @@ function App() {
                   <Route path="user-approval" element={<UserApproval />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
                   <Route path="reviews" element={<AdminReviews />} />
+                  <Route path="logo" element={<LogoManagement />} />
                 </Route>
 
 
@@ -128,8 +132,9 @@ function App() {
             <Footer />
           </div>
         </Router>
-          </WishlistProvider>
-        </CartProvider>
+            </WishlistProvider>
+          </CartProvider>
+        </LogoProvider>
       </ToastProvider>
     </AuthProvider>
   )

@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useLogo } from '../../context/LogoContext';
 import SearchAutocomplete from '../ui/SearchAutocomplete';
 
 const Header = () => {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const { getItemCount } = useCart();
   const { getWishlistCount } = useWishlist();
+  const { logo } = useLogo();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -23,8 +25,17 @@ const Header = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link to="/" className="text-xl md:text-2xl font-bold hover:text-blue-200 transition-colors">
-              Sardaarji Auto Parts
+            <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+              {logo && (
+                <img
+                  src={logo}
+                  alt="ModParts Logo"
+                  className="h-8 w-auto"
+                />
+              )}
+              <span className="text-xl md:text-2xl font-bold text-white">
+                ModParts
+              </span>
             </Link>
           </div>
 

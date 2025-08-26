@@ -183,7 +183,8 @@ export const getProductsByCategory = async (categoryId) => {
     const formattedCategoryId = String(categoryId);
     console.log(`Fetching products for category ID: ${formattedCategoryId}`);
 
-    const response = await api.get(`/products?category_id=${formattedCategoryId}`);
+    // Use 'category' parameter instead of 'category_id' to match backend API
+    const response = await api.get(`/products?category=${formattedCategoryId}`);
 
     // Process products to ensure category_id is a string for consistent comparison
     const products = response.data.data || [];

@@ -31,9 +31,7 @@ const ProductList = () => {
   const [currentPriceRange, setCurrentPriceRange] = useState({ min: 0, max: 99999 });
 
   // Filter states
-  const [selectedCategories, setSelectedCategories] = useState(
-    categoryId ? [String(categoryId)] : []
-  );
+  const [selectedCategories, setSelectedCategories] = useState([]);
 
   // Availability filters - using checkboxes for multiple selection
   const [availabilityFilters, setAvailabilityFilters] = useState({
@@ -62,6 +60,17 @@ const ProductList = () => {
 
   // Get search query from URL
   const searchQuery = new URLSearchParams(location.search).get('search');
+
+  // Sync selectedCategories with categoryId from URL (only when categoryId changes)
+  useEffect(() => {
+    if (categoryId) {
+      const categoryIdStr = String(categoryId);
+      setSelectedCategory(categoryIdStr);
+      // Don't set selectedCategories here to avoid infinite loop
+    } else {
+      setSelectedCategory('all');
+    }
+  }, [categoryId]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -106,8 +115,8 @@ const ProductList = () => {
           const categoryIdStr = String(categoryId);
           setSelectedCategory(categoryIdStr);
 
-          // Update selectedCategories for the new multi-select filter
-          setSelectedCategories([categoryIdStr]);
+          // Note: selectedCategories is already set in the initial state based on categoryId
+          // No need to set it again here to avoid infinite loop
         } else {
           console.log('📄 Using paginated API for general listing');
           // Use new paginated API for general product listing with category filters
@@ -138,6 +147,8 @@ const ProductList = () => {
 
     fetchProducts();
   }, [categoryId, searchQuery, currentPage, itemsPerPage, selectedCategories]);
+
+
 
   // Clear all filters
   const clearAllFilters = () => {

@@ -9,7 +9,7 @@ module.exports = async function handler(req, res) {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 12; // Default 12 products per page
       const search = req.query.search || '';
-      const category = req.query.category || '';
+      const category = req.query.category || req.query.category_id || ''; // Support both parameter names
       const categories = req.query.categories || ''; // Multiple categories comma-separated
       const sortBy = req.query.sortBy || 'created_at';
       const sortOrder = req.query.sortOrder === 'asc' ? true : false;
@@ -58,7 +58,13 @@ module.exports = async function handler(req, res) {
       // Add pagination
       query = query.range(offset, offset + limit - 1);
 
+      console.log('🔍 About to execute Supabase query...');
       const { data: products, error, count } = await query;
+      console.log('🔍 Supabase query completed:', {
+        productsCount: products?.length,
+        totalCount: count,
+        hasError: !!error
+      });
 
       if (error) {
         console.error('Error fetching products:', error)

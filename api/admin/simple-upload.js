@@ -165,21 +165,38 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Read request body
+    // Read request body (serverless compatible)
     let body = '';
-    req.setEncoding('binary');
-    
-    req.on('data', chunk => {
-      body += chunk;
-    });
 
-    req.on('end', async () => {
+    // For serverless environments, the body might already be available
+    if (req.body) {
+      console.log('📦 Using req.body (serverless)');
+      body = req.body;
+      await processUpload(body, boundary, res);
+    } else {
+      console.log('📦 Reading request stream...');
+
+      // Collect chunks without setEncoding (serverless compatible)
+      const chunks = [];
+
+      req.on('data', chunk => {
+        chunks.push(chunk);
+      });
+
+      req.on('end', async () => {
+        body = Buffer.concat(chunks).toString('binary');
+        await processUpload(body, boundary, res);
+      });
+    }
+
+    // Process upload function
+    async function processUpload(body, boundary, res) {
       try {
         console.log('📦 Parsing multipart data...');
-        
+
         // Parse multipart data
         const files = parseMultipartData(body, boundary);
-        
+
         if (!files.logo) {
           return res.status(400).json({
             success: false,
@@ -196,7 +213,7 @@ module.exports = async (req, res) => {
         // Validate file type by extension
         const extension = path.extname(logoFile.filename).toLowerCase();
         const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-        
+
         if (!allowedExtensions.includes(extension)) {
           return res.status(400).json({
             success: false,
@@ -238,7 +255,7 @@ module.exports = async (req, res) => {
           error: error.message
         });
       }
-    });
+    }
 
   } catch (error) {
     console.error('❌ Simple upload error:', error);

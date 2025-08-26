@@ -44,67 +44,86 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
     setUploading(true);
 
     try {
-      const token = localStorage.getItem('token');
+      console.log('Uploading logo file:', file.name, 'Size:', file.size, 'Type:', file.type);
 
-      // Debug: Check if we have a token
-      console.log('🔍 Token check:', {
-        hasToken: !!token,
-        tokenLength: token ? token.length : 0,
-        tokenStart: token ? token.substring(0, 20) + '...' : 'none'
+      // Convert file to base64 - EXACT SAME METHOD AS PRODUCT UPLOAD
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          // Remove the data URL prefix (e.g., "data:image/png;base64,")
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
+
+      console.log('Logo file converted to base64, length:', base64Data.length);
+
+      // Get auth token from localStorage - EXACT SAME METHOD AS PRODUCT UPLOAD
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const token = user.token || localStorage.getItem('token') || '';
+
+      console.log('Using auth token:', token ? 'Token exists' : 'No token');
 
       if (!token) {
         error('No authentication token found. Please login again.');
         return;
       }
 
-      const formData = new FormData();
-      formData.append('logo', file);
+      const headers = {
+        'Content-Type': 'application/json'
+      };
 
-      console.log('📤 Uploading logo with multer endpoint...');
+      // Add Authorization header
+      headers['Authorization'] = `Bearer ${token}`;
 
-      // Try the main upload endpoint first
-      let response = await fetch('/api/admin/upload-logo', {
+      // Prepare JSON payload - EXACT SAME FORMAT AS PRODUCT UPLOAD
+      const payload = {
+        filename: file.name,
+        mimetype: file.type,
+        data: base64Data
+      };
+
+      console.log('Making logo upload request to:', '/api/admin/logo-upload');
+      console.log('Headers:', headers);
+      console.log('Payload size:', JSON.stringify(payload).length, 'bytes');
+
+      // Use the new logo upload endpoint that mirrors product upload
+      const response = await fetch('/api/admin/logo-upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
+        headers,
+        body: JSON.stringify(payload)
       });
 
-      // If main endpoint fails, try simple upload
-      if (!response.ok) {
-        console.log('⚠️ Main upload failed, trying simple upload...');
-        response = await fetch('/api/admin/simple-upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        });
-      }
-
-      console.log('📥 Upload response:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
+      console.log('Logo upload response:', response.status, response.statusText);
 
       const data = await response.json();
-      console.log('📋 Response data:', data);
+      console.log('Logo upload response data:', data);
 
       if (data.success) {
-        success('Logo uploaded successfully!');
-        setPreview(data.logoUrl);
-        if (onLogoUpdate) {
-          onLogoUpdate(data.logoUrl);
+        // Check for logoUrl first (new format), then fall back to file_url (product format)
+        const logoUrl = data.logoUrl || data.file_url || data.data?.url;
+
+        if (logoUrl) {
+          console.log('Logo upload successful:', logoUrl);
+          success('Logo uploaded successfully!');
+          setPreview(logoUrl);
+          if (onLogoUpdate) {
+            onLogoUpdate(logoUrl);
+          }
+          // Trigger page refresh to update logo across site
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          console.error('No logo URL found in response:', data);
+          error('No logo URL received from server');
+          setPreview(currentLogo); // Reset preview
         }
-        // Trigger page refresh to update logo across site
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
       } else {
-        console.error('❌ Upload failed:', data);
+        console.error('❌ Logo upload failed:', data);
         error(data.message || 'Failed to upload logo');
         setPreview(currentLogo); // Reset preview
       }

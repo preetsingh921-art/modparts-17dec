@@ -128,7 +128,9 @@ const ProductList = () => {
             limit: itemsPerPage,
             sortBy: 'created_at',
             sortOrder: 'desc',
-            category: String(categoryId)
+            category: String(categoryId),
+            minPrice: priceRange.min > 0 ? priceRange.min : undefined,
+            maxPrice: priceRange.max < 99999 ? priceRange.max : undefined
           });
 
           // Ensure categoryId is stored as a string
@@ -142,7 +144,9 @@ const ProductList = () => {
             limit: itemsPerPage,
             sortBy: 'created_at',
             sortOrder: 'desc',
-            categories: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined
+            categories: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
+            minPrice: priceRange.min > 0 ? priceRange.min : undefined,
+            maxPrice: priceRange.max < 99999 ? priceRange.max : undefined
           });
         }
 
@@ -163,7 +167,7 @@ const ProductList = () => {
     };
 
     fetchProducts();
-  }, [categoryId, searchQuery, currentPage, itemsPerPage, selectedCategories]);
+  }, [categoryId, searchQuery, currentPage, itemsPerPage, selectedCategories, priceRange]);
 
 
 
@@ -232,16 +236,10 @@ const ProductList = () => {
 
 
 
-  // Apply filters and sorting (category filtering is now done on backend)
+  // Apply filters and sorting (category and price filtering are now done on backend)
   const filteredAndSortedProducts = [...products]
     .filter(product => {
-      // Price range filtering
-      const productPrice = parseFloat(product.price);
-      const priceRangeFilter =
-        productPrice >= priceRange.min &&
-        productPrice <= priceRange.max;
-
-      // Availability filtering with checkboxes
+      // Availability filtering with checkboxes (still done on frontend)
       let availabilityFilter = true;
 
       // If both checkboxes are checked or both are unchecked, show all products
@@ -253,8 +251,8 @@ const ProductList = () => {
         availabilityFilter = product.quantity <= 0;
       }
 
-      // Apply remaining filters (category filtering is handled by backend)
-      return priceRangeFilter && availabilityFilter;
+      // Apply remaining filters (category and price filtering are handled by backend)
+      return availabilityFilter;
     })
     .sort((a, b) => {
       switch (sortOption) {
@@ -740,7 +738,7 @@ const ProductList = () => {
             </div>
 
             {/* Pagination - show when using backend pagination */}
-            {!searchQuery && !categoryId && pagination && (
+            {!searchQuery && pagination && (
               <div className="mt-8">
                 <Pagination
                   totalItems={pagination.totalItems}

@@ -13,9 +13,11 @@ module.exports = async function handler(req, res) {
       const categories = req.query.categories || ''; // Multiple categories comma-separated
       const sortBy = req.query.sortBy || 'created_at';
       const sortOrder = req.query.sortOrder === 'asc' ? true : false;
+      const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice) : null;
+      const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
 
       console.log('🔍 Products API called with filters:', {
-        page, limit, search, category, categories, sortBy, sortOrder
+        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice
       });
 
       // Calculate offset
@@ -50,6 +52,16 @@ module.exports = async function handler(req, res) {
           console.log('🔍 Filtering by categories:', categoryIds);
           query = query.in('category_id', categoryIds);
         }
+      }
+
+      // Add price range filter
+      if (minPrice !== null) {
+        console.log('🔍 Filtering by minimum price:', minPrice);
+        query = query.gte('price', minPrice);
+      }
+      if (maxPrice !== null) {
+        console.log('🔍 Filtering by maximum price:', maxPrice);
+        query = query.lte('price', maxPrice);
       }
 
       // Add sorting

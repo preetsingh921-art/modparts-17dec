@@ -2,7 +2,6 @@ const { supabaseAdmin } = require('../../lib/supabase');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-const { isTurnstileValid, getUserIP } = require('../../lib/turnstile-verify');
 
 // Load environment variables
 require('dotenv').config({ path: '.env.local' });
@@ -23,7 +22,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     // Handle password reset request
-    const { email, turnstileToken } = req.body;
+    const { email } = req.body;
 
     if (!email) {
       return res.status(400).json({
@@ -32,23 +31,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Verify Turnstile
-    console.log('🔐 Verifying Turnstile for password reset...');
-    const userIP = getUserIP(req);
-    const turnstileValid = await isTurnstileValid(turnstileToken, {
-      remoteip: userIP
-    });
 
-    if (!turnstileValid) {
-      console.log('❌ Turnstile verification failed for password reset');
-      return res.status(400).json({
-        success: false,
-        message: 'Security verification failed. Please try again.',
-        code: 'TURNSTILE_FAILED'
-      });
-    }
-
-    console.log('✅ Turnstile verification successful for password reset');
 
     try {
       console.log('📧 Processing password reset for:', email);

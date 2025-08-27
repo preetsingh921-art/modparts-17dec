@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { getProducts, getProductsByCategory, searchProducts } from '../api/products';
 import { getCategories } from '../api/categories';
@@ -58,18 +58,28 @@ const ProductList = () => {
   // For backward compatibility
   const [selectedCategory, setSelectedCategory] = useState(categoryId ? String(categoryId) : 'all');
 
+  // Ref to track when we're programmatically updating selectedCategories
+  const isUpdatingFromUrl = useRef(false);
+
   // Get search query from URL
   const searchQuery = new URLSearchParams(location.search).get('search');
 
   // Sync selectedCategories with categoryId from URL (only when categoryId changes)
   useEffect(() => {
+    isUpdatingFromUrl.current = true;
     if (categoryId) {
       const categoryIdStr = String(categoryId);
       setSelectedCategory(categoryIdStr);
-      // Don't set selectedCategories here to avoid infinite loop
+      // Set selectedCategories to show the filter as active and checkbox as checked
+      setSelectedCategories([categoryIdStr]);
     } else {
       setSelectedCategory('all');
+      setSelectedCategories([]);
     }
+    // Reset the flag after a short delay to allow state updates to complete
+    setTimeout(() => {
+      isUpdatingFromUrl.current = false;
+    }, 0);
   }, [categoryId]);
 
   useEffect(() => {
@@ -94,6 +104,11 @@ const ProductList = () => {
   }, []);
 
   useEffect(() => {
+    // Skip if we're currently updating selectedCategories from URL
+    if (isUpdatingFromUrl.current) {
+      return;
+    }
+
     const fetchProducts = async () => {
       setLoading(true);
 
@@ -106,17 +121,19 @@ const ProductList = () => {
           const data = await searchProducts(searchQuery);
           result = { products: data, pagination: null };
         } else if (categoryId) {
-          console.log('📂 Using category API for category:', categoryId);
-          // For category filtering, use the old API for now
-          const data = await getProductsByCategory(categoryId);
-          result = { products: data, pagination: null };
+          console.log('📂 Using paginated API for category:', categoryId);
+          // Use the new paginated API for category filtering to get proper pagination
+          result = await getProducts({
+            page: currentPage,
+            limit: itemsPerPage,
+            sortBy: 'created_at',
+            sortOrder: 'desc',
+            category: String(categoryId)
+          });
 
           // Ensure categoryId is stored as a string
           const categoryIdStr = String(categoryId);
           setSelectedCategory(categoryIdStr);
-
-          // Note: selectedCategories is already set in the initial state based on categoryId
-          // No need to set it again here to avoid infinite loop
         } else {
           console.log('📄 Using paginated API for general listing');
           // Use new paginated API for general product listing with category filters

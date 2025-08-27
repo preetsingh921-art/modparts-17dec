@@ -1,15 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
-import Turnstile from '../components/security/Turnstile';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState(null);
-  const turnstileRef = useRef(null);
 
   const handleChange = (e) => {
     setEmail(e.target.value);
@@ -34,16 +31,7 @@ const ForgotPassword = () => {
       return;
     }
 
-    // Validate Turnstile (skip if not configured)
-    const siteKey = process.env.REACT_APP_TURNSTILE_SITE_KEY;
-    const isTurnstileConfigured = siteKey &&
-      !siteKey.includes('your-turnstile-site-key') &&
-      !siteKey.includes('your-actual');
 
-    if (isTurnstileConfigured && !turnstileToken) {
-      setError('Please complete the security verification');
-      return;
-    }
 
     setLoading(true);
     setError(null);
@@ -56,7 +44,7 @@ const ForgotPassword = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, turnstileToken }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();
@@ -71,27 +59,13 @@ const ForgotPassword = () => {
     } catch (err) {
       console.error('❌ Password reset request error:', err);
       setError('An error occurred. Please try again.');
-      // Reset Turnstile on error
-      if (turnstileRef.current) {
-        turnstileRef.current.reset();
-        setTurnstileToken(null);
-      }
+
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Turnstile verification
-  const handleTurnstileVerify = (token) => {
-    setTurnstileToken(token);
-    if (error && error.includes('security verification')) {
-      setError(null);
-    }
-  };
 
-  const handleTurnstileExpire = () => {
-    setTurnstileToken(null);
-  };
 
   if (success) {
     return (
@@ -174,20 +148,11 @@ const ForgotPassword = () => {
               />
             </div>
 
-            {/* Cloudflare Turnstile */}
-            <div className="mb-6">
-              <Turnstile
-                ref={turnstileRef}
-                onVerify={handleTurnstileVerify}
-                onExpire={handleTurnstileExpire}
-                size="normal"
-                theme="light"
-              />
-            </div>
+
 
             <button
               type="submit"
-              disabled={loading || !email || !turnstileToken}
+              disabled={loading || !email}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
             >
               {loading ? (

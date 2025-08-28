@@ -269,6 +269,8 @@ app.listen(PORT, () => {
   console.log('  GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? '✅ Set' : '❌ Missing');
   console.log('  SMTP_USER:', process.env.SMTP_USER ? '✅ Set' : '❌ Missing');
   console.log('  SMTP_PASS:', process.env.SMTP_PASS ? '✅ Set' : '❌ Missing');
+  console.log('  EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Missing');
+  console.log('  EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '✅ Set' : '❌ Missing');
   console.log('');
 
   console.log('Available API endpoints:');

@@ -73,6 +73,8 @@ module.exports = async function handler(req, res) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
+    console.log('✅ Password hashed successfully')
+
     // Generate email verification token if email service is available
     let verificationToken = null
     let verificationExpires = null
@@ -82,25 +84,38 @@ module.exports = async function handler(req, res) {
       verificationExpires = emailService.getExpirationTime()
     }
 
-    // Prepare user data with email verification system
+    // Prepare user data - start with basic required fields
     const userData = {
       email,
-      password: hashedPassword,
+      password: hashedPassword, // Using 'password' column name
       first_name,
       last_name,
       phone: phone || null,
       address: address || null,
       role: 'customer',
-      status: emailService ? 'pending_verification' : 'active', // Active if no email service
-      email_verified: !emailService, // Auto-verify if no email service
-      email_verification_token: verificationToken,
-      email_verification_expires: verificationExpires,
-      email_verification_sent_at: emailService ? new Date().toISOString() : null,
       created_at: new Date().toISOString()
     }
 
+    // Add email verification fields only if email service is available
+    if (emailService) {
+      userData.status = 'pending_verification'
+      userData.email_verified = false
+      userData.email_verification_token = verificationToken
+      userData.email_verification_expires = verificationExpires
+      userData.email_verification_sent_at = new Date().toISOString()
+      console.log('📧 Email verification enabled - user will need to verify email')
+    } else {
+      // No email service - make user active immediately
+      userData.status = 'active'
+      userData.email_verified = true
+      console.log('📧 Email verification disabled - user will be active immediately')
+    }
+
+    console.log('📋 Final user data:', { ...userData, password: '[HIDDEN]' })
+
     // Create user in Supabase using admin client to bypass RLS
-    const { data: newUser, error } = await supabaseAdmin
+    console.log('🔄 Attempting to create user in database...')
+    let { data: newUser, error } = await supabaseAdmin
       .from('users')
       .insert([userData])
       .select()
@@ -114,10 +129,45 @@ module.exports = async function handler(req, res) {
         hint: error.hint,
         code: error.code
       })
-      return res.status(500).json({
-        message: 'Failed to create user',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      })
+
+      // If email verification columns don't exist, try with basic data only
+      if (error.message?.includes('column') && (userData.email_verified !== undefined || userData.status !== undefined)) {
+        console.log('⚠️ Email verification columns may not exist, trying basic registration...')
+        const basicUserData = {
+          email,
+          password: hashedPassword,
+          first_name,
+          last_name,
+          phone: phone || null,
+          address: address || null,
+          role: 'customer'
+        }
+
+        const { data: basicUser, error: basicError } = await supabaseAdmin
+          .from('users')
+          .insert([basicUserData])
+          .select()
+          .single()
+
+        if (basicError) {
+          console.error('❌ Basic registration also failed:', basicError)
+          return res.status(500).json({
+            message: 'Failed to create user',
+            error: process.env.NODE_ENV === 'development' ? basicError.message : undefined
+          })
+        }
+
+        console.log('✅ Basic user created successfully:', { id: basicUser.id, email: basicUser.email })
+        newUser = basicUser
+        error = null // Clear the error since basic registration succeeded
+      } else {
+        return res.status(500).json({
+          message: 'Failed to create user',
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        })
+      }
+    } else {
+      console.log('✅ User created successfully:', { id: newUser.id, email: newUser.email })
     }
 
     console.log('✅ User created successfully:', { id: newUser.id, email: newUser.email })

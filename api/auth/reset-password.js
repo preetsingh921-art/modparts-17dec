@@ -1,21 +1,17 @@
 const { supabaseAdmin } = require('../../lib/supabase');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 
 // Load environment variables
 require('dotenv').config({ path: '.env.local' });
 
-// Configure email transporter
-const createEmailTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER || 'your-email@gmail.com',
-      pass: process.env.EMAIL_PASSWORD || 'your-app-password'
-    }
-  });
-};
+// Use centralized email service
+let emailService = null;
+try {
+  emailService = require('../../lib/emailService');
+} catch (error) {
+  console.log('📧 Email service not available - password reset emails disabled');
+}
 
 module.exports = async function handler(req, res) {
   console.log('🔐 Password reset request:', req.method);
@@ -86,14 +82,25 @@ module.exports = async function handler(req, res) {
       const emailContent = createResetEmailTemplate(user, resetUrl);
 
       try {
-        const transporter = createEmailTransporter();
-        
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER || 'noreply@partsformyrd350.com',
-          to: email,
-          subject: 'Reset Your ModParts Password',
-          html: emailContent
-        });
+        if (emailService) {
+          // Use centralized email service
+          await emailService.sendPasswordResetEmail(
+            email,
+            user.first_name,
+            resetToken,
+            user.auth_provider === 'google'
+          );
+        } else {
+          // Fallback to basic email sending (for backward compatibility)
+          const transporter = createEmailTransporter();
+
+          await transporter.sendMail({
+            from: process.env.GMAIL_USER || process.env.EMAIL_USER || 'noreply@partsformyrd350.com',
+            to: email,
+            subject: 'Reset Your ModParts Password',
+            html: emailContent
+          });
+        }
 
         console.log('✅ Password reset email sent to:', email);
 

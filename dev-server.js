@@ -40,6 +40,10 @@ const { getRateLimiter } = require('./lib/rate-limiter');
 const app = express();
 const PORT = 3000;
 
+// Trust proxy for rate limiting and X-Forwarded-For headers
+// This is required for Render.com and other proxy environments
+app.set('trust proxy', 1);
+
 // Determine allowed origins based on environment
 const getAllowedOrigins = () => {
   const origins = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];

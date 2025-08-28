@@ -98,12 +98,13 @@ module.exports = async function handler(req, res) {
 
     // Add email verification fields only if email service is available
     if (emailService) {
-      userData.status = 'pending_verification'
+      // Use 'pending_approval' instead of 'pending_verification' (database constraint)
+      userData.status = 'pending_approval'
       userData.email_verified = false
       userData.email_verification_token = verificationToken
       userData.email_verification_expires = verificationExpires
       userData.email_verification_sent_at = new Date().toISOString()
-      console.log('📧 Email verification enabled - user will need to verify email')
+      console.log('📧 Email verification enabled - user status: pending_approval')
     } else {
       // No email service - make user active immediately
       userData.status = 'active'

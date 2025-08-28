@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { InlineLoader } from '../components/ui/LoadingSpinner';
 import GoogleLoginButton from '../components/auth/GoogleLoginButton';
+import PasswordStrengthIndicator from '../components/ui/PasswordStrengthIndicator';
 
 const Register = () => {
   const { register, loading } = useAuth();
@@ -205,7 +206,17 @@ const Register = () => {
               onChange={handleChange}
               className="w-full p-2 border rounded"
               required
-              minLength="6"
+              minLength="8"
+              placeholder="Enter a strong password"
+            />
+            <PasswordStrengthIndicator
+              password={formData.password}
+              userInfo={{
+                firstName: formData.first_name,
+                lastName: formData.last_name,
+                email: formData.email,
+                phone: formData.phone
+              }}
             />
           </div>
           

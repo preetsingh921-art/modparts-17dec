@@ -2,6 +2,7 @@ const { supabaseAdmin } = require('../../lib/supabase')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const { getRateLimiter } = require('../../lib/rate-limiter')
+const { validatePassword } = require('../../lib/passwordValidator')
 
 // Email verification is optional - only load if nodemailer is available
 let emailService = null
@@ -30,6 +31,32 @@ module.exports = async function handler(req, res) {
       })
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        message: 'Please enter a valid email address'
+      })
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(password, {
+      firstName: first_name,
+      lastName: last_name,
+      email: email,
+      phone: phone
+    })
+
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        message: 'Password does not meet security requirements',
+        errors: passwordValidation.errors,
+        requirements: passwordValidation.requirements
+      })
+    }
+
+    console.log('✅ Password validation passed:', passwordValidation.strength)
+
 
 
     // Check if user already exists
@@ -46,7 +73,16 @@ module.exports = async function handler(req, res) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Prepare user data with admin approval system
+    // Generate email verification token if email service is available
+    let verificationToken = null
+    let verificationExpires = null
+
+    if (emailService) {
+      verificationToken = emailService.generateVerificationToken()
+      verificationExpires = emailService.getExpirationTime()
+    }
+
+    // Prepare user data with email verification system
     const userData = {
       email,
       password: hashedPassword,
@@ -55,8 +91,11 @@ module.exports = async function handler(req, res) {
       phone: phone || null,
       address: address || null,
       role: 'customer',
-      status: 'pending_verification', // New users need email verification
-      email_verified: false, // Require email verification
+      status: emailService ? 'pending_verification' : 'active', // Active if no email service
+      email_verified: !emailService, // Auto-verify if no email service
+      email_verification_token: verificationToken,
+      email_verification_expires: verificationExpires,
+      email_verification_sent_at: emailService ? new Date().toISOString() : null,
       created_at: new Date().toISOString()
     }
 
@@ -83,20 +122,53 @@ module.exports = async function handler(req, res) {
 
     console.log('✅ User created successfully:', { id: newUser.id, email: newUser.email })
 
-    // Don't generate JWT token - user needs admin approval first
-    console.log('✅ Registration completed - pending admin approval')
+    // Send verification email if email service is available
+    if (emailService && verificationToken) {
+      try {
+        await emailService.sendVerificationEmail(
+          newUser.email,
+          newUser.first_name,
+          verificationToken
+        )
+        console.log('✅ Verification email sent successfully')
+      } catch (emailError) {
+        console.error('❌ Failed to send verification email:', emailError)
+        // Don't fail registration if email fails - user can request resend
+      }
+    }
+
+    // Generate JWT token for immediate login if no email verification required
+    let token = null
+    if (!emailService) {
+      token = jwt.sign(
+        {
+          userId: newUser.id,
+          email: newUser.email,
+          role: newUser.role
+        },
+        process.env.JWT_SECRET || 'fallback-secret',
+        { expiresIn: '7d' }
+      )
+    }
+
+    const responseMessage = emailService
+      ? 'Registration successful! Please check your email to verify your account.'
+      : 'Registration successful! You are now logged in.'
+
+    console.log('✅ Registration completed:', emailService ? 'pending email verification' : 'active')
 
     res.status(201).json({
-      message: 'Registration successful! Your account is pending admin approval. You will be notified once approved.',
+      message: responseMessage,
       user: {
         id: newUser.id,
         email: newUser.email,
         first_name: newUser.first_name,
         last_name: newUser.last_name,
         role: newUser.role,
-        status: 'pending_verification'
+        status: newUser.status
       },
-      verification_required: true
+      verification_required: !!emailService,
+      token: token // Include token if no email verification required
     })
 
   } catch (error) {

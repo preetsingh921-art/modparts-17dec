@@ -264,6 +264,12 @@ app.listen(PORT, () => {
   console.log('  SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing');
   console.log('  JWT_SECRET:', process.env.JWT_SECRET ? '✅ Set' : '❌ Missing');
   console.log('');
+  console.log('📧 Email Service Variables Check:');
+  console.log('  GMAIL_USER:', process.env.GMAIL_USER ? '✅ Set' : '❌ Missing');
+  console.log('  GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? '✅ Set' : '❌ Missing');
+  console.log('  SMTP_USER:', process.env.SMTP_USER ? '✅ Set' : '❌ Missing');
+  console.log('  SMTP_PASS:', process.env.SMTP_PASS ? '✅ Set' : '❌ Missing');
+  console.log('');
 
   console.log('Available API endpoints:');
   console.log('  POST /api/auth/login');

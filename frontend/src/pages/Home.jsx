@@ -53,13 +53,31 @@ const Home = () => {
   return (
     <div>
       {/* Hero Section */}
-      <section className="bg-blue-800 text-white py-16 rounded-lg mb-12">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Sardaarji Auto Parts</h1>
-          <p className="text-xl mb-8">Quality auto parts for all vehicle makes and models</p>
+      <section className="bg-gradient-to-br from-gray-800 via-gray-900 to-black text-white py-16 rounded-lg mb-12 relative overflow-hidden border border-gray-700">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-600 to-transparent transform rotate-12 scale-150"></div>
+          <div className="absolute inset-0 bg-gradient-to-l from-transparent via-green-700 to-transparent transform -rotate-12 scale-150"></div>
+        </div>
+
+        {/* Automotive background elements */}
+        <div className="absolute bottom-0 right-0 w-96 h-96 opacity-5">
+          <svg viewBox="0 0 400 400" className="w-full h-full">
+            <path d="M50 300 Q100 250 150 280 Q200 250 250 280 Q300 250 350 300 L350 400 L50 400 Z" fill="currentColor"/>
+            <circle cx="100" cy="320" r="30" fill="currentColor"/>
+            <circle cx="300" cy="320" r="30" fill="currentColor"/>
+            <path d="M100 290 L120 270 L180 270 L200 250 L220 270 L300 290" stroke="currentColor" strokeWidth="3" fill="none"/>
+          </svg>
+        </div>
+
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-green-400 bg-clip-text text-transparent">
+            ModParts
+          </h1>
+          <p className="text-xl mb-8 text-gray-300">Quality auto parts for all vehicle makes and models</p>
           <Link
             to="/products"
-            className="bg-white text-blue-800 px-6 py-3 rounded-lg font-bold hover:bg-blue-100 transition duration-300"
+            className="bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-lg font-bold hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             Shop Now
           </Link>
@@ -68,7 +86,7 @@ const Home = () => {
 
       {/* Categories Section */}
       <section className="mb-12">
-        <h2 className="text-3xl font-bold mb-6 text-center">Shop by Category</h2>
+        <h2 className="text-3xl font-bold mb-6 text-center text-white">Shop by Category</h2>
         {loading ? (
           <div className="text-center py-8">
             <LoadingSpinner size="lg" text="Loading categories..." variant="gear" />
@@ -82,7 +100,7 @@ const Home = () => {
                 className="relative overflow-hidden rounded-xl text-center hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-2xl group min-h-[200px] flex flex-col"
               >
                 {/* Backdrop Image */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-800">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800">
                   <img
                     src={getCategoryImagePath(category.name)}
                     alt={`${category.name} category`}
@@ -117,7 +135,7 @@ const Home = () => {
 
       {/* Featured Products Section */}
       <section className="mb-12">
-        <h2 className="text-3xl font-bold mb-6 text-center">Featured Products</h2>
+        <h2 className="text-3xl font-bold mb-6 text-center text-white">Featured Products</h2>
         {loading ? (
           <div className="text-center py-8">
             <LoadingSpinner size="lg" text="Loading featured products..." variant="gear" />
@@ -125,12 +143,12 @@ const Home = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {featuredProducts.filter(product => product && product.id && product.name).map(product => (
-              <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div key={product.id} className="bg-gray-800/50 border border-gray-700 rounded-lg shadow-lg overflow-hidden backdrop-blur-sm hover:bg-gray-800/70 transition-all duration-300 group">
                 <div className="h-48 relative">
                   <PlaceholderImage
                     src={processImageUrl(product.image_url)}
                     alt={product.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     placeholderText="No Image Available"
                   />
                   {/* Wishlist Button Overlay */}
@@ -139,13 +157,13 @@ const Home = () => {
                   </div>
                 </div>
                 <div className="p-4">
-                  <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
-                  <p className="text-gray-600 mb-2">{product.category_name}</p>
+                  <h3 className="text-lg font-semibold mb-2 text-white group-hover:text-green-400 transition-colors">{product.name}</h3>
+                  <p className="text-gray-400 mb-2">{product.category_name}</p>
                   <div className="flex justify-between items-center">
-                    <span className="text-blue-800 font-bold">${parseFloat(product.price).toFixed(2)}</span>
+                    <span className="text-green-400 font-bold text-lg">${parseFloat(product.price).toFixed(2)}</span>
                     <Link
                       to={`/products/${product.id}`}
-                      className="flex items-center justify-center bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                      className="flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

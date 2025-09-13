@@ -33,13 +33,56 @@
   animation: gear-spin-smooth 3s ease-in-out infinite;
 }
 
-/* Auto parts themed colors */
+/* Auto parts themed colors - Dark theme with green accents */
 .auto-parts-primary {
-  color: #1e40af; /* Blue-700 */
+  color: #10b981; /* Green-500 */
 }
 
 .auto-parts-secondary {
-  color: #374151; /* Gray-700 */
+  color: #6b7280; /* Gray-500 */
+}
+
+.auto-parts-accent {
+  color: #34d399; /* Green-400 */
+}
+
+.auto-parts-bg-primary {
+  background-color: #10b981; /* Green-500 */
+}
+
+.auto-parts-bg-secondary {
+  background-color: #1f2937; /* Gray-800 */
+}
+
+/* Dark theme button styles */
+.btn-primary {
+  @apply bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg;
+}
+
+.btn-secondary {
+  @apply bg-gray-700 text-gray-200 py-3 px-6 rounded-lg font-semibold hover:bg-gray-600 transition-all duration-200;
+}
+
+.btn-outline {
+  @apply border-2 border-green-500 text-green-400 py-3 px-6 rounded-lg font-semibold hover:bg-green-500 hover:text-white transition-all duration-200;
+}
+
+/* Dark theme form styles */
+.form-input {
+  @apply bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent backdrop-blur-sm transition-all;
+}
+
+.form-label {
+  @apply text-gray-300 font-medium mb-2 block;
+}
+
+/* Dark theme card styles */
+.card-dark {
+  @apply bg-gray-800/50 border border-gray-700 rounded-lg backdrop-blur-sm;
+}
+
+.card-dark-solid {
+  @apply bg-gray-800 border border-gray-700 rounded-lg;
 }
 
 /* Text clamping utilities */

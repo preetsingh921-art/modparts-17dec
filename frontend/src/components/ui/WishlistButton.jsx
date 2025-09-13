@@ -94,12 +94,12 @@ const WishlistButton = ({
         disabled={loading}
         className={`
           ${sizeClasses[size]}
-          ${inWishlist 
-            ? 'text-red-500 hover:text-red-600' 
+          ${inWishlist
+            ? 'text-red-500 hover:text-red-600'
             : 'text-gray-400 hover:text-red-500'
           }
           ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-          transition-colors duration-200 rounded-full hover:bg-gray-100
+          transition-colors duration-200 rounded-full hover:bg-gray-800/50
           ${className}
         `}
         title={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
@@ -120,9 +120,9 @@ const WishlistButton = ({
         disabled={loading}
         className={`
           ${textSizes[size]}
-          ${inWishlist 
-            ? 'bg-red-500 text-white hover:bg-red-600' 
-            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          ${inWishlist
+            ? 'bg-red-500 text-white hover:bg-red-600'
+            : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
           }
           ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2
@@ -153,9 +153,9 @@ const WishlistButton = ({
         disabled={loading}
         className={`
           ${textSizes[size]}
-          ${inWishlist 
-            ? 'text-red-500 hover:text-red-600' 
-            : 'text-gray-600 hover:text-red-500'
+          ${inWishlist
+            ? 'text-red-500 hover:text-red-600'
+            : 'text-gray-400 hover:text-red-500'
           }
           ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           transition-colors duration-200 flex items-center space-x-1

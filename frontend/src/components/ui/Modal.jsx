@@ -55,16 +55,16 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   const modalSizeClass = sizeClasses[size] || sizeClasses.md;
   
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div 
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-75 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div
         ref={modalRef}
-        className={`bg-white rounded-lg shadow-xl ${modalSizeClass} w-full`}
+        className={`bg-gray-800 border border-gray-700 rounded-lg shadow-xl ${modalSizeClass} w-full`}
       >
-        <div className="flex justify-between items-center border-b p-4">
-          <h2 className="text-xl font-semibold">{title}</h2>
+        <div className="flex justify-between items-center border-b border-gray-700 p-4">
+          <h2 className="text-xl font-semibold text-white">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none"
+            className="text-gray-400 hover:text-white focus:outline-none transition-colors"
             aria-label="Close"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,7 +72,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
             </svg>
           </button>
         </div>
-        <div className="p-4">
+        <div className="p-4 text-white">
           {children}
         </div>
       </div>

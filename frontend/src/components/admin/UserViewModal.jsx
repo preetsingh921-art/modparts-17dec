@@ -44,7 +44,7 @@ const UserViewModal = ({ isOpen, onClose, user }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700">Role</label>
               <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                user.role === 'admin' ? 'bg-emerald-600 text-emerald-100' : 'bg-slate-600 text-slate-100'
               }`}>
                 {user.role || 'customer'}
               </span>

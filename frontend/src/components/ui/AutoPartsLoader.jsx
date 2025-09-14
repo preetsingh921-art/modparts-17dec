@@ -26,11 +26,11 @@ const AutoPartsLoader = ({
   const MultiGearLoader = ({ className }) => (
     <div className={`relative ${className}`}>
       {/* Main gear */}
-      <svg 
-        className="absolute inset-0 w-full h-full text-blue-600 animate-spin"
+      <svg
+        className="absolute inset-0 w-full h-full text-emerald-500 animate-spin"
         style={{ animationDuration: '3s' }}
-        viewBox="0 0 24 24" 
-        fill="none" 
+        viewBox="0 0 24 24"
+        fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
@@ -40,11 +40,11 @@ const AutoPartsLoader = ({
       </svg>
       
       {/* Small gear top-right */}
-      <svg 
-        className="absolute top-0 right-0 w-1/3 h-1/3 text-gray-500 animate-spin"
+      <svg
+        className="absolute top-0 right-0 w-1/3 h-1/3 text-slate-500 animate-spin"
         style={{ animationDuration: '2s', animationDirection: 'reverse' }}
-        viewBox="0 0 24 24" 
-        fill="none" 
+        viewBox="0 0 24 24"
+        fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
@@ -54,11 +54,11 @@ const AutoPartsLoader = ({
       </svg>
       
       {/* Small gear bottom-left */}
-      <svg 
-        className="absolute bottom-0 left-0 w-1/4 h-1/4 text-orange-500 animate-spin"
+      <svg
+        className="absolute bottom-0 left-0 w-1/4 h-1/4 text-emerald-400 animate-spin"
         style={{ animationDuration: '1.5s' }}
-        viewBox="0 0 24 24" 
-        fill="none" 
+        viewBox="0 0 24 24"
+        fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
@@ -71,7 +71,7 @@ const AutoPartsLoader = ({
 
   // Engine block animation
   const EngineLoader = ({ className }) => (
-    <div className={`${className} text-blue-600`}>
+    <div className={`${className} text-emerald-500`}>
       <svg 
         className="w-full h-full animate-pulse"
         viewBox="0 0 24 24" 
@@ -90,7 +90,7 @@ const AutoPartsLoader = ({
 
   // Wrench animation
   const WrenchLoader = ({ className }) => (
-    <div className={`${className} text-blue-600`}>
+    <div className={`${className} text-emerald-500`}>
       <svg 
         className="w-full h-full animate-spin"
         style={{ animationDuration: '4s' }}

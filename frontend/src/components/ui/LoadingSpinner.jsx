@@ -39,21 +39,21 @@ const LoadingSpinner = ({
 
   // Simple spinner component
   const SimpleSpinner = ({ className }) => (
-    <div className={`${className} border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin`}></div>
+    <div className={`${className} border-4 border-slate-600 border-t-emerald-500 rounded-full animate-spin`}></div>
   );
 
   // Dots spinner component
   const DotsSpinner = ({ className }) => (
     <div className={`flex space-x-1 ${className}`}>
-      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-      <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
     </div>
   );
 
   // Render the appropriate spinner based on variant
   const renderSpinner = () => {
-    const spinnerClass = `${sizeClasses[size]} text-blue-600`;
+    const spinnerClass = `${sizeClasses[size]} text-emerald-500`;
     
     switch (variant) {
       case 'gear':

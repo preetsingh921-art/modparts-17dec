@@ -309,7 +309,7 @@ const ProductList = () => {
           <div className="md:hidden mb-4">
             <button
               onClick={() => setShowFilters(prev => !prev)}
-              className="w-full bg-blue-800 text-white py-2 px-4 rounded flex items-center justify-center"
+              className="btn-primary w-full py-2 px-4 flex items-center justify-center"
             >
               <span className="mr-2">{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -318,12 +318,12 @@ const ProductList = () => {
             </button>
           </div>
 
-          <div className={`bg-white p-4 rounded shadow ${!showFilters && 'hidden md:block'}`}>
+          <div className={`card p-4 ${!showFilters && 'hidden md:block'}`}>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Filters</h2>
+              <h2 className="text-xl font-semibold text-slate-100">Filters</h2>
               <button
                 onClick={clearAllFilters}
-                className="text-sm text-blue-600 hover:text-blue-800"
+                className="text-sm text-emerald-400 hover:text-emerald-300"
               >
                 Clear All
               </button>
@@ -566,11 +566,11 @@ const ProductList = () => {
                       console.log(`Found category:`, category);
 
                       return category ? (
-                        <span key={strCatId} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center">
+                        <span key={strCatId} className="bg-emerald-600 text-emerald-100 text-xs px-2 py-1 rounded-full flex items-center">
                           {category.name}
                           <button
                             onClick={() => handleCategoryCheckboxChange(strCatId)}
-                            className="ml-1 text-blue-800 hover:text-blue-900"
+                            className="ml-1 text-emerald-100 hover:text-white"
                           >
                             ×
                           </button>
@@ -603,22 +603,22 @@ const ProductList = () => {
                 {(availabilityFilters.inStock || availabilityFilters.outOfStock) && (
                   <div className="flex flex-wrap gap-1">
                     {availabilityFilters.inStock && (
-                      <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full flex items-center">
+                      <span className="bg-emerald-600 text-emerald-100 text-xs px-2 py-1 rounded-full flex items-center">
                         In Stock
                         <button
                           onClick={() => handleAvailabilityChange('inStock')}
-                          className="ml-1 text-purple-800 hover:text-purple-900"
+                          className="ml-1 text-emerald-100 hover:text-white"
                         >
                           ×
                         </button>
                       </span>
                     )}
                     {availabilityFilters.outOfStock && (
-                      <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full flex items-center">
+                      <span className="bg-slate-600 text-slate-100 text-xs px-2 py-1 rounded-full flex items-center">
                         Out of Stock
                         <button
                           onClick={() => handleAvailabilityChange('outOfStock')}
-                          className="ml-1 text-purple-800 hover:text-purple-900"
+                          className="ml-1 text-slate-100 hover:text-white"
                         >
                           ×
                         </button>

@@ -285,7 +285,7 @@ const OrderDetail = () => {
                 if (statusItem.status === 'processing') {
                   iconColor = 'bg-blue-500';
                 } else if (statusItem.status === 'shipped') {
-                  iconColor = 'bg-purple-500';
+                  iconColor = 'bg-emerald-500';
                   icon = (
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
@@ -349,7 +349,7 @@ const OrderDetail = () => {
               {order.status && (order.status === 'shipped' || order.status === 'delivered') && (
                 <div className="flex">
                   <div className="mr-4">
-                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white">
+                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
                         <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-5h2a1 1 0 00.9-.5l3-5A1 1 0 0016 3H4a1 1 0 00-1 1z" />

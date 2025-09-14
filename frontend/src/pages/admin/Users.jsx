@@ -567,7 +567,7 @@ const Users = () => {
                   </button>
                   <div className="relative">
                     <button
-                      className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 flex items-center"
+                      className="btn-primary px-3 py-1 text-sm flex items-center"
                       onClick={() => document.getElementById('exportSelectedUsersDropdown').classList.toggle('hidden')}
                       disabled={isExporting}
                     >
@@ -634,7 +634,7 @@ const Users = () => {
                     <td className="p-4 text-gray-900">{user.email}</td>
                     <td className="p-4 text-center">
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                        user.role === 'admin' ? 'bg-emerald-600 text-emerald-100' : 'bg-slate-600 text-slate-100'
                       }`}>
                         {user.role}
                       </span>

@@ -2,9 +2,9 @@
   <!-- Professional hero section backdrop -->
   <defs>
     <radialGradient id="heroGradient" cx="50%" cy="50%" r="70%">
-      <stop offset="0%" style="stop-color:#1e293b;stop-opacity:1" />
-      <stop offset="70%" style="stop-color:#0f172a;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#020617;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#020617;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:1" />
     </radialGradient>
     
     <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">

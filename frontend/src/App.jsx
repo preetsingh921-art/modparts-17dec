@@ -53,15 +53,7 @@ function App() {
           <CartProvider>
             <WishlistProvider>
           <Router>
-            <div
-              className="flex flex-col min-h-screen text-slate-100"
-              style={{
-                backgroundImage: "url('/backdrops/automotive-pattern.svg')",
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundAttachment: 'fixed'
-              }}
-            >
+            <div className="flex flex-col min-h-screen backdrop-automotive text-slate-100">
               <Header />
               <main className="flex-grow container mx-auto px-4 py-8">
               <Routes>

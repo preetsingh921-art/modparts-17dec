@@ -108,16 +108,7 @@ const Login = () => {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{
-        backgroundImage: "url('/backdrops/login-backdrop.svg')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      }}
-    >
-      {/* Content overlay for better form readability */}
-      <div className="absolute inset-0 bg-slate-900/10"></div>
+    <div className="min-h-screen backdrop-login flex items-center justify-center relative overflow-hidden">
 
       <div className="w-full max-w-md mx-auto px-6 relative z-10">
         {/* Header Section */}

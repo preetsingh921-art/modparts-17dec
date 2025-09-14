@@ -292,16 +292,8 @@ const ProductList = () => {
   };
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundImage: "url('/backdrops/product-grid-backdrop.svg')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      }}
-    >
-      <div className="container mx-auto px-4 relative">
+    <div className="min-h-screen backdrop-product-grid">
+      <div className="container mx-auto px-4 relative z-10">
       <h1 className="text-3xl font-bold mb-6">
         {searchQuery
           ? `Search Results for "${searchQuery}"`

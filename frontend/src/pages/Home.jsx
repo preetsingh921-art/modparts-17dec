@@ -53,16 +53,7 @@ const Home = () => {
   return (
     <div>
       {/* Hero Section */}
-      <section
-        className="text-slate-100 py-20 rounded-2xl mb-12 relative overflow-hidden border border-slate-700 shadow-large"
-        style={{
-          backgroundImage: "url('/backdrops/hero-backdrop.svg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      >
-        {/* Content overlay for better text readability */}
-        <div className="absolute inset-0 bg-slate-900/20"></div>
+      <section className="backdrop-hero text-slate-100 py-20 rounded-2xl mb-12 relative overflow-hidden border border-slate-700 shadow-large">
 
         <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-slate-100 to-emerald-400 bg-clip-text text-transparent">

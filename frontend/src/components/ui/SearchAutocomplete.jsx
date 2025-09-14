@@ -208,13 +208,13 @@ const SearchAutocomplete = ({
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto"
+          className="absolute top-full left-0 right-0 card border border-slate-600 shadow-lg z-50 max-h-80 overflow-y-auto"
         >
           {suggestions.map((product, index) => (
             <div
               key={product.searchKey}
-              className={`p-3 cursor-pointer border-b border-gray-100 last:border-b-0 hover:bg-gray-50 ${
-                index === selectedIndex ? 'bg-blue-50' : ''
+              className={`p-3 cursor-pointer border-b border-slate-600 last:border-b-0 hover:bg-slate-700 text-slate-100 ${
+                index === selectedIndex ? 'bg-emerald-600' : ''
               }`}
               onClick={() => handleSuggestionClick(product)}
             >

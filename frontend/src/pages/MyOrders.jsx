@@ -105,7 +105,7 @@ const MyOrders = () => {
           </button>
         </div>
       ) : orders.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
+        <div className="text-center py-12 card">
           <p className="text-xl text-gray-600 mb-6">You don't have any orders yet</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
@@ -130,7 +130,7 @@ const MyOrders = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -155,7 +155,7 @@ const MyOrders = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-slate-800 divide-y divide-slate-600">
                 {orders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -92,11 +92,11 @@ const Cart = () => {
       <h1 className="text-3xl font-bold mb-6">Your Cart</h1>
 
       {loading ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
+        <div className="text-center py-12 card">
           <LoadingSpinner size="xl" text="Loading your cart..." variant="gear" />
         </div>
       ) : error ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
+        <div className="text-center py-12 card">
           <p className="text-xl text-red-600 mb-6">{error}</p>
           <Link
             to="/products"
@@ -106,7 +106,7 @@ const Cart = () => {
           </Link>
         </div>
       ) : cart.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
+        <div className="text-center py-12 card">
           <p className="text-xl text-gray-600 mb-6">Your cart is empty</p>
           <Link
             to="/products"
@@ -118,7 +118,7 @@ const Cart = () => {
       ) : (
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="lg:w-2/3">
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="card overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-100">
                   <tr>
@@ -264,7 +264,7 @@ const Cart = () => {
           </div>
 
           <div className="lg:w-1/3">
-            <div className="bg-white rounded-lg shadow p-6 mt-6 lg:mt-0">
+            <div className="card p-6 mt-6 lg:mt-0">
               <h2 className="text-xl font-bold mb-4">Order Summary</h2>
 
               <div className="border-t border-b py-4 mb-4">

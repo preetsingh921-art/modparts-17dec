@@ -142,7 +142,7 @@ const OrderDetail = () => {
         <p>Date: {formatDate(order.created_at || Date.now())}</p>
       </div>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="card p-6 mb-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold mb-1">Order #{order.id || 'N/A'}</h1>
@@ -251,7 +251,7 @@ const OrderDetail = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 order-timeline">
+      <div className="card p-6 order-timeline">
         <h2 className="text-lg font-semibold mb-3">Order Timeline</h2>
         <div className="space-y-4">
           {/* Always show Order Placed status */}

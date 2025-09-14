@@ -64,7 +64,7 @@ const Home = () => {
               <img
                 src={logo}
                 alt="ModParts Logo"
-                className="h-20 w-auto mx-auto"
+                className="h-32 md:h-40 lg:h-48 w-auto mx-auto"
               />
             </div>
           )}

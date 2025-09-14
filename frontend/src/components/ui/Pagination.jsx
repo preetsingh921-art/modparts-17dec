@@ -121,7 +121,7 @@ const Pagination = ({
           className={`px-3 py-1 rounded border ${
             currentPage === 1
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-white text-blue-600 hover:bg-blue-50'
+              : 'bg-slate-700 text-emerald-400 hover:bg-slate-600'
           }`}
         >
           Previous
@@ -133,10 +133,10 @@ const Pagination = ({
             onClick={() => typeof page === 'number' && onPageChange(page)}
             className={`px-3 py-1 rounded border ${
               page === currentPage
-                ? 'bg-blue-600 text-white'
+                ? 'bg-emerald-600 text-white'
                 : page === '...'
-                ? 'bg-white text-gray-600 cursor-default'
-                : 'bg-white text-blue-600 hover:bg-blue-50'
+                ? 'bg-slate-600 text-slate-400 cursor-default'
+                : 'bg-slate-700 text-emerald-400 hover:bg-slate-600'
             }`}
             disabled={page === '...'}
           >

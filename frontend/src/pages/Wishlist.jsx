@@ -96,7 +96,7 @@ const Wishlist = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {wishlist.filter(item => item && item.id && item.products && item.products.name).map((item) => (
-            <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+            <div key={item.id} className="card-interactive overflow-hidden">
               <div className="relative">
                 <Link to={`/products/${item.product_id}`}>
                   <PlaceholderImage

@@ -277,7 +277,7 @@ const OverviewTab = ({ data }) => {
           title="Avg Order Value"
           value={formatCurrency(data.revenue.averageOrderValue)}
           icon="📊"
-          color="purple"
+          color="emerald"
         />
       </div>
 
@@ -526,7 +526,7 @@ const CustomersTab = ({ data }) => {
           title="Avg Customer Value"
           value={formatCurrency(data.metrics.averageCustomerValue)}
           icon="💎"
-          color="purple"
+          color="emerald"
         />
         <MetricCard
           title="Total Revenue"
@@ -584,7 +584,7 @@ const MetricCard = ({ title, value, icon, color = 'blue' }) => {
     blue: 'bg-blue-600',
     green: 'bg-green-600',
     yellow: 'bg-yellow-600',
-    purple: 'bg-purple-600',
+    purple: 'bg-emerald-600',
     red: 'bg-red-600',
     indigo: 'bg-indigo-600',
     orange: 'bg-orange-600'

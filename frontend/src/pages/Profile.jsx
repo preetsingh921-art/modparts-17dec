@@ -265,7 +265,7 @@ const Profile = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* User Profile Section */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="card p-6 mb-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Personal Information</h2>
               {!editMode && !profileLoading && (
@@ -698,7 +698,7 @@ const Profile = () => {
 
         {/* Recent Orders Section */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="card p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Recent Orders</h2>
               <Link to="/orders" className="text-blue-600 hover:underline text-sm">

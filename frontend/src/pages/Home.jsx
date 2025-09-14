@@ -6,11 +6,13 @@ import { processImageUrl, handleImageError } from '../utils/imageHelper'
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import WishlistButton from '../components/ui/WishlistButton';
 import PlaceholderImage from '../components/ui/PlaceholderImage';
+import { useLogo } from '../context/LogoContext';
 
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { logo } = useLogo();
 
   // Function to get category image path
   const getCategoryImagePath = (categoryName) => {
@@ -56,6 +58,16 @@ const Home = () => {
       <section className="backdrop-hero text-slate-100 py-20 rounded-2xl mb-12 relative overflow-hidden border border-slate-700 shadow-large">
 
         <div className="container mx-auto px-4 text-center relative z-10">
+          {/* Logo */}
+          {logo && (
+            <div className="mb-8">
+              <img
+                src={logo}
+                alt="ModParts Logo"
+                className="h-20 w-auto mx-auto"
+              />
+            </div>
+          )}
           <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-slate-100 to-emerald-400 bg-clip-text text-transparent">
             ModParts
           </h1>

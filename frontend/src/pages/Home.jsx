@@ -53,16 +53,16 @@ const Home = () => {
   return (
     <div>
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-gray-800 via-gray-900 to-black text-white py-16 rounded-lg mb-12 relative overflow-hidden border border-gray-700">
+      <section className="bg-gradient-to-br from-slate-800 to-slate-900 text-slate-100 py-20 rounded-2xl mb-12 relative overflow-hidden border border-slate-700 shadow-large">
         {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-600 to-transparent transform rotate-12 scale-150"></div>
-          <div className="absolute inset-0 bg-gradient-to-l from-transparent via-green-700 to-transparent transform -rotate-12 scale-150"></div>
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600 to-transparent transform rotate-12 scale-150"></div>
+          <div className="absolute inset-0 bg-gradient-to-l from-transparent via-emerald-700 to-transparent transform -rotate-12 scale-150"></div>
         </div>
 
         {/* Automotive background elements */}
-        <div className="absolute bottom-0 right-0 w-96 h-96 opacity-5">
-          <svg viewBox="0 0 400 400" className="w-full h-full">
+        <div className="absolute bottom-0 right-0 w-96 h-96 opacity-3">
+          <svg viewBox="0 0 400 400" className="w-full h-full text-slate-600">
             <path d="M50 300 Q100 250 150 280 Q200 250 250 280 Q300 250 350 300 L350 400 L50 400 Z" fill="currentColor"/>
             <circle cx="100" cy="320" r="30" fill="currentColor"/>
             <circle cx="300" cy="320" r="30" fill="currentColor"/>
@@ -71,22 +71,25 @@ const Home = () => {
         </div>
 
         <div className="container mx-auto px-4 text-center relative z-10">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-green-400 bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-slate-100 to-emerald-400 bg-clip-text text-transparent">
             ModParts
           </h1>
-          <p className="text-xl mb-8 text-gray-300">Quality auto parts for all vehicle makes and models</p>
+          <p className="text-xl mb-10 text-slate-300 max-w-2xl mx-auto">Quality auto parts for all vehicle makes and models</p>
           <Link
             to="/products"
-            className="bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-lg font-bold hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="btn-primary inline-flex items-center space-x-2 text-lg px-8 py-4"
           >
-            Shop Now
+            <span>Shop Now</span>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
           </Link>
         </div>
       </section>
 
       {/* Categories Section */}
-      <section className="mb-12">
-        <h2 className="text-3xl font-bold mb-6 text-center text-white">Shop by Category</h2>
+      <section className="mb-16">
+        <h2 className="text-3xl font-bold mb-10 text-center text-slate-100">Shop by Category</h2>
         {loading ? (
           <div className="text-center py-8">
             <LoadingSpinner size="lg" text="Loading categories..." variant="gear" />
@@ -97,10 +100,10 @@ const Home = () => {
               <Link
                 key={category.id}
                 to={`/products/category/${category.id}`}
-                className="relative overflow-hidden rounded-xl text-center hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-2xl group min-h-[200px] flex flex-col"
+                className="relative overflow-hidden rounded-2xl text-center hover:scale-105 transition-all duration-300 shadow-medium hover:shadow-large group min-h-[200px] flex flex-col"
               >
                 {/* Backdrop Image */}
-                <div className="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 to-emerald-800">
                   <img
                     src={getCategoryImagePath(category.name)}
                     alt={`${category.name} category`}
@@ -108,14 +111,14 @@ const Home = () => {
                     onError={handleCategoryImageError}
                   />
                   {/* Overlay for better text readability */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/30 group-hover:from-black/50 group-hover:via-black/10 group-hover:to-black/20 transition-all duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-slate-900/30 to-slate-900/40 group-hover:from-slate-900/60 group-hover:via-slate-900/20 group-hover:to-slate-900/30 transition-all duration-300"></div>
                 </div>
 
                 {/* Content */}
                 <div className="relative z-10 p-6 flex flex-col justify-end h-full text-white">
                   <div className="transform group-hover:translate-y-[-4px] transition-transform duration-300">
                     <h3 className="text-lg md:text-xl font-bold mb-2 drop-shadow-lg leading-tight">{category.name}</h3>
-                    <p className="text-gray-200 text-xs md:text-sm drop-shadow-md opacity-90 group-hover:opacity-100 transition-opacity duration-300 line-clamp-2">
+                    <p className="text-slate-200 text-xs md:text-sm drop-shadow-md opacity-90 group-hover:opacity-100 transition-opacity duration-300 line-clamp-2">
                       {category.description}
                     </p>
                   </div>
@@ -134,16 +137,16 @@ const Home = () => {
       </section>
 
       {/* Featured Products Section */}
-      <section className="mb-12">
-        <h2 className="text-3xl font-bold mb-6 text-center text-white">Featured Products</h2>
+      <section className="mb-16">
+        <h2 className="text-3xl font-bold mb-10 text-center text-slate-100">Featured Products</h2>
         {loading ? (
           <div className="text-center py-8">
             <LoadingSpinner size="lg" text="Loading featured products..." variant="gear" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {featuredProducts.filter(product => product && product.id && product.name).map(product => (
-              <div key={product.id} className="bg-gray-800/50 border border-gray-700 rounded-lg shadow-lg overflow-hidden backdrop-blur-sm hover:bg-gray-800/70 transition-all duration-300 group">
+              <div key={product.id} className="card-interactive group overflow-hidden">
                 <div className="h-48 relative">
                   <PlaceholderImage
                     src={processImageUrl(product.image_url)}
@@ -156,14 +159,14 @@ const Home = () => {
                     <WishlistButton product={product} size="md" variant="icon" />
                   </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold mb-2 text-white group-hover:text-green-400 transition-colors">{product.name}</h3>
-                  <p className="text-gray-400 mb-2">{product.category_name}</p>
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold mb-2 text-slate-100 group-hover:text-emerald-400 transition-colors">{product.name}</h3>
+                  <p className="text-slate-400 mb-4 text-sm">{product.category_name}</p>
                   <div className="flex justify-between items-center">
-                    <span className="text-green-400 font-bold text-lg">${parseFloat(product.price).toFixed(2)}</span>
+                    <span className="text-emerald-400 font-bold text-xl">${parseFloat(product.price).toFixed(2)}</span>
                     <Link
                       to={`/products/${product.id}`}
-                      className="flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                      className="btn-primary flex items-center text-sm px-4 py-2"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -177,10 +180,10 @@ const Home = () => {
             ))}
           </div>
         )}
-        <div className="text-center mt-8">
+        <div className="text-center mt-12">
           <Link
             to="/products"
-            className="inline-flex items-center bg-blue-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition duration-300"
+            className="btn-secondary inline-flex items-center"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -191,19 +194,19 @@ const Home = () => {
       </section>
 
       {/* About Section */}
-      <section className="bg-gray-100 py-12 rounded-lg">
+      <section className="card py-16">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-6 text-center">About Sardaarji Auto Parts</h2>
+          <h2 className="text-3xl font-bold mb-8 text-center text-slate-100">About Sardaarji Auto Parts</h2>
           <div className="max-w-3xl mx-auto text-center">
-            <p className="text-lg mb-4">
+            <p className="text-lg mb-6 text-slate-300 leading-relaxed">
               We specialize in providing high-quality auto parts for all vehicle makes and models.
               Whether you're maintaining your daily driver or working on a restoration project, we have the parts you need.
             </p>
-            <p className="text-lg mb-4">
+            <p className="text-lg mb-6 text-slate-300 leading-relaxed">
               Our inventory includes both new and carefully inspected used parts, ensuring you can find exactly what you need
               for your project at competitive prices.
             </p>
-            <p className="text-lg">
+            <p className="text-lg text-slate-300 leading-relaxed">
               With over 15 years of experience in the motorcycle parts industry, we pride ourselves on our knowledge,
               customer service, and fast shipping.
             </p>

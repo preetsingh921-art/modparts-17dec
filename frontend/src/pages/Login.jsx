@@ -108,16 +108,16 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-800 via-gray-900 to-black flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center relative overflow-hidden">
       {/* Background Pattern/Texture */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-600 to-transparent transform rotate-12 scale-150"></div>
-        <div className="absolute inset-0 bg-gradient-to-l from-transparent via-gray-700 to-transparent transform -rotate-12 scale-150"></div>
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600 to-transparent transform rotate-12 scale-150"></div>
+        <div className="absolute inset-0 bg-gradient-to-l from-transparent via-emerald-700 to-transparent transform -rotate-12 scale-150"></div>
       </div>
 
       {/* Motorcycle silhouette background elements */}
-      <div className="absolute bottom-0 right-0 w-96 h-96 opacity-5">
-        <svg viewBox="0 0 400 400" className="w-full h-full">
+      <div className="absolute bottom-0 right-0 w-96 h-96 opacity-3">
+        <svg viewBox="0 0 400 400" className="w-full h-full text-slate-700">
           <path d="M50 300 Q100 250 150 280 Q200 250 250 280 Q300 250 350 300 L350 400 L50 400 Z" fill="currentColor"/>
           <circle cx="100" cy="320" r="30" fill="currentColor"/>
           <circle cx="300" cy="320" r="30" fill="currentColor"/>
@@ -130,7 +130,7 @@ const Login = () => {
         <div className="text-center mb-8">
           {/* Logo */}
           <div className="mb-6 flex justify-center">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center shadow-xl">
+            <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-large">
               {logo ? (
                 <img
                   src={logo}
@@ -146,8 +146,8 @@ const Login = () => {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-white mb-2">Welcome to ModParts</h1>
-          <p className="text-gray-400 text-lg">Log in to access your account.</p>
+          <h1 className="text-3xl font-bold text-slate-100 mb-2">Welcome to ModParts</h1>
+          <p className="text-slate-400 text-lg">Log in to access your account.</p>
         </div>
 
         {/* Error Messages */}
@@ -202,10 +202,10 @@ const Login = () => {
           {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-600" />
+              <div className="w-full border-t border-slate-600" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-gray-900 text-gray-400">Or continue with email</span>
+              <span className="px-3 bg-slate-900 text-slate-400">Or continue with email</span>
             </div>
           </div>
 
@@ -213,7 +213,7 @@ const Login = () => {
             {/* Email Input */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                 </svg>
               </div>
@@ -223,7 +223,7 @@ const Login = () => {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="Email or Username"
-                className="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-sm transition-all"
+                className="form-input w-full pl-12 pr-4 py-4"
                 required
               />
             </div>
@@ -231,7 +231,7 @@ const Login = () => {
             {/* Password Input */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
@@ -241,7 +241,7 @@ const Login = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Password"
-                className="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-sm transition-all"
+                className="form-input w-full pl-12 pr-4 py-4"
                 required
               />
             </div>
@@ -257,7 +257,7 @@ const Login = () => {
             {/* Login Button */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
+              className="btn-primary w-full py-4"
               disabled={loading}
             >
               {loading ? (
@@ -270,7 +270,7 @@ const Login = () => {
             {/* Reset Button */}
             <button
               type="button"
-              className="w-full bg-gray-700/50 text-gray-300 py-4 rounded-lg font-semibold hover:bg-gray-600/50 transition-all duration-200 backdrop-blur-sm"
+              className="btn-secondary w-full py-4"
               onClick={() => {
                 setFormData({ email: '', password: '' });
                 setError(null);
@@ -284,7 +284,7 @@ const Login = () => {
           <div className="text-center">
             <Link
               to="/forgot-password"
-              className="text-gray-400 hover:text-white text-sm transition-colors"
+              className="text-slate-400 hover:text-slate-200 text-sm transition-colors"
             >
               Forgot Password?
             </Link>
@@ -292,9 +292,9 @@ const Login = () => {
 
           {/* Sign Up Link */}
           <div className="text-center">
-            <p className="text-gray-400">
+            <p className="text-slate-400">
               Don't have an account?{' '}
-              <Link to="/register" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
+              <Link to="/register" className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors">
                 Sign Up
               </Link>
             </p>

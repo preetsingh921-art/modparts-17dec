@@ -108,22 +108,16 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center relative overflow-hidden">
-      {/* Background Pattern/Texture */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600 to-transparent transform rotate-12 scale-150"></div>
-        <div className="absolute inset-0 bg-gradient-to-l from-transparent via-emerald-700 to-transparent transform -rotate-12 scale-150"></div>
-      </div>
-
-      {/* Motorcycle silhouette background elements */}
-      <div className="absolute bottom-0 right-0 w-96 h-96 opacity-3">
-        <svg viewBox="0 0 400 400" className="w-full h-full text-slate-700">
-          <path d="M50 300 Q100 250 150 280 Q200 250 250 280 Q300 250 350 300 L350 400 L50 400 Z" fill="currentColor"/>
-          <circle cx="100" cy="320" r="30" fill="currentColor"/>
-          <circle cx="300" cy="320" r="30" fill="currentColor"/>
-          <path d="M100 290 L120 270 L180 270 L200 250 L220 270 L300 290" stroke="currentColor" strokeWidth="3" fill="none"/>
-        </svg>
-      </div>
+    <div
+      className="min-h-screen flex items-center justify-center relative overflow-hidden"
+      style={{
+        backgroundImage: "url('/backdrops/login-backdrop.svg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}
+    >
+      {/* Content overlay for better form readability */}
+      <div className="absolute inset-0 bg-slate-900/10"></div>
 
       <div className="w-full max-w-md mx-auto px-6 relative z-10">
         {/* Header Section */}

@@ -25,8 +25,8 @@ const GoogleLoginButton = ({
   const baseClasses = "w-full flex items-center justify-center px-4 py-3 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
   
   const variantClasses = {
-    primary: "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-blue-500 shadow-sm",
-    outline: "border-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 focus:ring-blue-500"
+    primary: "bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 focus:ring-emerald-500 shadow-sm",
+    outline: "border-2 border-slate-600 text-slate-300 hover:border-slate-500 hover:bg-slate-800 focus:ring-emerald-500"
   };
 
   const disabledClasses = "opacity-50 cursor-not-allowed";

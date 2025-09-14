@@ -1,0 +1,77 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Professional login page backdrop -->
+  <defs>
+    <radialGradient id="loginBg" cx="50%" cy="50%" r="80%">
+      <stop offset="0%" style="stop-color:#1e293b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f172a;stop-opacity:1" />
+    </radialGradient>
+    
+    <linearGradient id="emeraldAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.05" />
+      <stop offset="50%" style="stop-color:#34d399;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#10b981;stop-opacity:0.05" />
+    </linearGradient>
+    
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#loginBg)"/>
+  
+  <!-- Emerald accent overlay -->
+  <rect width="1920" height="1080" fill="url(#emeraldAccent)"/>
+  
+  <!-- Subtle security/lock themed elements -->
+  <g opacity="0.06" fill="#64748b">
+    <!-- Lock representations -->
+    <rect x="200" y="200" width="30" height="20" rx="15" fill="none" stroke="#64748b" stroke-width="2"/>
+    <rect x="205" y="215" width="20" height="25" rx="3"/>
+    <circle cx="215" cy="227" r="3" fill="#0f172a"/>
+    
+    <rect x="1600" y="800" width="30" height="20" rx="15" fill="none" stroke="#64748b" stroke-width="2"/>
+    <rect x="1605" y="815" width="20" height="25" rx="3"/>
+    <circle cx="1615" cy="827" r="3" fill="#0f172a"/>
+    
+    <!-- Key representations -->
+    <rect x="400" y="700" width="40" height="8" rx="4"/>
+    <rect x="435" y="695" width="8" height="8"/>
+    <rect x="435" y="705" width="8" height="8"/>
+    
+    <rect x="1400" y="300" width="40" height="8" rx="4"/>
+    <rect x="1435" y="295" width="8" height="8"/>
+    <rect x="1435" y="305" width="8" height="8"/>
+  </g>
+  
+  <!-- Geometric security pattern -->
+  <g opacity="0.08">
+    <circle cx="960" cy="540" r="200" fill="none" stroke="#10b981" stroke-width="1"/>
+    <circle cx="960" cy="540" r="150" fill="none" stroke="#34d399" stroke-width="1"/>
+    <circle cx="960" cy="540" r="100" fill="none" stroke="#10b981" stroke-width="1"/>
+    
+    <!-- Connecting lines -->
+    <line x1="760" y1="540" x2="1160" y2="540" stroke="#10b981" stroke-width="1"/>
+    <line x1="960" y1="340" x2="960" y2="740" stroke="#34d399" stroke-width="1"/>
+  </g>
+  
+  <!-- Emerald accent points with glow -->
+  <g filter="url(#softGlow)">
+    <circle cx="300" cy="400" r="2" fill="#10b981" opacity="0.8"/>
+    <circle cx="1620" cy="680" r="2" fill="#34d399" opacity="0.6"/>
+    <circle cx="500" cy="900" r="1.5" fill="#10b981" opacity="0.7"/>
+    <circle cx="1400" cy="200" r="1.5" fill="#34d399" opacity="0.5"/>
+  </g>
+  
+  <!-- Subtle diagonal lines -->
+  <g opacity="0.03">
+    <line x1="0" y1="0" x2="400" y2="400" stroke="#10b981" stroke-width="1"/>
+    <line x1="1520" y1="0" x2="1920" y2="400" stroke="#34d399" stroke-width="1"/>
+    <line x1="0" y1="680" x2="400" y2="1080" stroke="#34d399" stroke-width="1"/>
+    <line x1="1520" y1="680" x2="1920" y2="1080" stroke="#10b981" stroke-width="1"/>
+  </g>
+</svg>

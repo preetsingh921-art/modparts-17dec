@@ -58,17 +58,17 @@ const MyOrders = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-600 text-yellow-100';
       case 'processing':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-600 text-blue-100';
       case 'shipped':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-emerald-600 text-emerald-100';
       case 'delivered':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-600 text-green-100';
       case 'cancelled':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-600 text-red-100';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-slate-600 text-slate-100';
     }
   };
 

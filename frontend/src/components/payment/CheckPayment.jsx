@@ -139,7 +139,7 @@ const CheckPayment = ({ amount, onSuccess, customerInfo }) => {
       <button
         onClick={handleConfirmOrder}
         disabled={!confirmed || loading}
-        className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+        className="btn-primary w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (
           <div className="flex items-center justify-center">

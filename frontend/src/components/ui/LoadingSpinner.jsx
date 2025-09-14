@@ -90,11 +90,11 @@ export const LoadingOverlay = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {backdrop && <div className="absolute inset-0 bg-black bg-opacity-50"></div>}
-      <div className="relative bg-white rounded-lg p-8 shadow-xl">
-        <LoadingSpinner 
-          size="lg" 
-          text={text} 
+      {backdrop && <div className="absolute inset-0 bg-black bg-opacity-75 backdrop-blur-sm"></div>}
+      <div className="relative card-elevated p-8">
+        <LoadingSpinner
+          size="lg"
+          text={text}
           variant={variant}
           className="text-center"
         />

@@ -129,9 +129,9 @@ const ProductDetail = () => {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="card-elevated overflow-hidden">
         <div className="md:flex">
-          <div className="md:w-1/2 h-64 md:h-auto">
+          <div className="md:w-1/2 h-64 md:h-auto bg-slate-700">
             <PlaceholderImage
               src={processImageUrl(product.image_url)}
               alt={product.name}
@@ -142,7 +142,7 @@ const ProductDetail = () => {
 
           <div className="md:w-1/2 p-6">
             <div className="mb-4">
-              <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+              <h1 className="text-3xl font-bold mb-2 text-slate-100">{product.name}</h1>
               <div className="mb-2">
                 <RatingDisplay
                   rating={4.5}
@@ -150,35 +150,35 @@ const ProductDetail = () => {
                   size="md"
                 />
               </div>
-              <p className="text-gray-600">Category: {product.category_name}</p>
+              <p className="text-slate-400">Category: {product.category_name}</p>
             </div>
 
             <div className="mb-6">
               <div className="flex items-center mb-2">
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold mr-3">
+                <span className="bg-emerald-600 text-emerald-100 px-3 py-1 rounded-full text-sm font-semibold mr-3">
                   {product.condition_status}
                 </span>
-                <span className={`text-sm font-semibold ${product.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`text-sm font-semibold ${product.quantity > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
                 </span>
               </div>
 
-              <p className="text-3xl font-bold text-blue-800">
+              <p className="text-3xl font-bold text-emerald-400">
                 ${parseFloat(product.price).toFixed(2)}
               </p>
             </div>
 
             <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2">Description</h2>
-              <p className="text-gray-700">{product.description}</p>
+              <h2 className="text-xl font-semibold mb-2 text-slate-200">Description</h2>
+              <p className="text-slate-300">{product.description}</p>
             </div>
 
             {product.quantity > 0 && (
               <div className="mb-6">
-                <label className="block text-gray-700 mb-2">Quantity</label>
+                <label className="block text-slate-300 mb-2">Quantity</label>
                 <div className="flex items-center">
                   <button
-                    className="bg-gray-200 px-3 py-1 rounded-l"
+                    className="bg-slate-700 text-slate-200 px-3 py-1 rounded-l hover:bg-slate-600 transition-colors"
                     onClick={() => quantity > 1 && setQuantity(quantity - 1)}
                   >
                     -
@@ -189,10 +189,10 @@ const ProductDetail = () => {
                     max={product.quantity}
                     value={quantity}
                     onChange={handleQuantityChange}
-                    className="w-16 text-center border-t border-b py-1"
+                    className="form-input w-16 text-center border-t border-b border-slate-600 py-1 rounded-none"
                   />
                   <button
-                    className="bg-gray-200 px-3 py-1 rounded-r"
+                    className="bg-slate-700 text-slate-200 px-3 py-1 rounded-r hover:bg-slate-600 transition-colors"
                     onClick={() => quantity < product.quantity && setQuantity(quantity + 1)}
                   >
                     +
@@ -204,10 +204,10 @@ const ProductDetail = () => {
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
               <button
                 onClick={handleAddToCart}
-                className={`flex items-center justify-center px-6 py-3 rounded font-semibold transition-colors ${
+                className={`btn-primary flex items-center justify-center ${
                   product.quantity <= 0 || addingToCart
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-800 text-white hover:bg-blue-700'
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''
                 }`}
                 disabled={product.quantity <= 0 || addingToCart}
               >
@@ -242,10 +242,10 @@ const ProductDetail = () => {
               />
               <button
                 onClick={handleBuyNow}
-                className={`flex items-center justify-center px-6 py-3 rounded font-semibold transition-colors ${
+                className={`btn-secondary flex items-center justify-center ${
                   product.quantity <= 0 || buyingNow
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''
                 }`}
                 disabled={product.quantity <= 0 || buyingNow}
               >

@@ -53,22 +53,16 @@ const Home = () => {
   return (
     <div>
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-slate-800 to-slate-900 text-slate-100 py-20 rounded-2xl mb-12 relative overflow-hidden border border-slate-700 shadow-large">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600 to-transparent transform rotate-12 scale-150"></div>
-          <div className="absolute inset-0 bg-gradient-to-l from-transparent via-emerald-700 to-transparent transform -rotate-12 scale-150"></div>
-        </div>
-
-        {/* Automotive background elements */}
-        <div className="absolute bottom-0 right-0 w-96 h-96 opacity-3">
-          <svg viewBox="0 0 400 400" className="w-full h-full text-slate-600">
-            <path d="M50 300 Q100 250 150 280 Q200 250 250 280 Q300 250 350 300 L350 400 L50 400 Z" fill="currentColor"/>
-            <circle cx="100" cy="320" r="30" fill="currentColor"/>
-            <circle cx="300" cy="320" r="30" fill="currentColor"/>
-            <path d="M100 290 L120 270 L180 270 L200 250 L220 270 L300 290" stroke="currentColor" strokeWidth="3" fill="none"/>
-          </svg>
-        </div>
+      <section
+        className="text-slate-100 py-20 rounded-2xl mb-12 relative overflow-hidden border border-slate-700 shadow-large"
+        style={{
+          backgroundImage: "url('/backdrops/hero-backdrop.svg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      >
+        {/* Content overlay for better text readability */}
+        <div className="absolute inset-0 bg-slate-900/20"></div>
 
         <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-slate-100 to-emerald-400 bg-clip-text text-transparent">

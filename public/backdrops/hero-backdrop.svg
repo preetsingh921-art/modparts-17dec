@@ -1,0 +1,65 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Professional hero section backdrop -->
+  <defs>
+    <radialGradient id="heroGradient" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" style="stop-color:#1e293b;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#020617;stop-opacity:1" />
+    </radialGradient>
+    
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.1" />
+      <stop offset="50%" style="stop-color:#34d399;stop-opacity:0.05" />
+      <stop offset="100%" style="stop-color:#10b981;stop-opacity:0.1" />
+    </linearGradient>
+    
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#heroGradient)"/>
+  
+  <!-- Accent overlay -->
+  <rect width="1920" height="1080" fill="url(#accentGradient)"/>
+  
+  <!-- Geometric elements -->
+  <g opacity="0.1">
+    <!-- Large circles -->
+    <circle cx="1600" cy="300" r="200" fill="none" stroke="#10b981" stroke-width="2"/>
+    <circle cx="300" cy="800" r="150" fill="none" stroke="#34d399" stroke-width="1"/>
+    
+    <!-- Connecting lines -->
+    <path d="M0,400 Q480,350 960,400 Q1440,450 1920,400" stroke="#10b981" stroke-width="1" fill="none"/>
+    <path d="M0,600 Q480,650 960,600 Q1440,550 1920,600" stroke="#34d399" stroke-width="1" fill="none"/>
+  </g>
+  
+  <!-- Subtle automotive elements -->
+  <g opacity="0.05" fill="#64748b">
+    <!-- Engine block representation -->
+    <rect x="1500" y="200" width="80" height="60" rx="5"/>
+    <rect x="1510" y="210" width="15" height="40" rx="2"/>
+    <rect x="1535" y="210" width="15" height="40" rx="2"/>
+    <rect x="1560" y="210" width="15" height="40" rx="2"/>
+    
+    <!-- Gear representation -->
+    <circle cx="400" cy="300" r="40"/>
+    <circle cx="400" cy="300" r="25"/>
+    <path d="M400,260 L410,270 L400,280 L390,270 Z"/>
+    <path d="M440,300 L430,310 L420,300 L430,290 Z"/>
+    <path d="M400,340 L390,330 L400,320 L410,330 Z"/>
+    <path d="M360,300 L370,290 L380,300 L370,310 Z"/>
+  </g>
+  
+  <!-- Emerald accent points -->
+  <g filter="url(#glow)">
+    <circle cx="960" cy="540" r="3" fill="#10b981" opacity="0.6"/>
+    <circle cx="1200" cy="400" r="2" fill="#34d399" opacity="0.4"/>
+    <circle cx="720" cy="680" r="2" fill="#10b981" opacity="0.4"/>
+  </g>
+</svg>

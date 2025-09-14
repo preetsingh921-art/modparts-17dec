@@ -1,0 +1,57 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Professional product grid backdrop -->
+  <defs>
+    <linearGradient id="productBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+    </linearGradient>
+    
+    <pattern id="gridPattern" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M60,0 L0,0 L0,60" fill="none" stroke="#334155" stroke-width="0.5" opacity="0.1"/>
+    </pattern>
+    
+    <pattern id="dotPattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="1" fill="#475569" opacity="0.1"/>
+    </pattern>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#productBg)"/>
+  
+  <!-- Grid pattern -->
+  <rect width="1920" height="1080" fill="url(#gridPattern)"/>
+  <rect width="1920" height="1080" fill="url(#dotPattern)"/>
+  
+  <!-- Subtle product-related shapes -->
+  <g opacity="0.04" fill="#64748b">
+    <!-- Tool silhouettes -->
+    <rect x="100" y="100" width="8" height="80" rx="4" transform="rotate(15 104 140)"/>
+    <rect x="120" y="120" width="8" height="60" rx="4" transform="rotate(-10 124 150)"/>
+    
+    <rect x="1700" y="200" width="8" height="80" rx="4" transform="rotate(25 1704 240)"/>
+    <rect x="1720" y="220" width="8" height="60" rx="4" transform="rotate(-15 1724 250)"/>
+    
+    <!-- Bolt/screw representations -->
+    <circle cx="300" cy="800" r="8"/>
+    <circle cx="300" cy="800" r="4"/>
+    <path d="M296,796 L304,804 M304,796 L296,804"/>
+    
+    <circle cx="1600" cy="900" r="8"/>
+    <circle cx="1600" cy="900" r="4"/>
+    <path d="M1596,896 L1604,904 M1604,896 L1596,904"/>
+  </g>
+  
+  <!-- Emerald accent elements -->
+  <g opacity="0.08">
+    <path d="M0,300 Q480,280 960,300 Q1440,320 1920,300" stroke="#10b981" stroke-width="1" fill="none"/>
+    <path d="M0,780 Q480,800 960,780 Q1440,760 1920,780" stroke="#34d399" stroke-width="1" fill="none"/>
+  </g>
+  
+  <!-- Corner accents -->
+  <g opacity="0.1">
+    <path d="M0,0 L50,0 L0,50 Z" fill="#10b981"/>
+    <path d="M1920,0 L1870,0 L1920,50 Z" fill="#10b981"/>
+    <path d="M0,1080 L50,1080 L0,1030 Z" fill="#34d399"/>
+    <path d="M1920,1080 L1870,1080 L1920,1030 Z" fill="#34d399"/>
+  </g>
+</svg>

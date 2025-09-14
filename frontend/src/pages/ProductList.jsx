@@ -292,7 +292,16 @@ const ProductList = () => {
   };
 
   return (
-    <div className="container mx-auto px-4">
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundImage: "url('/backdrops/product-grid-backdrop.svg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      <div className="container mx-auto px-4 relative">
       <h1 className="text-3xl font-bold mb-6">
         {searchQuery
           ? `Search Results for "${searchQuery}"`
@@ -671,8 +680,8 @@ const ProductList = () => {
               </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredAndSortedProducts.filter(product => product && product.id && product.name).map(product => (
-                <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="h-48 relative">
+                <div key={product.id} className="card-interactive overflow-hidden">
+                  <div className="h-48 relative bg-slate-700">
                     <PlaceholderImage
                       src={processImageUrl(product.image_url)}
                       alt={product.name}
@@ -686,32 +695,32 @@ const ProductList = () => {
                     </div>
                   </div>
                   <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-1">{product.name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{product.category_name}</p>
+                    <h3 className="text-lg font-semibold mb-1 text-slate-100">{product.name}</h3>
+                    <p className="text-sm text-slate-400 mb-2">{product.category_name}</p>
                     <div className="flex items-center mb-2">
-                      <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                      <span className="text-sm bg-emerald-600 text-emerald-100 px-2 py-1 rounded">
                         {product.condition_status}
                       </span>
-                      <span className="ml-2 text-sm text-gray-600">
+                      <span className="ml-2 text-sm text-slate-400">
                         {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
                       </span>
                     </div>
-                    <p className="text-blue-800 font-bold text-xl mb-3">
+                    <p className="text-emerald-400 font-bold text-xl mb-3">
                       ${parseFloat(product.price).toFixed(2)}
                     </p>
                     <div className="flex justify-between">
                       <Link
                         to={`/products/${product.id}`}
-                        className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+                        className="btn-secondary px-4 py-2 text-sm"
                       >
                         Details
                       </Link>
                       <button
                         onClick={() => handleAddToCart(product)}
-                        className={`flex items-center justify-center px-4 py-2 rounded font-medium transition-colors ${
+                        className={`btn-primary flex items-center justify-center px-4 py-2 text-sm ${
                           product.quantity <= 0 || addingToCart[product.id]
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-blue-800 text-white hover:bg-blue-700'
+                            ? 'opacity-50 cursor-not-allowed'
+                            : ''
                         }`}
                         disabled={product.quantity <= 0 || addingToCart[product.id]}
                       >
@@ -757,6 +766,7 @@ const ProductList = () => {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 };

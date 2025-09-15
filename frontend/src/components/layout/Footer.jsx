@@ -15,7 +15,7 @@ const Footer = () => {
                 <img
                   src={logo}
                   alt="ModParts Logo"
-                  className="h-8 w-auto filter brightness-0 invert group-hover:scale-110 transition-transform"
+                  className="h-8 w-auto group-hover:scale-110 transition-transform"
                 />
               ) : (
                 <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-soft">

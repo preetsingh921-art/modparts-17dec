@@ -64,7 +64,7 @@ const Home = () => {
               <img
                 src={logo}
                 alt="ModParts Logo"
-                className="h-32 md:h-40 lg:h-48 w-auto mx-auto"
+                className="h-40 md:h-52 lg:h-64 w-auto mx-auto filter brightness-125 contrast-110 drop-shadow-2xl"
               />
             </div>
           )}

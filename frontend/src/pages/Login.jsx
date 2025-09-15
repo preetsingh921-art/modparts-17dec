@@ -120,7 +120,7 @@ const Login = () => {
                 <img
                   src={logo}
                   alt="ModParts Logo"
-                  className="w-16 h-16 object-contain filter brightness-0 invert"
+                  className="w-16 h-16 object-contain"
                 />
               ) : (
                 <div className="text-white text-center">

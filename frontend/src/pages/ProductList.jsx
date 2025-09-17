@@ -64,16 +64,17 @@ const ProductList = () => {
   // Get search query from URL
   const searchQuery = new URLSearchParams(location.search).get('search');
 
-  // Sync selectedCategories with categoryId from URL (only when categoryId changes)
+  // Sync selectedCategories with categoryId from URL (only on initial load or when categoryId changes and no filters applied)
   useEffect(() => {
     isUpdatingFromUrl.current = true;
     if (categoryId) {
       const categoryIdStr = String(categoryId);
       setSelectedCategory(categoryIdStr);
-      // Set selectedCategories to show the filter as active and checkbox as checked
-      setSelectedCategories([categoryIdStr]);
+      // Only set selectedCategories if they're currently empty (initial load or no user filters)
+      setSelectedCategories(prev => prev.length === 0 ? [categoryIdStr] : prev);
     } else {
       setSelectedCategory('all');
+      // Only clear selectedCategories if we're navigating away from a category URL
       setSelectedCategories([]);
     }
     // Reset the flag after a short delay to allow state updates to complete
@@ -120,34 +121,38 @@ const ProductList = () => {
           // For search, use the old API for now
           const data = await searchProducts(searchQuery);
           result = { products: data, pagination: null };
-        } else if (categoryId) {
-          console.log('📂 Using paginated API for category:', categoryId);
-          // Use the new paginated API for category filtering to get proper pagination
+        } else {
+          console.log('📄 Using paginated API for product listing');
+
+          // Determine which categories to filter by
+          let categoriesToFilter = [];
+
+          if (categoryId && selectedCategories.length === 0) {
+            // If we have a categoryId from URL and no additional filters, use the URL category
+            categoriesToFilter = [String(categoryId)];
+            console.log('📂 Using URL category:', categoryId);
+          } else if (selectedCategories.length > 0) {
+            // If user has applied category filters, use those (this allows changing filters)
+            categoriesToFilter = selectedCategories;
+            console.log('🔍 Using selected categories:', selectedCategories);
+          }
+
+          // Use new paginated API for product listing with category filters
           result = await getProducts({
             page: currentPage,
             limit: itemsPerPage,
             sortBy: 'created_at',
             sortOrder: 'desc',
-            category: String(categoryId),
+            categories: categoriesToFilter.length > 0 ? categoriesToFilter.join(',') : undefined,
             minPrice: priceRange.min > 0 ? priceRange.min : undefined,
             maxPrice: priceRange.max < 99999 ? priceRange.max : undefined
           });
 
-          // Ensure categoryId is stored as a string
-          const categoryIdStr = String(categoryId);
-          setSelectedCategory(categoryIdStr);
-        } else {
-          console.log('📄 Using paginated API for general listing');
-          // Use new paginated API for general product listing with category filters
-          result = await getProducts({
-            page: currentPage,
-            limit: itemsPerPage,
-            sortBy: 'created_at',
-            sortOrder: 'desc',
-            categories: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
-            minPrice: priceRange.min > 0 ? priceRange.min : undefined,
-            maxPrice: priceRange.max < 99999 ? priceRange.max : undefined
-          });
+          // Update selectedCategory for backward compatibility
+          if (categoryId && selectedCategories.length === 0) {
+            const categoryIdStr = String(categoryId);
+            setSelectedCategory(categoryIdStr);
+          }
         }
 
 

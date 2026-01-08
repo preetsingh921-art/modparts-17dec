@@ -26,16 +26,16 @@ const Header = () => {
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center space-x-3 hover:opacity-90 transition-opacity group">
               <img
-                src="/images/vintage-logo.png"
-                alt="Vintage Yamaha Parts"
-                className="h-14 w-auto"
+                src="/images/sardaarji-autoparts-logo.png"
+                alt="Sardaarji Autoparts"
+                className="h-14 w-auto rounded"
               />
               <div className="hidden sm:block">
                 <span className="text-xl font-bold tracking-wide" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                  VINTAGE YAMAHA
+                  SARDAARJI AUTOPARTS
                 </span>
                 <span className="block text-xs text-[#B8860B] tracking-widest" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                  MOTORCYCLE PARTS
+                  VINTAGE MOTORCYCLE PARTS
                 </span>
               </div>
             </Link>
@@ -47,8 +47,8 @@ const Header = () => {
               <Link
                 to="/"
                 className={`px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm transition-all duration-200 ${location.pathname === '/'
-                    ? 'bg-[#8B2332] text-white'
-                    : 'hover:bg-[#8B2332] hover:text-white'
+                  ? 'bg-[#8B2332] text-white'
+                  : 'hover:bg-[#8B2332] hover:text-white'
                   }`}
                 style={{ fontFamily: "'Oswald', sans-serif" }}
               >
@@ -57,8 +57,8 @@ const Header = () => {
               <Link
                 to="/products"
                 className={`px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm transition-all duration-200 ${location.pathname.startsWith('/products')
-                    ? 'bg-[#8B2332] text-white'
-                    : 'hover:bg-[#8B2332] hover:text-white'
+                  ? 'bg-[#8B2332] text-white'
+                  : 'hover:bg-[#8B2332] hover:text-white'
                   }`}
                 style={{ fontFamily: "'Oswald', sans-serif" }}
               >
@@ -68,8 +68,8 @@ const Header = () => {
                 <Link
                   to="/orders"
                   className={`px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm transition-all duration-200 ${location.pathname.startsWith('/orders')
-                      ? 'bg-[#8B2332] text-white'
-                      : 'hover:bg-[#8B2332] hover:text-white'
+                    ? 'bg-[#8B2332] text-white'
+                    : 'hover:bg-[#8B2332] hover:text-white'
                     }`}
                   style={{ fontFamily: "'Oswald', sans-serif" }}
                 >
@@ -80,8 +80,8 @@ const Header = () => {
                 <Link
                   to="/admin"
                   className={`px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm transition-all duration-200 ${location.pathname.startsWith('/admin')
-                      ? 'bg-[#996f09] text-white'
-                      : 'bg-[#B8860B] hover:bg-[#996f09] text-white'
+                    ? 'bg-[#996f09] text-white'
+                    : 'bg-[#B8860B] hover:bg-[#996f09] text-white'
                     }`}
                   style={{ fontFamily: "'Oswald', sans-serif" }}
                 >

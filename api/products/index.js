@@ -160,10 +160,14 @@ module.exports = async function handler(req, res) {
 
     } else if (req.method === 'POST') {
       // Create new product (admin only)
-      const { name, description, condition_status, price, quantity, category_id, image_url } = req.body;
+      const {
+        name, description, condition_status, price, quantity,
+        category_id, image_url, part_number, barcode,
+        warehouse_id, bin_number
+      } = req.body;
 
       console.log('🔍 Creating product (Neon) with data:', {
-        name, description, condition_status, price, quantity, category_id, image_url
+        name, description, condition_status, price, quantity, category_id, image_url, part_number, barcode
       });
 
       if (!name || !condition_status || !price || price < 0 || quantity < 0) {
@@ -172,11 +176,16 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // Auto-generate barcode if not provided
+      const generatedBarcode = barcode || `MP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
       const insertQuery = `
         INSERT INTO products (
-          name, description, condition_status, price, quantity, category_id, image_url, created_at, updated_at
+          name, description, condition_status, price, quantity, 
+          category_id, image_url, part_number, barcode,
+          warehouse_id, bin_number, created_at, updated_at
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()
         )
         RETURNING *
       `;
@@ -188,14 +197,18 @@ module.exports = async function handler(req, res) {
         parseFloat(price),
         parseInt(quantity),
         category_id ? parseInt(category_id) : null,
-        image_url || null
+        image_url || null,
+        part_number || null,
+        generatedBarcode,
+        warehouse_id ? parseInt(warehouse_id) : null,
+        bin_number || null
       ];
 
       try {
         const { rows } = await db.query(insertQuery, values);
         const product = rows[0];
 
-        console.log('✅ Product created successfully (Neon):', product.id);
+        console.log('✅ Product created successfully (Neon):', product.id, 'Barcode:', product.barcode);
         res.status(201).json({
           message: 'Product created successfully',
           data: product
@@ -207,6 +220,7 @@ module.exports = async function handler(req, res) {
           error: error.message
         });
       }
+
 
     } else {
       res.status(405).json({ message: 'Method not allowed' });

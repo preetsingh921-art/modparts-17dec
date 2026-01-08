@@ -1,354 +1,234 @@
-const { supabase, supabaseAdmin } = require('../../lib/supabase')
-const jwt = require('jsonwebtoken')
+const db = require('../../lib/db');
+const jwt = require('jsonwebtoken');
 
 // Helper function to verify JWT token
 function verifyToken(req) {
-  console.log('🔐 Verifying token...')
-  console.log('🔐 Auth header:', req.headers.authorization ? 'Present' : 'Missing')
-
-  const authHeader = req.headers.authorization
+  console.log('🔐 Verifying token...');
+  const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('❌ No valid auth header found')
-    return null
+    console.log('❌ No valid auth header found');
+    return null;
   }
 
-  const token = authHeader.substring(7)
-  console.log('🔐 Token extracted:', token.substring(0, 20) + '...')
-  console.log('🔐 JWT_SECRET available:', process.env.JWT_SECRET ? 'Yes' : 'No')
-
+  const token = authHeader.substring(7);
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret')
-    console.log('✅ Token verified successfully:', { id: decoded.id, email: decoded.email, role: decoded.role })
-    return decoded
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    console.log('✅ Token verified successfully:', { id: decoded.userId || decoded.id, email: decoded.email });
+    return decoded;
   } catch (error) {
-    console.log('❌ Token verification failed:', error.message)
-    return null
+    console.log('❌ Token verification failed:', error.message);
+    return null;
   }
 }
 
 module.exports = async function handler(req, res) {
-  console.log('📝 Reviews API called:', req.method, req.path)
-
-  // CORS is handled by dev-server middleware
+  console.log('📝 Reviews API (Neon) called:', req.method, req.path);
 
   try {
-    const { method, query, body } = req
-    const { product_id, review_id, page = 1, limit = 10, sort = 'newest', status = 'all' } = query
+    const { method, query, body } = req;
+    const { product_id, review_id, page = 1, limit = 10, sort = 'newest', status = 'all' } = query;
 
-    console.log(`📝 Reviews API called: ${method} with params:`, { product_id, review_id, page, limit, sort, status })
-
-    // Simple test response first
-    if (req.query.test === 'true') {
-      return res.status(200).json({
-        success: true,
-        message: 'Reviews API is working!',
-        method,
-        query,
-        timestamp: new Date().toISOString()
-      })
-    }
+    // Standardize page/limit
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    const offset = (pageNum - 1) * limitNum;
 
     switch (method) {
       case 'GET':
         if (product_id) {
-          return await getProductReviews(req, res, product_id, page, limit, sort)
+          return await getProductReviews(req, res, product_id, pageNum, limitNum, offset, sort);
         } else if (review_id) {
-          return await getReviewById(req, res, review_id)
+          return await getReviewById(req, res, review_id);
         } else {
-          return await getAllReviews(req, res, page, limit, status)
+          return await getAllReviews(req, res, pageNum, limitNum, offset, status);
         }
 
       case 'POST':
-        return await createReview(req, res, body)
+        return await createReview(req, res, body);
 
       case 'PUT':
         if (review_id) {
-          return await updateReview(req, res, review_id, body)
+          return await updateReview(req, res, review_id, body);
         } else {
-          return res.status(400).json({ success: false, message: 'Review ID is required for updates' })
+          return res.status(400).json({ success: false, message: 'Review ID is required for updates' });
         }
 
       case 'DELETE':
         if (review_id) {
-          return await deleteReview(req, res, review_id)
+          return await deleteReview(req, res, review_id);
         } else {
-          return res.status(400).json({ success: false, message: 'Review ID is required for deletion' })
+          return res.status(400).json({ success: false, message: 'Review ID is required for deletion' });
         }
 
       default:
-        return res.status(405).json({ success: false, message: 'Method not allowed' })
+        return res.status(405).json({ success: false, message: 'Method not allowed' });
     }
 
   } catch (error) {
-    console.error('❌ Reviews API error:', error)
-    console.error('❌ Error stack:', error.stack)
+    console.error('❌ Reviews API error:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    })
+      error: error.message
+    });
   }
-}
+};
 
 // Get reviews for a specific product
-async function getProductReviews(req, res, productId, page, limit, sort) {
+async function getProductReviews(req, res, productId, page, limit, offset, sort) {
   try {
-    const offset = (parseInt(page) - 1) * parseInt(limit)
-    
-    console.log(`📝 Fetching reviews for product ${productId}`)
-    
-    // Build sort order
-    let orderColumn = 'created_at'
-    let ascending = false
-    
+    console.log(`📝 Fetching reviews for product ${productId}`);
+
+    // Build sort clause
+    let sortClause = 'pr.created_at DESC';
     switch (sort) {
-      case 'oldest':
-        orderColumn = 'created_at'
-        ascending = true
-        break
-      case 'highest_rating':
-        orderColumn = 'rating'
-        ascending = false
-        break
-      case 'lowest_rating':
-        orderColumn = 'rating'
-        ascending = true
-        break
-      case 'most_helpful':
-        orderColumn = 'helpful_count'
-        ascending = false
-        break
-      default:
-        orderColumn = 'created_at'
-        ascending = false
-    }
-    
-    // Get reviews with user information
-    const { data: reviews, error: reviewsError, count } = await supabaseAdmin
-      .from('product_reviews')
-      .select(`
-        id,
-        rating,
-        review_title,
-        review_text,
-        is_verified_purchase,
-        helpful_count,
-        created_at,
-        updated_at,
-        users (
-          id,
-          first_name,
-          last_name,
-          email
-        )
-      `, { count: 'exact' })
-      .eq('product_id', productId)
-      .eq('is_approved', true)
-      .order(orderColumn, { ascending })
-      .range(offset, offset + parseInt(limit) - 1)
-    
-    if (reviewsError) {
-      console.error('❌ Error fetching reviews:', reviewsError)
-      throw reviewsError
-    }
-    
-    // Get product rating statistics
-    const { data: ratingStats, error: statsError } = await supabase
-      .rpc('get_product_rating_stats', { product_id_param: parseInt(productId) })
-    
-    if (statsError) {
-      console.error('❌ Error fetching rating stats:', statsError)
-    }
-    
-    // Get helpfulness counts for all reviews in one query
-    const reviewIds = reviews?.map(r => r.id) || []
-    let helpfulnessCounts = {}
-
-    if (reviewIds.length > 0) {
-      const { data: helpfulnessData } = await supabaseAdmin
-        .from('review_helpfulness')
-        .select('review_id, is_helpful')
-        .in('review_id', reviewIds)
-
-      // Calculate counts for each review
-      helpfulnessData?.forEach(vote => {
-        if (!helpfulnessCounts[vote.review_id]) {
-          helpfulnessCounts[vote.review_id] = { helpful: 0, notHelpful: 0 }
-        }
-        if (vote.is_helpful) {
-          helpfulnessCounts[vote.review_id].helpful++
-        } else {
-          helpfulnessCounts[vote.review_id].notHelpful++
-        }
-      })
+      case 'oldest': sortClause = 'pr.created_at ASC'; break;
+      case 'highest_rating': sortClause = 'pr.rating DESC'; break;
+      case 'lowest_rating': sortClause = 'pr.rating ASC'; break;
+      case 'most_helpful': sortClause = 'helpful_count_calc DESC'; break;
     }
 
-    // Format reviews data
-    const formattedReviews = reviews?.map(review => ({
+    // 1. Fetch Reviews with User info and helpful counts
+    // Note: Use subqueries for helpful counts to avoid group by complexity with all columns
+    const reviewsQuery = `
+      SELECT 
+        pr.*,
+        u.first_name, u.last_name, u.email,
+        (SELECT COUNT(*) FROM review_helpfulness rh WHERE rh.review_id = pr.id AND rh.is_helpful = true) as helpful_count_calc,
+        (SELECT COUNT(*) FROM review_helpfulness rh WHERE rh.review_id = pr.id AND rh.is_helpful = false) as not_helpful_count_calc
+      FROM product_reviews pr
+      LEFT JOIN users u ON pr.user_id = u.id
+      WHERE pr.product_id = $1 AND pr.is_approved = true
+      ORDER BY ${sortClause}
+      LIMIT $2 OFFSET $3
+    `;
+
+    const countQuery = `SELECT COUNT(*) FROM product_reviews WHERE product_id = $1 AND is_approved = true`;
+
+    const [reviewsResult, countResult] = await Promise.all([
+      db.query(reviewsQuery, [productId, limit, offset]),
+      db.query(countQuery, [productId])
+    ]);
+
+    const reviews = reviewsResult.rows;
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    // 2. Calculate Stats (Rating Distribution & Avg)
+    const statsQuery = `
+      SELECT rating, COUNT(*) as count 
+      FROM product_reviews 
+      WHERE product_id = $1 AND is_approved = true
+      GROUP BY rating
+    `;
+    const statsResult = await db.query(statsQuery, [productId]);
+
+    const distribution = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    let sumRating = 0;
+    let totalReviews = 0;
+
+    statsResult.rows.forEach(row => {
+      distribution[row.rating] = parseInt(row.count);
+      sumRating += row.rating * parseInt(row.count);
+      totalReviews += parseInt(row.count);
+    });
+
+    const averageRating = totalReviews > 0 ? sumRating / totalReviews : 0;
+
+    // Format response
+    const formattedReviews = reviews.map(review => ({
       id: review.id,
       rating: review.rating,
       title: review.review_title,
       text: review.review_text,
       isVerifiedPurchase: review.is_verified_purchase,
-      helpfulCount: helpfulnessCounts[review.id]?.helpful || 0,
-      notHelpfulCount: helpfulnessCounts[review.id]?.notHelpful || 0,
+      helpfulCount: parseInt(review.helpful_count_calc) || 0,
+      notHelpfulCount: parseInt(review.not_helpful_count_calc) || 0,
       createdAt: review.created_at,
       updatedAt: review.updated_at,
       user: {
-        id: review.users?.id,
-        name: `${review.users?.first_name || ''} ${review.users?.last_name || ''}`.trim() || 'Anonymous',
-        email: review.users?.email
+        id: review.user_id,
+        name: `${review.first_name || ''} ${review.last_name || ''}`.trim() || 'Anonymous',
+        email: review.email
       }
-    })) || []
-    
-    const stats = ratingStats?.[0] || {
-      average_rating: 0,
-      total_reviews: 0,
-      rating_distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
-    }
-    
+    }));
+
     return res.status(200).json({
       success: true,
       data: {
         reviews: formattedReviews,
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: count || 0,
-          totalPages: Math.ceil((count || 0) / parseInt(limit))
+          page: page,
+          limit: limit,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / limit)
         },
         statistics: {
-          averageRating: parseFloat(stats.average_rating),
-          totalReviews: stats.total_reviews,
-          ratingDistribution: stats.rating_distribution
+          averageRating: parseFloat(averageRating.toFixed(1)),
+          totalReviews,
+          ratingDistribution: distribution
         }
       }
-    })
+    });
 
   } catch (error) {
-    console.error('❌ Error in getProductReviews:', error)
-    throw error
+    console.error('❌ Error in getProductReviews:', error);
+    throw error;
   }
 }
 
 // Create a new review
 async function createReview(req, res, body) {
   try {
-    console.log('📝 Creating review with body:', body)
-    const { product_id, rating, review_title, review_text } = body
+    const { product_id, rating, review_title, review_text } = body;
+    const user = verifyToken(req);
 
-    // Verify authentication using JWT
-    const user = verifyToken(req)
     if (!user) {
-      console.log('❌ Authentication failed in createReview')
-      return res.status(401).json({ success: false, message: 'Invalid authorization' })
+      return res.status(401).json({ success: false, message: 'Invalid authorization' });
     }
+    const userId = user.userId || user.id;
 
-    console.log('✅ User authenticated:', user.email)
-    
-    console.log(`📝 Creating review for product ${product_id} by user ${user.id}`)
-    
-    // Validate required fields
     if (!product_id || !rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Product ID and valid rating (1-5) are required' 
-      })
+      return res.status(400).json({ success: false, message: 'Product ID and valid rating (1-5) are required' });
     }
-    
-    // Check if user has already reviewed this product
-    console.log('🔍 Checking for existing review...')
-    const { data: existingReview, error: checkError } = await supabase
-      .from('product_reviews')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('product_id', product_id)
-      .single()
 
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.log('❌ Error checking existing review:', checkError)
-      throw new Error(`Database error: ${checkError.message}`)
+    // Check existing review
+    const checkQuery = `SELECT id FROM product_reviews WHERE user_id = $1 AND product_id = $2`;
+    const checkResult = await db.query(checkQuery, [userId, product_id]);
+
+    if (checkResult.rows.length > 0) {
+      return res.status(400).json({ success: false, message: 'You have already reviewed this product' });
     }
-    
-    if (existingReview) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'You have already reviewed this product' 
-      })
-    }
-    
-    // Check if user has purchased this product
-    console.log('🔍 Checking verified purchase...')
-    let isVerifiedPurchase = false
-    try {
-      const { data: isVerified, error: verifyError } = await supabase
-        .rpc('check_verified_purchase', {
-          user_id_param: user.id,
-          product_id_param: parseInt(product_id)
-        })
 
-      if (verifyError) {
-        console.log('⚠️ Verified purchase check failed:', verifyError.message)
-        // Continue without verified purchase status
-      } else {
-        isVerifiedPurchase = isVerified || false
-      }
-    } catch (err) {
-      console.log('⚠️ Verified purchase function not available:', err.message)
-      // Continue without verified purchase status
-    }
-    
-    // Create the review
-    console.log('💾 Creating review in database...')
-    console.log('💾 Review data:', {
-      product_id: parseInt(product_id),
-      user_id: user.id,
-      rating: parseInt(rating),
-      review_title: review_title || null,
-      review_text: review_text || null,
-      is_verified_purchase: isVerifiedPurchase
-    })
+    // Check verified purchase (User has an order with this product that is paid/delivered)
+    // Checking if product exists in any of user's orders
+    const purchaseQuery = `
+      SELECT 1 FROM orders o
+      JOIN order_items oi ON o.id = oi.order_id
+      WHERE o.user_id = $1 AND oi.product_id = $2
+      LIMIT 1
+    `;
+    const purchaseResult = await db.query(purchaseQuery, [userId, product_id]);
+    const isVerifiedPurchase = purchaseResult.rows.length > 0;
 
-    const { data: review, error: reviewError } = await supabase
-      .from('product_reviews')
-      .insert([{
-        product_id: parseInt(product_id),
-        user_id: user.id,
-        rating: parseInt(rating),
-        review_title: review_title || null,
-        review_text: review_text || null,
-        is_verified_purchase: isVerifiedPurchase
-      }])
-      .select(`
-        id,
-        rating,
-        review_title,
-        review_text,
-        is_verified_purchase,
-        helpful_count,
-        created_at
-      `)
-      .single()
+    // Insert Review
+    const insertQuery = `
+      INSERT INTO product_reviews 
+      (product_id, user_id, rating, review_title, review_text, is_verified_purchase, created_at, updated_at, is_approved)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), DEFAULT)
+      RETURNING *
+    `;
 
-    if (reviewError) {
-      console.error('❌ Error creating review:', reviewError)
-      console.error('❌ Error details:', JSON.stringify(reviewError, null, 2))
+    const { rows } = await db.query(insertQuery, [
+      product_id,
+      userId,
+      rating,
+      review_title || null,
+      review_text || null,
+      isVerifiedPurchase
+    ]);
 
-      // Check if it's a table not found error
-      if (reviewError.code === '42P01') {
-        throw new Error('Database table "product_reviews" does not exist. Please run the database schema setup.')
-      }
-
-      // Check if it's a foreign key constraint error
-      if (reviewError.code === '23503') {
-        throw new Error('Invalid product_id or user_id. Please check the data.')
-      }
-
-      throw new Error(`Database error: ${reviewError.message}`)
-    }
-    
-    console.log('✅ Review created successfully:', review.id)
+    const review = rows[0];
+    console.log('✅ Review created successfully:', review.id);
 
     return res.status(201).json({
       success: true,
@@ -359,293 +239,198 @@ async function createReview(req, res, body) {
         title: review.review_title,
         text: review.review_text,
         isVerifiedPurchase: review.is_verified_purchase,
-        helpfulCount: review.helpful_count,
+        helpfulCount: 0,
         createdAt: review.created_at,
-        user: {
-          name: user.email || 'Anonymous' // Use email from JWT token
-        }
+        user: { name: user.email || 'Anonymous' }
       }
-    })
+    });
 
   } catch (error) {
-    console.error('❌ Error in createReview:', error)
-    throw error
+    console.error('❌ Error in createReview:', error);
+    throw error;
   }
 }
 
 // Update an existing review
 async function updateReview(req, res, reviewId, body) {
   try {
-    const { rating, review_title, review_text, is_approved } = body
+    const { rating, review_title, review_text, is_approved } = body;
+    const user = verifyToken(req);
 
-    // Verify authentication using JWT
-    const user = verifyToken(req)
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Authorization required' })
+      return res.status(401).json({ success: false, message: 'Authorization required' });
     }
-    
-    console.log(`📝 Updating review ${reviewId} by user ${user.id}`)
-    
-    // Check if user is admin or review owner
-    const { data: userInfo } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    
-    const isAdmin = userInfo?.role === 'admin'
-    
-    // Get the review to check ownership
-    const { data: existingReview } = await supabase
-      .from('product_reviews')
-      .select('user_id')
-      .eq('id', reviewId)
-      .single()
-    
-    if (!existingReview) {
-      return res.status(404).json({ success: false, message: 'Review not found' })
+    const userId = user.userId || user.id;
+
+    // Check role and ownership
+    const userQuery = `SELECT role FROM users WHERE id = $1`;
+    const userRes = await db.query(userQuery, [userId]);
+    const isAdmin = userRes.rows[0]?.role === 'admin';
+
+    const reviewQuery = `SELECT user_id FROM product_reviews WHERE id = $1`;
+    const reviewRes = await db.query(reviewQuery, [reviewId]);
+
+    if (reviewRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
-    
-    const isOwner = existingReview.user_id === user.id
-    
+
+    const isOwner = reviewRes.rows[0].user_id === userId;
     if (!isAdmin && !isOwner) {
-      return res.status(403).json({ success: false, message: 'Not authorized to update this review' })
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
-    
-    // Build update object
-    const updateData = {}
-    if (rating !== undefined && rating >= 1 && rating <= 5) {
-      updateData.rating = parseInt(rating)
+
+    // Build update query
+    const updates = [];
+    const values = [];
+    let idx = 1;
+
+    if (rating !== undefined) { updates.push(`rating = $${idx++}`); values.push(rating); }
+    if (review_title !== undefined) { updates.push(`review_title = $${idx++}`); values.push(review_title); }
+    if (review_text !== undefined) { updates.push(`review_text = $${idx++}`); values.push(review_text); }
+    if (is_approved !== undefined && isAdmin) { updates.push(`is_approved = $${idx++}`); values.push(is_approved); }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid fields to update' });
     }
-    if (review_title !== undefined) {
-      updateData.review_title = review_title
-    }
-    if (review_text !== undefined) {
-      updateData.review_text = review_text
-    }
-    // Only admins can update approval status
-    if (is_approved !== undefined && isAdmin) {
-      updateData.is_approved = is_approved
-    }
-    
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ success: false, message: 'No valid fields to update' })
-    }
-    
-    // Update the review
-    const { data: review, error: updateError } = await supabase
-      .from('product_reviews')
-      .update(updateData)
-      .eq('id', reviewId)
-      .select(`
-        id,
-        rating,
-        review_title,
-        review_text,
-        is_verified_purchase,
-        is_approved,
-        helpful_count,
-        created_at,
-        updated_at
-      `)
-      .single()
-    
-    if (updateError) {
-      console.error('❌ Error updating review:', updateError)
-      throw updateError
-    }
-    
-    console.log('✅ Review updated successfully:', review.id)
-    
+
+    updates.push(`updated_at = NOW()`);
+    values.push(reviewId);
+
+    const updateSql = `
+      UPDATE product_reviews 
+      SET ${updates.join(', ')} 
+      WHERE id = $${idx} 
+      RETURNING *
+    `;
+
+    const { rows } = await db.query(updateSql, values);
+
     return res.status(200).json({
       success: true,
       message: 'Review updated successfully',
-      data: review
-    })
+      data: rows[0]
+    });
 
   } catch (error) {
-    console.error('❌ Error in updateReview:', error)
-    throw error
+    console.error('❌ Error in updateReview:', error);
+    throw error;
   }
 }
 
 // Delete a review
 async function deleteReview(req, res, reviewId) {
   try {
-    // Verify authentication using JWT
-    const user = verifyToken(req)
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Authorization required' })
+    const user = verifyToken(req);
+    if (!user) return res.status(401).json({ success: false, message: 'Authorization required' });
+    const userId = user.userId || user.id;
+
+    // Check permissions (Admin or Owner)
+    const [userRes, reviewRes] = await Promise.all([
+      db.query('SELECT role FROM users WHERE id = $1', [userId]),
+      db.query('SELECT user_id FROM product_reviews WHERE id = $1', [reviewId])
+    ]);
+
+    const isAdmin = userRes.rows[0]?.role === 'admin';
+    const review = reviewRes.rows[0];
+
+    if (!review) return res.status(404).json({ success: false, message: 'Review not found' });
+
+    if (!isAdmin && review.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    console.log(`🗑️ Deleting review ${reviewId} by user ${user.id}`)
+    await db.query('DELETE FROM product_reviews WHERE id = $1', [reviewId]);
+    console.log('✅ Review deleted successfully:', reviewId);
 
-    // Check if user is admin or review owner
-    const { data: userInfo } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    const isAdmin = userInfo?.role === 'admin'
-
-    // Get the review to check ownership
-    const { data: existingReview } = await supabase
-      .from('product_reviews')
-      .select('user_id')
-      .eq('id', reviewId)
-      .single()
-
-    if (!existingReview) {
-      return res.status(404).json({ success: false, message: 'Review not found' })
-    }
-
-    const isOwner = existingReview.user_id === user.id
-
-    if (!isAdmin && !isOwner) {
-      return res.status(403).json({ success: false, message: 'Not authorized to delete this review' })
-    }
-
-    // Delete the review
-    const { error: deleteError } = await supabase
-      .from('product_reviews')
-      .delete()
-      .eq('id', reviewId)
-
-    if (deleteError) {
-      console.error('❌ Error deleting review:', deleteError)
-      throw deleteError
-    }
-
-    console.log('✅ Review deleted successfully:', reviewId)
-
-    return res.status(200).json({
-      success: true,
-      message: 'Review deleted successfully'
-    })
+    return res.status(200).json({ success: true, message: 'Review deleted successfully' });
 
   } catch (error) {
-    console.error('❌ Error in deleteReview:', error)
-    throw error
+    console.error('❌ Error in deleteReview:', error);
+    throw error;
   }
 }
 
 // Get all reviews (admin only)
-async function getAllReviews(req, res, page, limit, status) {
+async function getAllReviews(req, res, page, limit, offset, status) {
   try {
-    // Verify authentication using JWT
-    const user = verifyToken(req)
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Authorization required' })
+    const user = verifyToken(req);
+    if (!user) return res.status(401).json({ success: false, message: 'Authorization required' });
+
+    // Check role from DB to be safe
+    const userRes = await db.query('SELECT role FROM users WHERE id = $1', [user.userId || user.id]);
+    if (userRes.rows[0]?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
-    // Check if user is admin (role is in JWT token)
-    if (user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin access required' })
-    }
+    let whereClause = '';
+    const values = [limit, offset];
 
-    const offset = (parseInt(page) - 1) * parseInt(limit)
+    if (status === 'pending') whereClause = 'WHERE pr.is_approved = false';
+    else if (status === 'approved') whereClause = 'WHERE pr.is_approved = true';
 
-    let query = supabase
-      .from('product_reviews')
-      .select(`
-        id,
-        product_id,
-        rating,
-        review_title,
-        review_text,
-        is_verified_purchase,
-        is_approved,
-        helpful_count,
-        created_at,
-        updated_at,
-        users (
-          first_name,
-          last_name,
-          email
-        ),
-        products (
-          name
-        )
-      `, { count: 'exact' })
+    const query = `
+      SELECT 
+        pr.*,
+        u.first_name, u.last_name, u.email,
+        p.name as product_name
+      FROM product_reviews pr
+      LEFT JOIN users u ON pr.user_id = u.id
+      LEFT JOIN products p ON pr.product_id = p.id
+      ${whereClause}
+      ORDER BY pr.created_at DESC
+      LIMIT $1 OFFSET $2
+    `;
 
-    // Filter by approval status
-    if (status === 'pending') {
-      query = query.eq('is_approved', false)
-    } else if (status === 'approved') {
-      query = query.eq('is_approved', true)
-    }
+    const countSql = `SELECT COUNT(*) FROM product_reviews pr ${whereClause}`;
 
-    const { data: reviews, error: reviewsError, count } = await query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + parseInt(limit) - 1)
-
-    if (reviewsError) {
-      console.error('❌ Error fetching all reviews:', reviewsError)
-      throw reviewsError
-    }
+    const [rowsResult, countResult] = await Promise.all([
+      db.query(query, values),
+      db.query(countSql)
+    ]);
 
     return res.status(200).json({
       success: true,
       data: {
-        reviews: reviews || [],
+        reviews: rowsResult.rows,
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: count || 0,
-          totalPages: Math.ceil((count || 0) / parseInt(limit))
+          page: page,
+          limit: limit,
+          total: parseInt(countResult.rows[0].count),
+          totalPages: Math.ceil(parseInt(countResult.rows[0].count) / limit)
         }
       }
-    })
+    });
 
   } catch (error) {
-    console.error('❌ Error in getAllReviews:', error)
-    throw error
+    console.error('❌ Error in getAllReviews:', error);
+    throw error;
   }
 }
 
 // Get single review by ID
 async function getReviewById(req, res, reviewId) {
   try {
-    const { data: review, error } = await supabase
-      .from('product_reviews')
-      .select(`
-        id,
-        product_id,
-        rating,
-        review_title,
-        review_text,
-        is_verified_purchase,
-        is_approved,
-        helpful_count,
-        created_at,
-        updated_at,
-        users (
-          first_name,
-          last_name,
-          email
-        ),
-        products (
-          name
-        )
-      `)
-      .eq('id', reviewId)
-      .single()
+    const query = `
+      SELECT 
+        pr.*,
+        u.first_name, u.last_name, u.email,
+        p.name as product_name
+      FROM product_reviews pr
+      LEFT JOIN users u ON pr.user_id = u.id
+      LEFT JOIN products p ON pr.product_id = p.id
+      WHERE pr.id = $1
+    `;
+    const { rows } = await db.query(query, [reviewId]);
+    const review = rows[0];
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return res.status(404).json({ success: false, message: 'Review not found' })
-      }
-      throw error
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
     }
 
-    return res.status(200).json({
-      success: true,
-      data: review
-    })
+    return res.status(200).json({ success: true, data: review });
 
   } catch (error) {
-    console.error('❌ Error in getReviewById:', error)
-    throw error
+    console.error('❌ Error in getReviewById:', error);
+    throw error;
   }
 }

@@ -1,68 +1,59 @@
-const { supabase } = require('../../lib/supabase')
+const db = require('../../lib/db');
 
 module.exports = async function handler(req, res) {
-  console.log('🔍 Categories API called')
-  console.log('Request method:', req.method)
-  console.log('Request URL:', req.url)
-
   // CORS is handled by dev-server middleware
+
+  console.log('🔍 Categories API called (Neon)');
+  console.log('Request method:', req.method);
 
   try {
     if (req.method === 'GET') {
-      // Get all categories
-      const { data: categories, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name', { ascending: true })
+      const query = `
+        SELECT * FROM categories 
+        ORDER BY name ASC
+      `;
 
-      if (error) {
-        console.error('❌ Error fetching categories:', error)
-        return res.status(500).json({ message: 'Failed to fetch categories' })
-      }
+      const { rows } = await db.query(query);
 
-      console.log('✅ Categories fetched successfully:', categories.length, 'categories')
-      console.log('📋 Categories:', categories.map(c => ({ id: c.id, name: c.name })))
+      console.log('✅ Categories fetched successfully:', rows.length, 'categories');
 
-      res.status(200).json({
+      return res.status(200).json({
         message: 'Categories retrieved successfully',
-        data: categories
-      })
+        data: rows
+      });
 
     } else if (req.method === 'POST') {
-      // Create new category (admin only)
-      const { name, description } = req.body
+      const { name, description } = req.body;
 
       if (!name) {
-        return res.status(400).json({ message: 'Category name is required' })
+        return res.status(400).json({ message: 'Category name is required' });
       }
 
-      const { data: category, error } = await supabase
-        .from('categories')
-        .insert([
-          {
-            name,
-            description: description || null
-          }
-        ])
-        .select()
-        .single()
+      const insertQuery = `
+        INSERT INTO categories (name, description, created_at, updated_at)
+        VALUES ($1, $2, NOW(), NOW())
+        RETURNING *
+      `;
 
-      if (error) {
-        console.error('Error creating category:', error)
-        return res.status(500).json({ message: 'Failed to create category' })
+      try {
+        const { rows } = await db.query(insertQuery, [name, description || null]);
+
+        return res.status(201).json({
+          message: 'Category created successfully',
+          data: rows[0]
+        });
+      } catch (err) {
+        console.error('Error creating category:', err);
+        return res.status(500).json({
+          message: 'Failed to create category',
+          error: err.message
+        });
       }
-
-      res.status(201).json({
-        message: 'Category created successfully',
-        data: category
-      })
-
     } else {
-      res.status(405).json({ message: 'Method not allowed' })
+      res.status(405).json({ message: 'Method not allowed' });
     }
-
   } catch (error) {
-    console.error('Categories API error:', error)
-    res.status(500).json({ message: 'Internal server error' })
+    console.error('Categories API error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
-}
+};

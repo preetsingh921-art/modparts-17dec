@@ -1,250 +1,160 @@
--- =====================================================
--- Neon DB Schema for ModParts / Yamaha Parts Shop
--- Complete database schema with inventory management
--- =====================================================
+-- Neon Database Schema Dump
+-- Generated at 2026-01-08T13:32:00.864Z
 
--- =====================================================
--- STEP 1: Create base tables
--- =====================================================
-
--- Categories table
-CREATE TABLE IF NOT EXISTS categories (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.bins (
+  id                   bigint NOT NULL DEFAULT nextval('bins_id_seq'::regclass),
+  warehouse_id         bigint,
+  bin_number           character varying(20) NOT NULL,
+  description          character varying(255),
+  capacity             integer DEFAULT 100,
+  current_count        integer DEFAULT 0,
+  is_active            boolean DEFAULT true,
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- Users table
-CREATE TABLE IF NOT EXISTS users (
-    id BIGSERIAL PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    address TEXT,
-    city VARCHAR(100),
-    state VARCHAR(100),
-    zip_code VARCHAR(20),
-    phone VARCHAR(20),
-    role VARCHAR(20) NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'admin')),
-    email_verified BOOLEAN DEFAULT false,
-    verification_token VARCHAR(255),
-    email_verification_token VARCHAR(255),
-    email_verification_expires TIMESTAMP WITH TIME ZONE,
-    email_verification_sent_at TIMESTAMP WITH TIME ZONE,
-    reset_token VARCHAR(255),
-    reset_token_expires TIMESTAMP WITH TIME ZONE,
-    is_approved BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.cart_items (
+  id                   bigint NOT NULL DEFAULT nextval('cart_items_id_seq'::regclass),
+  user_id              bigint NOT NULL,
+  product_id           bigint NOT NULL,
+  quantity             integer NOT NULL DEFAULT 1,
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- Warehouses table
-CREATE TABLE IF NOT EXISTS warehouses (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    location VARCHAR(255),
-    country VARCHAR(50),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.categories (
+  id                   bigint NOT NULL DEFAULT nextval('categories_id_seq'::regclass),
+  name                 character varying(255) NOT NULL,
+  description          text,
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- Products table (with inventory fields)
-CREATE TABLE IF NOT EXISTS products (
-    id BIGSERIAL PRIMARY KEY,
-    category_id BIGINT REFERENCES categories(id) ON DELETE SET NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    part_number VARCHAR(50),
-    barcode VARCHAR(50) UNIQUE,
-    condition_status VARCHAR(50) NOT NULL CHECK (condition_status IN ('New', 'Used - Like New', 'Used - Good', 'Used - Fair')),
-    price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
-    quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
-    image_url VARCHAR(500),
-    warehouse_id BIGINT REFERENCES warehouses(id) ON DELETE SET NULL,
-    bin_number VARCHAR(20),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.inventory_movements (
+  id                   bigint NOT NULL DEFAULT nextval('inventory_movements_id_seq'::regclass),
+  product_id           bigint,
+  from_warehouse_id    bigint,
+  to_warehouse_id      bigint,
+  from_bin             character varying(20),
+  to_bin               character varying(20),
+  quantity             integer NOT NULL DEFAULT 1,
+  movement_type        character varying(20) NOT NULL,
+  status               character varying(20) DEFAULT 'pending'::character varying,
+  notes                text,
+  scanned_at           timestamp with time zone,
+  created_by           bigint,
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- Orders table
-CREATE TABLE IF NOT EXISTS orders (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
-    total_amount DECIMAL(10, 2) NOT NULL CHECK (total_amount >= 0),
-    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'shipped', 'delivered', 'cancelled')),
-    shipping_address TEXT NOT NULL,
-    payment_method VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.order_items (
+  id                   bigint NOT NULL DEFAULT nextval('order_items_id_seq'::regclass),
+  order_id             bigint,
+  product_id           bigint,
+  quantity             integer NOT NULL,
+  price                numeric NOT NULL,
+  created_at           timestamp with time zone DEFAULT now()
 );
 
--- Order items table
-CREATE TABLE IF NOT EXISTS order_items (
-    id BIGSERIAL PRIMARY KEY,
-    order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE,
-    product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.orders (
+  id                   bigint NOT NULL DEFAULT nextval('orders_id_seq'::regclass),
+  user_id              bigint,
+  total_amount         numeric NOT NULL,
+  status               character varying(50) NOT NULL DEFAULT 'pending'::character varying,
+  shipping_address     text NOT NULL,
+  payment_method       character varying(50) NOT NULL,
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- Cart items table
-CREATE TABLE IF NOT EXISTS cart_items (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id, product_id)
+CREATE TABLE public.product_reviews (
+  id                   bigint NOT NULL DEFAULT nextval('product_reviews_id_seq'::regclass),
+  product_id           bigint NOT NULL,
+  user_id              bigint NOT NULL,
+  rating               integer NOT NULL,
+  title                character varying(255),
+  comment              text,
+  is_verified_purchase boolean DEFAULT false,
+  helpful_count        integer DEFAULT 0,
+  not_helpful_count    integer DEFAULT 0,
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- Wishlist table
-CREATE TABLE IF NOT EXISTS wishlist (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id, product_id)
+CREATE TABLE public.products (
+  id                   bigint NOT NULL DEFAULT nextval('products_id_seq'::regclass),
+  category_id          bigint,
+  name                 character varying(255) NOT NULL,
+  description          text,
+  part_number          character varying(50),
+  barcode              character varying(50),
+  condition_status     character varying(50) NOT NULL,
+  price                numeric NOT NULL,
+  quantity             integer NOT NULL DEFAULT 0,
+  image_url            character varying(500),
+  warehouse_id         bigint,
+  bin_number           character varying(20),
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- Product reviews table
-CREATE TABLE IF NOT EXISTS product_reviews (
-    id BIGSERIAL PRIMARY KEY,
-    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-    title VARCHAR(255),
-    comment TEXT,
-    is_verified_purchase BOOLEAN DEFAULT false,
-    helpful_count INTEGER DEFAULT 0,
-    not_helpful_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.query_logs (
+  id                   uuid NOT NULL DEFAULT gen_random_uuid(),
+  timestamp            timestamp with time zone DEFAULT now(),
+  query                text,
+  model                text,
+  action               text,
+  duration             integer,
+  status               integer,
+  error                text
 );
 
--- Review helpfulness tracking table
-CREATE TABLE IF NOT EXISTS review_helpfulness (
-    id BIGSERIAL PRIMARY KEY,
-    review_id BIGINT NOT NULL REFERENCES product_reviews(id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    is_helpful BOOLEAN NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id, review_id)
+CREATE TABLE public.review_helpfulness (
+  id                   bigint NOT NULL DEFAULT nextval('review_helpfulness_id_seq'::regclass),
+  review_id            bigint NOT NULL,
+  user_id              bigint NOT NULL,
+  is_helpful           boolean NOT NULL,
+  created_at           timestamp with time zone DEFAULT now()
 );
 
--- =====================================================
--- STEP 2: Inventory Management Tables
--- =====================================================
-
--- Bins table
-CREATE TABLE IF NOT EXISTS bins (
-    id BIGSERIAL PRIMARY KEY,
-    warehouse_id BIGINT REFERENCES warehouses(id) ON DELETE CASCADE,
-    bin_number VARCHAR(20) NOT NULL,
-    description VARCHAR(255),
-    capacity INT DEFAULT 100,
-    current_count INT DEFAULT 0,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(warehouse_id, bin_number)
+CREATE TABLE public.users (
+  id                   bigint NOT NULL DEFAULT nextval('users_id_seq'::regclass),
+  email                character varying(255) NOT NULL,
+  password             character varying(255) NOT NULL,
+  first_name           character varying(100),
+  last_name            character varying(100),
+  address              text,
+  city                 character varying(100),
+  state                character varying(100),
+  zip_code             character varying(20),
+  phone                character varying(20),
+  role                 character varying(20) NOT NULL DEFAULT 'customer'::character varying,
+  email_verified       boolean DEFAULT false,
+  verification_token   character varying(255),
+  email_verification_token character varying(255),
+  email_verification_expires timestamp with time zone,
+  email_verification_sent_at timestamp with time zone,
+  reset_token          character varying(255),
+  reset_token_expires  timestamp with time zone,
+  is_approved          boolean DEFAULT true,
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- Inventory movements table
-CREATE TABLE IF NOT EXISTS inventory_movements (
-    id BIGSERIAL PRIMARY KEY,
-    product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
-    from_warehouse_id BIGINT REFERENCES warehouses(id),
-    to_warehouse_id BIGINT REFERENCES warehouses(id),
-    from_bin VARCHAR(20),
-    to_bin VARCHAR(20),
-    quantity INT NOT NULL DEFAULT 1,
-    movement_type VARCHAR(20) NOT NULL CHECK (movement_type IN ('transfer', 'receive', 'ship', 'sold', 'adjustment')),
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'in_transit', 'completed', 'cancelled')),
-    notes TEXT,
-    scanned_at TIMESTAMP WITH TIME ZONE,
-    created_by BIGINT REFERENCES users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.warehouses (
+  id                   bigint NOT NULL DEFAULT nextval('warehouses_id_seq'::regclass),
+  name                 character varying(100) NOT NULL,
+  location             character varying(255),
+  country              character varying(50),
+  is_active            boolean DEFAULT true,
+  created_at           timestamp with time zone DEFAULT now(),
+  updated_at           timestamp with time zone DEFAULT now()
 );
 
--- =====================================================
--- STEP 3: Create Indexes
--- =====================================================
+CREATE TABLE public.wishlist (
+  id                   bigint NOT NULL DEFAULT nextval('wishlist_id_seq'::regclass),
+  user_id              bigint NOT NULL,
+  product_id           bigint NOT NULL,
+  created_at           timestamp with time zone DEFAULT now()
+);
 
-CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
-CREATE INDEX IF NOT EXISTS idx_products_part_number ON products(part_number);
-CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
-CREATE INDEX IF NOT EXISTS idx_products_warehouse ON products(warehouse_id);
-CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-CREATE INDEX IF NOT EXISTS idx_cart_user ON cart_items(user_id);
-CREATE INDEX IF NOT EXISTS idx_wishlist_user ON wishlist(user_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_product ON product_reviews(product_id);
-CREATE INDEX IF NOT EXISTS idx_movements_product ON inventory_movements(product_id);
-CREATE INDEX IF NOT EXISTS idx_movements_status ON inventory_movements(status);
-
--- =====================================================
--- STEP 4: Create updated_at trigger function
--- =====================================================
-
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Apply triggers
-CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_cart_items_updated_at BEFORE UPDATE ON cart_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON product_reviews FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_warehouses_updated_at BEFORE UPDATE ON warehouses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_bins_updated_at BEFORE UPDATE ON bins FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_movements_updated_at BEFORE UPDATE ON inventory_movements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- =====================================================
--- STEP 5: Insert default data
--- =====================================================
-
--- Default categories
-INSERT INTO categories (name, description) VALUES
-    ('Engine Parts', 'Parts related to the engine and internal components'),
-    ('Electrical', 'Electrical components including wiring, switches, and lights'),
-    ('Bodywork', 'Fairings, panels, and other body components'),
-    ('Suspension', 'Front and rear suspension components'),
-    ('Brakes', 'Brake components for front and rear wheels'),
-    ('Exhaust', 'Exhaust pipes, mufflers, and chambers'),
-    ('Fuel System', 'Carburetors, fuel tanks, and fuel lines'),
-    ('Transmission', 'Gearbox, clutch, and chain drive components')
-ON CONFLICT DO NOTHING;
-
--- Default warehouses
-INSERT INTO warehouses (name, location, country) VALUES 
-    ('Canada Warehouse', 'Canada', 'CA'),
-    ('India Warehouse', 'India', 'IN')
-ON CONFLICT DO NOTHING;
-
--- Default admin user (password: admin123 - change in production!)
--- Password hash for 'admin123' using bcrypt
-INSERT INTO users (email, password, first_name, last_name, role, is_approved, email_verified) VALUES
-    ('admin@partsformyrd350.com', '$2a$10$8tPjdlv.K4A/zRs.YxFqS.XmZK5tGBE.PpxvPCuNv.5.iKq.zxzxe', 'Admin', 'User', 'admin', true, true)
-ON CONFLICT (email) DO NOTHING;
-
--- =====================================================
--- VERIFICATION QUERIES (run to check success)
--- =====================================================
-
--- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;
--- SELECT COUNT(*) FROM categories;
--- SELECT COUNT(*) FROM warehouses;
--- SELECT COUNT(*) FROM users WHERE role = 'admin';

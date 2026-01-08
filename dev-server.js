@@ -82,8 +82,8 @@ app.use((req, res, next) => {
 
   // Set specific origin instead of wildcard when credentials are used
   if (allowedOrigins.includes(origin) ||
-      (origin && origin.includes('.onrender.com')) ||
-      (origin && origin.includes('partsformyrd350.com'))) {
+    (origin && origin.includes('.onrender.com')) ||
+    (origin && origin.includes('partsformyrd350.com'))) {
     res.header('Access-Control-Allow-Origin', origin);
   } else if (process.env.NODE_ENV === 'production') {
     // In production, allow same-origin requests
@@ -145,6 +145,59 @@ app.use('/api/auth/verify-email', getRateLimiter('emailVerification'));
 // General rate limiting for all other API endpoints
 app.use('/api/*', getRateLimiter('general'));
 
+// Query Logging Middleware
+app.use('/api/*', (req, res, next) => {
+  const start = Date.now();
+
+  // Hook into response finish to log after request completes
+  res.on('finish', () => {
+    try {
+      const duration = Date.now() - start;
+      const apiPath = req.baseUrl.replace('/api', '') + req.path;
+      const parts = apiPath.split('/').filter(p => p);
+      const model = parts[0] ? parts[0].charAt(0).toUpperCase() + parts[0].slice(1) : 'API';
+
+      // Map HTTP methods to actions
+      const actionMap = {
+        'GET': parts.length > 1 ? 'findUnique' : 'findMany',
+        'POST': 'create',
+        'PUT': 'update',
+        'PATCH': 'update',
+        'DELETE': 'delete'
+      };
+
+      // Lazy require db to ensure environment variables are loaded
+      const db = require('./lib/db');
+
+      const queryText = `
+        INSERT INTO query_logs (query, model, action, duration, status, error)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `;
+
+      const action = actionMap[req.method] || req.method;
+      const logValues = [
+        `${model}.${action}`, // query name
+        model,
+        action,
+        duration,
+        res.statusCode,
+        res.statusCode >= 400 ? 'Error' : null
+      ];
+
+      // Fire and forget log insertion
+      db.query(queryText, logValues).catch(err => {
+        console.error('Error saving query log to Neon:', err.message);
+      });
+    } catch (err) {
+      console.error('Logging middleware error:', err);
+    }
+  });
+
+  next();
+});
+
+
+
 // API route handler - dynamically load API functions
 app.all('/api/*', async (req, res) => {
   try {
@@ -152,48 +205,60 @@ app.all('/api/*', async (req, res) => {
     const apiPath = req.path.replace('/api/', '');
     console.log(`API Request: ${req.method} ${req.path}`);
     console.log('API Path:', apiPath);
-    
+
     // Convert path to file path
     let filePath;
-    if (apiPath.includes('/')) {
-      // Handle nested routes like auth/login, products/123, cart/456
-      const parts = apiPath.split('/');
-      if (parts.length === 2 && (
-        !isNaN(parts[1]) || // Numeric ID
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[1]) // UUID
-      )) {
-        // Handle dynamic routes like products/123 or cart/uuid -> products/[id].js or cart/[id].js
-        filePath = path.join(__dirname, 'api', parts[0], '[id].js');
-        req.query.id = parts[1]; // Add ID to query params
-      } else {
-        // Handle regular nested routes like auth/login -> auth/login.js
-        filePath = path.join(__dirname, 'api', ...parts) + '.js';
+    const parts = apiPath.split('/');
+
+    // Strategy 1: Direct file match (e.g. auth/login -> auth/login.js)
+    const directPath = path.join(__dirname, 'api', ...parts) + '.js';
+
+    // Strategy 2: Index file (e.g. products -> products/index.js)
+    const indexPath = path.join(__dirname, 'api', apiPath, 'index.js');
+
+    if (fs.existsSync(directPath)) {
+      filePath = directPath;
+    } else if (fs.existsSync(indexPath)) {
+      filePath = indexPath;
+    } else if (parts.length >= 2) {
+      // Strategy 3: Dynamic route in subdirectory (e.g. products/123 -> products/[id].js)
+      // We assume the second part (parts[1]) is the ID if the [id].js file exists
+      const dynamicPath = path.join(__dirname, 'api', parts[0], '[id].js');
+      if (fs.existsSync(dynamicPath)) {
+        filePath = dynamicPath;
+        req.query.id = parts[1]; // Capture ID
       }
-    } else {
-      // Handle root level routes like products -> products/index.js
-      filePath = path.join(__dirname, 'api', apiPath, 'index.js');
     }
-    
+
+    // Fallback: If still no filePath, check for root dynamic route if we ever add one
+    if (!filePath && parts.length === 1) {
+      const rootDynamic = path.join(__dirname, 'api', '[id].js');
+      if (fs.existsSync(rootDynamic)) {
+        filePath = rootDynamic;
+        req.query.id = parts[0];
+      }
+    }
+
     console.log('Trying file path:', filePath);
-    
+
     // Check if file exists
     if (!fs.existsSync(filePath)) {
       console.log('File not found, returning 404');
       return res.status(404).json({ message: 'API endpoint not found' });
     }
-    
+
     // Clear require cache to allow hot reloading during development
     delete require.cache[require.resolve(filePath)];
-    
+
     // Load and execute the API function
     const apiModule = require(filePath);
     const handler = apiModule.default || apiModule;
-    
+
     if (typeof handler !== 'function') {
       console.error('API module does not export a function');
       return res.status(500).json({ message: 'Invalid API endpoint' });
     }
-    
+
     // Create a mock request/response object similar to Vercel
     const mockReq = {
       ...req,
@@ -203,7 +268,7 @@ app.all('/api/*', async (req, res) => {
       method: req.method,
       url: req.url
     };
-    
+
     const mockRes = {
       status: (code) => {
         res.status(code);
@@ -226,13 +291,13 @@ app.all('/api/*', async (req, res) => {
         return mockRes;
       }
     };
-    
+
     // Execute the handler
     await handler(mockReq, mockRes);
-    
+
   } catch (error) {
     console.error('API Error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Internal server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });

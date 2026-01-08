@@ -1,4 +1,4 @@
-const { supabase } = require('../../lib/supabase')
+const db = require('../../lib/db');
 
 module.exports = async function handler(req, res) {
   // CORS is handled by dev-server middleware
@@ -12,76 +12,127 @@ module.exports = async function handler(req, res) {
       const category = req.query.category || req.query.category_id || ''; // Support both parameter names
       const categories = req.query.categories || ''; // Multiple categories comma-separated
       const sortBy = req.query.sortBy || 'created_at';
-      const sortOrder = req.query.sortOrder === 'asc' ? true : false;
+      const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC';
       const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice) : null;
       const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
 
-      console.log('🔍 Products API called with filters:', {
+      console.log('🔍 Products API called with filters (Neon):', {
         page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice
       });
 
       // Calculate offset
       const offset = (page - 1) * limit;
 
-      // Build query
-      let query = supabase
-        .from('products')
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            description
-          )
-        `, { count: 'exact' });
+      // Build Query
+      let queryText = `
+        SELECT 
+          p.*, 
+          c.name as category_name, 
+          c.description as category_description
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE 1=1
+      `;
+      let countQueryText = `
+        SELECT COUNT(*) as total_count 
+        FROM products p
+        WHERE 1=1
+      `;
 
-      // Add search filter
+      const queryParams = [];
+      let paramCount = 1;
+
+      // Add Search Filter
       if (search) {
-        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
+        const searchClause = ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount})`;
+        queryText += searchClause;
+        countQueryText += searchClause;
+        queryParams.push(`%${search}%`);
+        paramCount++;
       }
 
-      // Add category filter (single category for backward compatibility)
+      // Add Category Filter (Single)
       if (category) {
-        query = query.eq('category_id', category);
+        const catClause = ` AND p.category_id = $${paramCount}`;
+        queryText += catClause;
+        countQueryText += catClause;
+        queryParams.push(category);
+        paramCount++;
       }
 
-      // Add multiple categories filter
+      // Add Multiple Categories Filter
       if (categories) {
-        const categoryIds = categories.split(',').map(id => id.trim()).filter(id => id);
+        const categoryIds = categories.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
         if (categoryIds.length > 0) {
-          console.log('🔍 Filtering by categories:', categoryIds);
-          query = query.in('category_id', categoryIds);
+          // Manually build IN clause list since pg doesn't support array directly in this context easily without ANY
+          // Using ANY($n) approach for array
+          const catMultiClause = ` AND p.category_id = ANY($${paramCount}::int[])`;
+          queryText += catMultiClause;
+          countQueryText += catMultiClause;
+          queryParams.push(categoryIds);
+          paramCount++;
         }
       }
 
-      // Add price range filter
+      // Add Price Range Filter
       if (minPrice !== null) {
-        console.log('🔍 Filtering by minimum price:', minPrice);
-        query = query.gte('price', minPrice);
+        const minClause = ` AND p.price >= $${paramCount}`;
+        queryText += minClause;
+        countQueryText += minClause;
+        queryParams.push(minPrice);
+        paramCount++;
       }
       if (maxPrice !== null) {
-        console.log('🔍 Filtering by maximum price:', maxPrice);
-        query = query.lte('price', maxPrice);
+        const maxClause = ` AND p.price <= $${paramCount}`;
+        queryText += maxClause;
+        countQueryText += maxClause;
+        queryParams.push(maxPrice);
+        paramCount++;
       }
 
-      // Add sorting
-      query = query.order(sortBy, { ascending: sortOrder });
+      // Add Sorting
+      // Validate sortBy to prevent SQL injection
+      const allowedSortColumns = ['name', 'price', 'created_at', 'updated_at', 'quantity'];
+      const safeSortBy = allowedSortColumns.includes(sortBy) ? `p.${sortBy}` : 'p.created_at';
 
-      // Add pagination
-      query = query.range(offset, offset + limit - 1);
+      queryText += ` ORDER BY ${safeSortBy} ${sortOrder}`;
 
-      console.log('🔍 About to execute Supabase query...');
-      const { data: products, error, count } = await query;
-      console.log('🔍 Supabase query completed:', {
-        productsCount: products?.length,
-        totalCount: count,
-        hasError: !!error
-      });
+      // Add Pagination
+      queryText += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
 
-      if (error) {
-        console.error('Error fetching products:', error)
-        return res.status(500).json({ message: 'Failed to fetch products' })
-      }
+      // Execute Queries
+      // We need separate params for main query and count query because count query doesn't have LIMIT/OFFSET
+      const countParams = queryParams.slice(); // Copy params used so far
+
+      // Add limit and offset to main query params
+      queryParams.push(limit, offset);
+
+      console.log('🔍 Executing Neon Query:', queryText);
+
+      const [productsResult, countResult] = await Promise.all([
+        db.query(queryText, queryParams),
+        db.query(countQueryText, countParams)
+      ]);
+
+      const products = productsResult.rows;
+      const count = parseInt(countResult.rows[0].total_count);
+
+      // Format response to match expected frontend structure
+      // Adjust structure if necessary. The SQL JOIN already puts category_name in the row.
+      // Frontend expects: { category_name: '...', ... } which we have, 
+      // OR nested categories object? 
+      // Previous Supabase response structure:
+      // categories: { id, name, description }
+      // And frontend often maps it. 
+
+      const formattedProducts = products.map(p => ({
+        ...p,
+        categories: {
+          id: p.category_id,
+          name: p.category_name,
+          description: p.category_description
+        }
+      }));
 
       // Calculate pagination info
       const totalPages = Math.ceil(count / limit);
@@ -90,7 +141,7 @@ module.exports = async function handler(req, res) {
 
       res.status(200).json({
         message: 'Products retrieved successfully',
-        data: products,
+        data: formattedProducts,
         pagination: {
           currentPage: page,
           totalPages,
@@ -103,78 +154,66 @@ module.exports = async function handler(req, res) {
           search,
           category,
           sortBy,
-          sortOrder: sortOrder ? 'asc' : 'desc'
+          sortOrder: sortOrder === 'ASC' ? 'asc' : 'desc'
         }
-      })
+      });
 
     } else if (req.method === 'POST') {
       // Create new product (admin only)
-      const { name, description, condition_status, price, quantity, category_id, image_url } = req.body
+      const { name, description, condition_status, price, quantity, category_id, image_url } = req.body;
 
-      console.log('🔍 Creating product with data:', {
-        name,
-        description,
-        condition_status,
-        price,
-        quantity,
-        category_id,
-        image_url
-      })
+      console.log('🔍 Creating product (Neon) with data:', {
+        name, description, condition_status, price, quantity, category_id, image_url
+      });
 
       if (!name || !condition_status || !price || price < 0 || quantity < 0) {
-        console.error('❌ Product validation failed:', {
-          name: !!name,
-          condition_status: !!condition_status,
-          price: price,
-          quantity: quantity
-        })
         return res.status(400).json({
           message: 'Name, condition status, valid price, and quantity are required'
-        })
+        });
       }
 
-      const { data: product, error } = await supabase
-        .from('products')
-        .insert([
-          {
-            name,
-            description: description || null,
-            condition_status,
-            price: parseFloat(price),
-            quantity: parseInt(quantity),
-            category_id: category_id ? parseInt(category_id) : null,
-            image_url: image_url || null
-          }
-        ])
-        .select()
-        .single()
+      const insertQuery = `
+        INSERT INTO products (
+          name, description, condition_status, price, quantity, category_id, image_url, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+        )
+        RETURNING *
+      `;
 
-      if (error) {
-        console.error('❌ Supabase error creating product:', error)
-        console.error('❌ Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        })
+      const values = [
+        name,
+        description || null,
+        condition_status,
+        parseFloat(price),
+        parseInt(quantity),
+        category_id ? parseInt(category_id) : null,
+        image_url || null
+      ];
+
+      try {
+        const { rows } = await db.query(insertQuery, values);
+        const product = rows[0];
+
+        console.log('✅ Product created successfully (Neon):', product.id);
+        res.status(201).json({
+          message: 'Product created successfully',
+          data: product
+        });
+      } catch (error) {
+        console.error('❌ Neon error creating product:', error);
         return res.status(500).json({
           message: 'Failed to create product',
           error: error.message
-        })
+        });
       }
 
-      console.log('✅ Product created successfully:', product)
-      res.status(201).json({
-        message: 'Product created successfully',
-        data: product
-      })
-
     } else {
-      res.status(405).json({ message: 'Method not allowed' })
+      res.status(405).json({ message: 'Method not allowed' });
     }
 
   } catch (error) {
-    console.error('Products API error:', error)
-    res.status(500).json({ message: 'Internal server error' })
+    console.error('Products API error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
-}
+};

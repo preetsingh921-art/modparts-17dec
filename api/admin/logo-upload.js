@@ -2,7 +2,6 @@ const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
-const { supabaseAdmin } = require('../../lib/supabase')
 const supabaseStorage = require('../../lib/supabaseStorage')
 
 // Helper function to verify JWT token and check admin role
@@ -15,12 +14,12 @@ function verifyAdminToken(req) {
   const token = authHeader.substring(7)
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret')
-    
+
     // Check if user has admin role
     if (decoded.role !== 'admin') {
       return null
     }
-    
+
     return decoded
   } catch (error) {
     console.error('Token verification failed:', error)
@@ -33,21 +32,21 @@ async function updateSiteConfig(logoUrl) {
   try {
     const configPath = 'config/site-config.json'
     let config = {}
-    
+
     try {
       const configData = await fs.promises.readFile(configPath, 'utf8')
       config = JSON.parse(configData)
     } catch {
       // File doesn't exist, create new config
     }
-    
+
     config.logo = logoUrl
     config.lastUpdated = new Date().toISOString()
-    
+
     // Ensure config directory exists
     await fs.promises.mkdir('config', { recursive: true })
     await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2))
-    
+
     console.log('✅ Site config updated with logo:', logoUrl)
   } catch (error) {
     console.error('Error updating site config:', error)

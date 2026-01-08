@@ -2,7 +2,6 @@ const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
-const { supabaseAdmin } = require('../../lib/supabase')
 const supabaseStorage = require('../../lib/supabaseStorage')
 
 // Helper function to verify JWT token

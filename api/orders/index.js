@@ -1,18 +1,18 @@
-const { supabase, supabaseAdmin } = require('../../lib/supabase')
-const jwt = require('jsonwebtoken')
+const db = require('../../lib/db');
+const jwt = require('jsonwebtoken');
 
 // Helper function to verify JWT token
 function verifyToken(req) {
-  const authHeader = req.headers.authorization
+  const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null
+    return null;
   }
-  
-  const token = authHeader.substring(7)
+
+  const token = authHeader.substring(7);
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret')
+    return jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
   } catch (error) {
-    return null
+    return null;
   }
 }
 
@@ -20,290 +20,179 @@ module.exports = async function handler(req, res) {
   // CORS is handled by dev-server middleware
 
   // Verify authentication
-  const user = verifyToken(req)
+  const user = verifyToken(req);
   if (!user) {
-    return res.status(401).json({ message: 'Unauthorized' })
+    return res.status(401).json({ message: 'Unauthorized' });
   }
 
   try {
-    console.log('🔍 Orders API - User from JWT:', user)
+    console.log('🔍 Orders API - User from JWT:', user);
+    const userId = user.id; // User ID from JWT
 
     // Check if user exists in database
-    // User IDs are UUIDs (strings), so use them as-is
-    const userId = user.id;
+    const userCheckQuery = 'SELECT id, email, role FROM users WHERE id = $1';
+    const { rows: userRows } = await db.query(userCheckQuery, [userId]);
+    const existingUser = userRows[0];
 
-    const { data: existingUser, error: userCheckError } = await supabaseAdmin
-      .from('users')
-      .select('id, email, role')
-      .eq('id', userId)
-      .single()
-
-    console.log('🔍 Database user check result:', { existingUser, userCheckError })
-
-    if (userCheckError) {
-      console.error('❌ User not found in database. JWT user ID:', user.id, 'Type:', typeof user.id)
-      console.error('❌ Database error:', userCheckError)
-
-      // Instead of creating a user, return a more helpful error
+    if (!existingUser) {
+      console.error('❌ User not found in database. JWT user ID:', userId);
       return res.status(400).json({
         message: 'User account not found. Please log in again.',
-        error: 'USER_NOT_FOUND',
-        details: 'The user ID from your session does not exist in the database. Please log out and log in again.',
-        debug: {
-          userId: user.id,
-          userIdType: typeof user.id,
-          error: userCheckError.message
-        }
-      })
+        error: 'USER_NOT_FOUND'
+      });
     }
+
     if (req.method === 'GET') {
-      // Get orders - simplified query to avoid foreign key relationship issues
-      console.log('🔍 Fetching orders for user:', user.id)
+      console.log('🔍 Fetching orders for user:', userId);
 
-      let query = supabaseAdmin
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
+      // Build Query with JOINs and JSON aggregation
+      let queryText = `
+        SELECT 
+          o.*, 
+          u.email as user_email, u.first_name, u.last_name,
+          COALESCE(
+            json_agg(
+              json_build_object(
+                'id', oi.id,
+                'product_id', oi.product_id,
+                'quantity', oi.quantity,
+                'price', oi.price,
+                'product', json_build_object(
+                  'id', p.id, 
+                  'name', p.name, 
+                  'image_url', p.image_url
+                )
+              )
+            ) FILTER (WHERE oi.id IS NOT NULL), 
+            '[]'
+          ) as order_items
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN products p ON oi.product_id = p.id
+        WHERE 1=1
+      `;
 
-      // If not admin, only show user's own orders
-      if (user.role !== 'admin') {
-        query = query.eq('user_id', userId)
+      const queryParams = [];
+      let paramCount = 1;
+
+      // Filter by user role
+      if (existingUser.role !== 'admin') {
+        queryText += ` AND o.user_id = $${paramCount}`;
+        queryParams.push(userId);
+        paramCount++;
       }
 
-      const { data: orders, error } = await query
+      queryText += ` GROUP BY o.id, u.id ORDER BY o.created_at DESC`;
 
-      if (error) {
-        console.error('Error fetching orders:', error)
-        return res.status(500).json({ message: 'Failed to fetch orders' })
-      }
+      const { rows: orders } = await db.query(queryText, queryParams);
 
-      // Use optimized query with joins to fetch all data at once
-      console.log('🚀 Using optimized query with joins for better performance')
-
-      let enrichedQuery = supabaseAdmin
-        .from('orders')
-        .select(`
-          *,
-          users!orders_user_id_fkey (
-            id,
-            email,
-            first_name,
-            last_name
-          ),
-          order_items (
-            *,
-            products (
-              id,
-              name,
-              image_url
-            )
-          )
-        `)
-        .order('created_at', { ascending: false })
-
-      // If not admin, only show user's own orders
-      if (user.role !== 'admin') {
-        enrichedQuery = enrichedQuery.eq('user_id', userId)
-      }
-
-      const { data: enrichedOrders, error: enrichedError } = await enrichedQuery
-
-      if (enrichedError) {
-        console.error('❌ Error with optimized query, falling back to basic orders:', enrichedError)
-        // Fallback to basic orders if join fails
-        const fallbackOrders = orders?.map(order => ({
-          ...order,
-          user: null,
-          order_items: []
-        })) || []
-
-        console.log(`✅ Fallback: fetched ${fallbackOrders.length} basic orders`)
-        res.status(200).json({
-          success: true,
-          data: fallbackOrders
-        })
-        return
-      }
-
-      console.log(`✅ Successfully fetched ${enrichedOrders.length} orders`)
+      console.log(`✅ Successfully fetched ${orders.length} orders`);
       res.status(200).json({
         message: 'Orders retrieved successfully',
-        data: enrichedOrders
-      })
+        data: orders
+      });
 
     } else if (req.method === 'POST') {
       // Create new order
-      console.log('=== ORDER CREATION REQUEST ===')
-      console.log('Request body:', req.body)
-      console.log('User:', user)
-
+      console.log('=== ORDER CREATION REQUEST (Neon) ===');
       const {
         shipping_address,
         payment_method,
-        items,
-        payment_status,
-        transaction_id,
-        reference_number,
-        order_number,
-        first_name,
-        last_name,
-        email,
-        city,
-        state,
-        zip_code,
-        phone
-      } = req.body
-
-      console.log('Extracted fields:', {
-        shipping_address,
-        payment_method,
-        items: items?.length,
-        payment_status,
-        transaction_id,
-        reference_number,
-        order_number,
-        first_name,
-        last_name,
-        email,
-        city,
-        state,
-        zip_code,
-        phone
-      })
-
-      // Note: Additional fields like payment_status, transaction_id, etc. are received from frontend
-      // but not stored in the current database schema. Only core order fields are stored.
+        items
+      } = req.body;
 
       if (!shipping_address || !payment_method || !items || items.length === 0) {
-        console.log('Validation failed:', { shipping_address: !!shipping_address, payment_method: !!payment_method, items: items?.length })
         return res.status(400).json({
           message: 'Shipping address, payment method, and items are required'
-        })
+        });
       }
 
-      // Start a transaction
-      const { data: order, error: orderError } = await supabaseAdmin
-        .from('orders')
-        .insert([
-          {
-            user_id: userId, // Use the properly typed user ID
-            total_amount: 0, // Will be calculated
-            status: 'pending',
-            shipping_address,
-            payment_method
-          }
-        ])
-        .select()
-        .single()
+      const client = await db.pool.connect();
 
-      if (orderError) {
-        console.error('Error creating order:', orderError)
-        console.error('Order data that failed:', {
-          user_id: userId,
-          original_user_id: user.id,
-          user_id_type: typeof userId,
-          shipping_address,
-          payment_method
-        })
+      try {
+        await client.query('BEGIN'); // Start Transaction
+
+        // 1. Create Order
+        const insertOrderQuery = `
+          INSERT INTO orders (user_id, total_amount, status, shipping_address, payment_method, created_at)
+          VALUES ($1, 0, 'pending', $2, $3, NOW())
+          RETURNING id
+        `;
+        const { rows: orderRows } = await client.query(insertOrderQuery, [userId, shipping_address, payment_method]);
+        const orderId = orderRows[0].id;
+        console.log('📝 Created Order ID:', orderId);
+
+        // 2. Process Items
+        let totalAmount = 0;
+        const processedItems = [];
+
+        for (const item of items) {
+          // Check Product Stock & Price
+          const productQuery = 'SELECT id, price, quantity FROM products WHERE id = $1 FOR UPDATE';
+          const { rows: productRows } = await client.query(productQuery, [item.product_id]);
+          const product = productRows[0];
+
+          if (!product) {
+            throw new Error(`Product with ID ${item.product_id} not found`);
+          }
+
+          if (product.quantity < item.quantity) {
+            throw new Error(`Insufficient quantity for product ID ${item.product_id}`);
+          }
+
+          const itemTotal = parseFloat(product.price) * item.quantity;
+          totalAmount += itemTotal;
+
+          // Insert Order Item
+          const insertItemQuery = `
+            INSERT INTO order_items (order_id, product_id, quantity, price)
+            VALUES ($1, $2, $3, $4)
+          `;
+          await client.query(insertItemQuery, [orderId, item.product_id, item.quantity, product.price]);
+
+          // Update Product Stock
+          const updateStockQuery = `
+            UPDATE products SET quantity = quantity - $1 WHERE id = $2
+          `;
+          await client.query(updateStockQuery, [item.quantity, item.product_id]);
+        }
+
+        // 3. Update Order Total
+        const updateOrderTotalQuery = `
+          UPDATE orders SET total_amount = $1 WHERE id = $2 RETURNING *
+        `;
+        const { rows: updatedOrderRows } = await client.query(updateOrderTotalQuery, [totalAmount, orderId]);
+
+        // 4. Clear Cart
+        await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
+
+        await client.query('COMMIT'); // Commit Transaction
+
+        console.log('✅ Order created successfully with items and stock updates');
+        res.status(201).json({
+          message: 'Order created successfully',
+          data: updatedOrderRows[0],
+          order_id: orderId
+        });
+
+      } catch (err) {
+        await client.query('ROLLBACK'); // Rollback on error
+        console.error('❌ Order creation failed (Rollback):', err.message);
         return res.status(500).json({
           message: 'Failed to create order',
-          error: orderError.message,
-          debug: {
-            userId: userId,
-            originalUserId: user.id,
-            userIdType: typeof userId
-          }
-        })
+          error: err.message
+        });
+      } finally {
+        client.release();
       }
-
-      // Add order items and calculate total
-      let totalAmount = 0
-      const orderItems = []
-
-      for (const item of items) {
-        // Get current product price and check availability
-        const { data: product, error: productError } = await supabaseAdmin
-          .from('products')
-          .select('id, price, quantity')
-          .eq('id', item.product_id)
-          .single()
-
-        if (productError || !product) {
-          // Rollback by deleting the order
-          await supabaseAdmin.from('orders').delete().eq('id', order.id)
-          return res.status(404).json({
-            message: `Product with ID ${item.product_id} not found`
-          })
-        }
-
-        if (product.quantity < item.quantity) {
-          // Rollback by deleting the order
-          await supabaseAdmin.from('orders').delete().eq('id', order.id)
-          return res.status(400).json({
-            message: `Insufficient quantity for product ID ${item.product_id}`
-          })
-        }
-
-        const itemTotal = product.price * item.quantity
-        totalAmount += itemTotal
-
-        orderItems.push({
-          order_id: order.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          price: product.price
-        })
-
-        // Update product quantity
-        await supabaseAdmin
-          .from('products')
-          .update({ quantity: product.quantity - item.quantity })
-          .eq('id', item.product_id)
-      }
-
-      // Insert order items
-      const { error: itemsError } = await supabaseAdmin
-        .from('order_items')
-        .insert(orderItems)
-
-      if (itemsError) {
-        console.error('Error creating order items:', itemsError)
-        // Rollback by deleting the order
-        await supabaseAdmin.from('orders').delete().eq('id', order.id)
-        return res.status(500).json({ message: 'Failed to create order items' })
-      }
-
-      // Update order total
-      const { data: updatedOrder, error: updateError } = await supabaseAdmin
-        .from('orders')
-        .update({ total_amount: totalAmount })
-        .eq('id', order.id)
-        .select()
-        .single()
-
-      if (updateError) {
-        console.error('Error updating order total:', updateError)
-        return res.status(500).json({ message: 'Failed to update order total' })
-      }
-
-      // Clear user's cart
-      await supabaseAdmin
-        .from('cart_items')
-        .delete()
-        .eq('user_id', userId)
-
-      res.status(201).json({
-        message: 'Order created successfully',
-        data: updatedOrder,
-        order_id: updatedOrder.id
-      })
 
     } else {
-      res.status(405).json({ message: 'Method not allowed' })
+      res.status(405).json({ message: 'Method not allowed' });
     }
 
   } catch (error) {
-    console.error('Orders API error:', error)
-    res.status(500).json({ message: 'Internal server error' })
+    console.error('Orders API error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
-}
+};

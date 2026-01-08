@@ -22,6 +22,8 @@ module.exports = async function handler(req, res) {
           price,
           quantity,
           image_url,
+          part_number,
+          barcode,
           created_at,
           updated_at,
           category_id,
@@ -50,6 +52,8 @@ module.exports = async function handler(req, res) {
         price: product.price,
         quantity: product.quantity,
         image_url: product.image_url,
+        part_number: product.part_number,
+        barcode: product.barcode,
         category_id: product.category_id,
         category_name: product.categories?.name || null,
         created_at: product.created_at,
@@ -63,11 +67,14 @@ module.exports = async function handler(req, res) {
 
     } else if (req.method === 'PUT') {
       // Update product (admin only)
-      const { name, description, condition_status, price, quantity, category_id, image_url } = req.body
+      const { name, description, condition_status, price, quantity, category_id, image_url, part_number, barcode } = req.body
+
+      console.log('[PRODUCT UPDATE] Updating product ID:', id);
+      console.log('[PRODUCT UPDATE] Data received:', { name, price, quantity, part_number, barcode });
 
       if (!name || !condition_status || price < 0 || quantity < 0) {
-        return res.status(400).json({ 
-          message: 'Name, condition status, valid price, and quantity are required' 
+        return res.status(400).json({
+          message: 'Name, condition status, valid price, and quantity are required'
         })
       }
 
@@ -81,6 +88,8 @@ module.exports = async function handler(req, res) {
           quantity: parseInt(quantity),
           category_id: category_id ? parseInt(category_id) : null,
           image_url: image_url || null,
+          part_number: part_number || null,
+          barcode: barcode || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -88,12 +97,14 @@ module.exports = async function handler(req, res) {
         .single()
 
       if (error) {
-        console.error('Error updating product:', error)
+        console.error('[PRODUCT UPDATE ERROR]', error)
         if (error.code === 'PGRST116') {
           return res.status(404).json({ message: 'Product not found' })
         }
-        return res.status(500).json({ message: 'Failed to update product' })
+        return res.status(500).json({ message: 'Failed to update product', error: error.message })
       }
+
+      console.log('[PRODUCT UPDATE SUCCESS] Product ID:', id);
 
       return res.status(200).json({
         message: 'Product updated successfully',

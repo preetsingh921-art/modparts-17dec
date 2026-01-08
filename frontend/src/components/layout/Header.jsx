@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
@@ -10,6 +10,7 @@ const Header = () => {
   const { getItemCount } = useCart();
   const { getWishlistCount } = useWishlist();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -45,14 +46,20 @@ const Header = () => {
             <nav className="flex items-center space-x-2">
               <Link
                 to="/"
-                className="px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm hover:bg-[#8B2332] hover:text-white transition-all duration-200"
+                className={`px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm transition-all duration-200 ${location.pathname === '/'
+                    ? 'bg-[#8B2332] text-white'
+                    : 'hover:bg-[#8B2332] hover:text-white'
+                  }`}
                 style={{ fontFamily: "'Oswald', sans-serif" }}
               >
                 Home
               </Link>
               <Link
                 to="/products"
-                className="px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm hover:bg-[#8B2332] hover:text-white transition-all duration-200"
+                className={`px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm transition-all duration-200 ${location.pathname.startsWith('/products')
+                    ? 'bg-[#8B2332] text-white'
+                    : 'hover:bg-[#8B2332] hover:text-white'
+                  }`}
                 style={{ fontFamily: "'Oswald', sans-serif" }}
               >
                 Parts Catalog
@@ -60,7 +67,10 @@ const Header = () => {
               {isAuthenticated() && (
                 <Link
                   to="/orders"
-                  className="px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm hover:bg-[#8B2332] hover:text-white transition-all duration-200"
+                  className={`px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm transition-all duration-200 ${location.pathname.startsWith('/orders')
+                      ? 'bg-[#8B2332] text-white'
+                      : 'hover:bg-[#8B2332] hover:text-white'
+                    }`}
                   style={{ fontFamily: "'Oswald', sans-serif" }}
                 >
                   My Orders
@@ -69,7 +79,10 @@ const Header = () => {
               {isAdmin() && (
                 <Link
                   to="/admin"
-                  className="px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm bg-[#B8860B] hover:bg-[#996f09] text-white transition-all duration-200"
+                  className={`px-4 py-2 rounded-lg font-semibold uppercase tracking-wide text-sm transition-all duration-200 ${location.pathname.startsWith('/admin')
+                      ? 'bg-[#996f09] text-white'
+                      : 'bg-[#B8860B] hover:bg-[#996f09] text-white'
+                    }`}
                   style={{ fontFamily: "'Oswald', sans-serif" }}
                 >
                   Admin

@@ -317,7 +317,9 @@ class Product
                     condition_status = :condition_status,
                     price = :price,
                     quantity = :quantity,
-                    image_url = :image_url
+                    image_url = :image_url,
+                    part_number = :part_number,
+                    barcode = :barcode
                 WHERE id = :id";
 
         $stmt = $this->conn->prepare($query);
@@ -329,7 +331,9 @@ class Product
         $this->condition_status = htmlspecialchars(strip_tags($this->condition_status));
         $this->price = htmlspecialchars(strip_tags($this->price));
         $this->quantity = htmlspecialchars(strip_tags($this->quantity));
-        $this->image_url = htmlspecialchars(strip_tags($this->image_url));
+        $this->image_url = htmlspecialchars(strip_tags($this->image_url ?? ''));
+        $this->part_number = $this->part_number ? htmlspecialchars(strip_tags($this->part_number)) : null;
+        $this->barcode = $this->barcode ? htmlspecialchars(strip_tags($this->barcode)) : null;
         $this->id = htmlspecialchars(strip_tags($this->id));
 
         // Bind values
@@ -340,14 +344,23 @@ class Product
         $stmt->bindParam(":price", $this->price);
         $stmt->bindParam(":quantity", $this->quantity);
         $stmt->bindParam(":image_url", $this->image_url);
+        $stmt->bindParam(":part_number", $this->part_number);
+        $stmt->bindParam(":barcode", $this->barcode);
         $stmt->bindParam(":id", $this->id);
 
         // Execute query
-        if ($stmt->execute()) {
-            return true;
+        try {
+            if ($stmt->execute()) {
+                return true;
+            }
+            // Log query error
+            error_log("[PRODUCT MODEL UPDATE ERROR] Query failed for ID: " . $this->id);
+            error_log("[PRODUCT MODEL UPDATE ERROR] Error info: " . json_encode($stmt->errorInfo()));
+            return false;
+        } catch (PDOException $e) {
+            error_log("[PRODUCT MODEL UPDATE EXCEPTION] " . $e->getMessage());
+            return false;
         }
-
-        return false;
     }
 
     // Delete product

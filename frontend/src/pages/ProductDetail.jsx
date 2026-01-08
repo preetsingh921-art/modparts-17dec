@@ -119,19 +119,19 @@ const ProductDetail = () => {
   }
 
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto px-4 py-8 bg-[#1a1a1a] min-h-screen">
       <div className="mb-6">
-        <Link to="/products" className="text-blue-600 hover:underline flex items-center">
+        <Link to="/products" className="text-[#B8860B] hover:text-[#d4a50d] flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
           </svg>
-          Back to Products
+          Back to Parts Catalog
         </Link>
       </div>
 
-      <div className="card-elevated overflow-hidden">
+      <div className="bg-[#242424] border border-[#333] rounded-lg overflow-hidden">
         <div className="md:flex">
-          <div className="md:w-1/2 h-64 md:h-auto bg-slate-700">
+          <div className="md:w-1/2 h-64 md:h-auto bg-[#333]">
             <PlaceholderImage
               src={processImageUrl(product.image_url)}
               alt={product.name}
@@ -142,7 +142,12 @@ const ProductDetail = () => {
 
           <div className="md:w-1/2 p-6">
             <div className="mb-4">
-              <h1 className="text-3xl font-bold mb-2 text-slate-100">{product.name}</h1>
+              <h1
+                className="text-3xl font-bold mb-2 text-[#F5F0E1] uppercase"
+                style={{ fontFamily: "'Oswald', sans-serif" }}
+              >
+                {product.name}
+              </h1>
               <div className="mb-2">
                 <RatingDisplay
                   rating={4.5}
@@ -150,35 +155,40 @@ const ProductDetail = () => {
                   size="md"
                 />
               </div>
-              <p className="text-slate-400">Category: {product.category_name}</p>
+              <p className="text-[#A8A090]">Category: {product.category_name}</p>
             </div>
 
             <div className="mb-6">
               <div className="flex items-center mb-2">
-                <span className="bg-emerald-600 text-emerald-100 px-3 py-1 rounded-full text-sm font-semibold mr-3">
+                <span className="bg-[#8B2332] text-[#F5F0E1] px-3 py-1 rounded-full text-sm font-semibold mr-3">
                   {product.condition_status}
                 </span>
-                <span className={`text-sm font-semibold ${product.quantity > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className={`text-sm font-semibold ${product.quantity > 0 ? 'text-[#B8860B]' : 'text-red-400'}`}>
                   {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
                 </span>
               </div>
 
-              <p className="text-3xl font-bold text-emerald-400">
+              <p className="text-3xl font-bold text-[#8B2332]">
                 ${parseFloat(product.price).toFixed(2)}
               </p>
             </div>
 
             <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2 text-slate-200">Description</h2>
-              <p className="text-slate-300">{product.description}</p>
+              <h2
+                className="text-xl font-semibold mb-2 text-[#F5F0E1]"
+                style={{ fontFamily: "'Oswald', sans-serif" }}
+              >
+                Description
+              </h2>
+              <p className="text-[#D4CFC0]" style={{ fontFamily: "'Roboto Slab', serif" }}>{product.description}</p>
             </div>
 
             {product.quantity > 0 && (
               <div className="mb-6">
-                <label className="block text-slate-300 mb-2">Quantity</label>
+                <label className="block text-[#D4CFC0] mb-2">Quantity</label>
                 <div className="flex items-center">
                   <button
-                    className="bg-slate-700 text-slate-200 px-3 py-1 rounded-l hover:bg-slate-600 transition-colors"
+                    className="bg-[#333] text-[#F5F0E1] px-3 py-1 rounded-l hover:bg-[#444] transition-colors"
                     onClick={() => quantity > 1 && setQuantity(quantity - 1)}
                   >
                     -
@@ -189,10 +199,10 @@ const ProductDetail = () => {
                     max={product.quantity}
                     value={quantity}
                     onChange={handleQuantityChange}
-                    className="form-input w-16 text-center border-t border-b border-slate-600 py-1 rounded-none"
+                    className="form-input-vintage w-16 text-center border-t border-b border-[#444] py-1 rounded-none"
                   />
                   <button
-                    className="bg-slate-700 text-slate-200 px-3 py-1 rounded-r hover:bg-slate-600 transition-colors"
+                    className="bg-[#333] text-[#F5F0E1] px-3 py-1 rounded-r hover:bg-[#444] transition-colors"
                     onClick={() => quantity < product.quantity && setQuantity(quantity + 1)}
                   >
                     +
@@ -204,11 +214,10 @@ const ProductDetail = () => {
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
               <button
                 onClick={handleAddToCart}
-                className={`btn-primary flex items-center justify-center ${
-                  product.quantity <= 0 || addingToCart
+                className={`btn-vintage-red flex items-center justify-center ${product.quantity <= 0 || addingToCart
                     ? 'opacity-50 cursor-not-allowed'
                     : ''
-                }`}
+                  }`}
                 disabled={product.quantity <= 0 || addingToCart}
               >
                 {addingToCart ? (
@@ -242,11 +251,10 @@ const ProductDetail = () => {
               />
               <button
                 onClick={handleBuyNow}
-                className={`btn-secondary flex items-center justify-center ${
-                  product.quantity <= 0 || buyingNow
+                className={`btn-vintage-gray flex items-center justify-center ${product.quantity <= 0 || buyingNow
                     ? 'opacity-50 cursor-not-allowed'
                     : ''
-                }`}
+                  }`}
                 disabled={product.quantity <= 0 || buyingNow}
               >
                 {buyingNow ? (

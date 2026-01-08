@@ -259,19 +259,29 @@ const Profile = () => {
   }
 
   return (
-    <div className="container mx-auto px-4">
-      <h1 className="text-3xl font-bold mb-6">My Profile</h1>
+    <div className="container mx-auto px-4 py-8 bg-[#1a1a1a] min-h-screen">
+      <h1
+        className="text-3xl font-bold mb-6 text-[#F5F0E1] uppercase tracking-wide"
+        style={{ fontFamily: "'Oswald', sans-serif" }}
+      >
+        My Profile
+      </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* User Profile Section */}
         <div className="lg:col-span-2">
-          <div className="card p-6 mb-6">
+          <div className="bg-[#242424] border border-[#333] rounded-lg p-6 mb-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Personal Information</h2>
+              <h2
+                className="text-xl font-bold text-[#F5F0E1]"
+                style={{ fontFamily: "'Oswald', sans-serif" }}
+              >
+                Personal Information
+              </h2>
               {!editMode && !profileLoading && (
                 <button
                   onClick={() => setEditMode(true)}
-                  className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  className="btn-vintage-red"
                 >
                   Edit Profile
                 </button>
@@ -698,10 +708,15 @@ const Profile = () => {
 
         {/* Recent Orders Section */}
         <div className="lg:col-span-1">
-          <div className="card p-6">
+          <div className="bg-[#242424] border border-[#333] rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Recent Orders</h2>
-              <Link to="/orders" className="text-blue-600 hover:underline text-sm">
+              <h2
+                className="text-xl font-bold text-[#F5F0E1]"
+                style={{ fontFamily: "'Oswald', sans-serif" }}
+              >
+                Recent Orders
+              </h2>
+              <Link to="/orders" className="text-[#B8860B] hover:text-[#d4a50d] text-sm">
                 View All
               </Link>
             </div>

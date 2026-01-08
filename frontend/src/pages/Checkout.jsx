@@ -169,27 +169,32 @@ const Checkout = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Checkout</h1>
+    <div className="container mx-auto px-4 py-8 bg-[#1a1a1a] min-h-screen">
+      <h1
+        className="text-3xl font-bold mb-6 text-[#F5F0E1] uppercase tracking-wide"
+        style={{ fontFamily: "'Oswald', sans-serif" }}
+      >
+        Checkout
+      </h1>
 
       {/* Progress Indicator */}
       <div className="flex items-center mb-8">
-        <div className={`flex items-center ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-300'}`}>
+        <div className={`flex items-center ${step >= 1 ? 'text-[#B8860B]' : 'text-gray-500'}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-[#8B2332] text-white' : 'bg-gray-600'}`}>
             1
           </div>
           <span className="ml-2">Shipping</span>
         </div>
-        <div className={`w-16 h-1 mx-4 ${step >= 2 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-        <div className={`flex items-center ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-300'}`}>
+        <div className={`w-16 h-1 mx-4 ${step >= 2 ? 'bg-[#8B2332]' : 'bg-gray-600'}`}></div>
+        <div className={`flex items-center ${step >= 2 ? 'text-[#B8860B]' : 'text-gray-500'}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-[#8B2332] text-white' : 'bg-gray-600'}`}>
             2
           </div>
           <span className="ml-2">Payment Method</span>
         </div>
-        <div className={`w-16 h-1 mx-4 ${step >= 3 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-        <div className={`flex items-center ${step >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-300'}`}>
+        <div className={`w-16 h-1 mx-4 ${step >= 3 ? 'bg-[#8B2332]' : 'bg-gray-600'}`}></div>
+        <div className={`flex items-center ${step >= 3 ? 'text-[#B8860B]' : 'text-gray-500'}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-[#8B2332] text-white' : 'bg-gray-600'}`}>
             3
           </div>
           <span className="ml-2">Payment</span>
@@ -207,109 +212,114 @@ const Checkout = () => {
           {step === 1 && (
             // Shipping Information Step
             <form onSubmit={handleShippingSubmit}>
-              <div className="bg-white rounded-lg shadow p-6 mb-6">
-                <h2 className="text-xl font-bold mb-4">Shipping Information</h2>
+              <div className="bg-[#242424] border border-[#333] rounded-lg p-6 mb-6">
+                <h2
+                  className="text-xl font-bold mb-4 text-[#F5F0E1]"
+                  style={{ fontFamily: "'Oswald', sans-serif" }}
+                >
+                  Shipping Information
+                </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-gray-700 mb-2">First Name</label>
+                    <label className="form-label-vintage">First Name</label>
                     <input
                       type="text"
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleChange}
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="form-input-vintage"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2">Last Name</label>
+                    <label className="form-label-vintage">Last Name</label>
                     <input
                       type="text"
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleChange}
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="form-input-vintage"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Email</label>
+                  <label className="form-label-vintage">Email</label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="form-input-vintage"
                     required
                   />
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Address</label>
+                  <label className="form-label-vintage">Address</label>
                   <input
                     type="text"
                     name="address"
                     value={formData.address}
                     onChange={handleChange}
-                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="form-input-vintage"
                     required
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block text-gray-700 mb-2">City</label>
+                    <label className="form-label-vintage">City</label>
                     <input
                       type="text"
                       name="city"
                       value={formData.city}
                       onChange={handleChange}
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="form-input-vintage"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2">State</label>
+                    <label className="form-label-vintage">State</label>
                     <input
                       type="text"
                       name="state"
                       value={formData.state}
                       onChange={handleChange}
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="form-input-vintage"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2">Zip Code</label>
+                    <label className="form-label-vintage">Zip Code</label>
                     <input
                       type="text"
                       name="zipCode"
                       value={formData.zipCode}
                       onChange={handleChange}
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="form-input-vintage"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-gray-700 mb-2">Phone</label>
+                  <label className="form-label-vintage">Phone</label>
                   <input
                     type="tel"
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="form-input-vintage"
                     required
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                  className="btn-vintage-red w-full"
                 >
                   Continue to Payment Method
                 </button>
@@ -319,15 +329,20 @@ const Checkout = () => {
 
           {step === 2 && (
             // Payment Method Selection
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="bg-[#242424] border border-[#333] rounded-lg p-6 mb-6">
               <div className="flex items-center mb-4">
                 <button
                   onClick={() => setStep(1)}
-                  className="text-blue-600 hover:text-blue-800 mr-4"
+                  className="text-[#B8860B] hover:text-[#d4a50d] mr-4"
                 >
                   ← Back to Shipping
                 </button>
-                <h2 className="text-xl font-bold">Choose Payment Method</h2>
+                <h2
+                  className="text-xl font-bold text-[#F5F0E1]"
+                  style={{ fontFamily: "'Oswald', sans-serif" }}
+                >
+                  Choose Payment Method
+                </h2>
               </div>
 
               <div className="space-y-4">
@@ -335,18 +350,18 @@ const Checkout = () => {
                   <div
                     key={method.id}
                     onClick={() => handlePaymentMethodSelect(method.id)}
-                    className="border rounded-lg p-4 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors relative"
+                    className="border border-[#444] rounded-lg p-4 cursor-pointer hover:border-[#8B2332] hover:bg-[#333] transition-colors relative"
                   >
                     {method.popular && (
-                      <span className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                      <span className="absolute top-2 right-2 bg-[#8B2332] text-white text-xs px-2 py-1 rounded">
                         Popular
                       </span>
                     )}
                     <div className="flex items-center">
                       <span className="text-2xl mr-4">{method.icon}</span>
                       <div>
-                        <h3 className="font-semibold">{method.name}</h3>
-                        <p className="text-gray-600 text-sm">{method.description}</p>
+                        <h3 className="font-semibold text-[#F5F0E1]">{method.name}</h3>
+                        <p className="text-[#A8A090] text-sm">{method.description}</p>
                       </div>
                     </div>
                   </div>
@@ -357,15 +372,20 @@ const Checkout = () => {
 
           {step === 3 && (
             // Payment Details
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="bg-[#242424] border border-[#333] rounded-lg p-6 mb-6">
               <div className="flex items-center mb-4">
                 <button
                   onClick={() => setStep(2)}
-                  className="text-blue-600 hover:text-blue-800 mr-4"
+                  className="text-[#B8860B] hover:text-[#d4a50d] mr-4"
                 >
                   ← Back to Payment Method
                 </button>
-                <h2 className="text-xl font-bold">Payment Details</h2>
+                <h2
+                  className="text-xl font-bold text-[#F5F0E1]"
+                  style={{ fontFamily: "'Oswald', sans-serif" }}
+                >
+                  Payment Details
+                </h2>
               </div>
 
               {formData.paymentMethod === 'cash_on_delivery' && (
@@ -397,47 +417,52 @@ const Checkout = () => {
 
         {/* Order Summary */}
         <div className="lg:w-1/3">
-          <div className="bg-white rounded-lg shadow p-6 sticky top-4">
-            <h2 className="text-xl font-bold mb-4">Order Summary</h2>
+          <div className="bg-[#242424] border border-[#333] rounded-lg p-6 sticky top-4">
+            <h2
+              className="text-xl font-bold mb-4 text-[#F5F0E1]"
+              style={{ fontFamily: "'Oswald', sans-serif" }}
+            >
+              Order Summary
+            </h2>
 
             <div className="mb-4">
               {cart.map(item => (
-                <div key={item.id} className="flex justify-between py-2 border-b">
+                <div key={item.id} className="flex justify-between py-2 border-b border-[#444]">
                   <div>
-                    <p className="font-semibold">{item.name}</p>
-                    <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                    <p className="font-semibold text-[#F5F0E1]">{item.name}</p>
+                    <p className="text-sm text-[#A8A090]">Qty: {item.quantity}</p>
                   </div>
-                  <p className="font-semibold">
+                  <p className="font-semibold text-[#D4CFC0]">
                     ${(parseFloat(item.price) * item.quantity).toFixed(2)}
                   </p>
                 </div>
               ))}
             </div>
 
-            <div className="border-t pt-4 mb-4">
-              <div className="flex justify-between mb-2">
+            <div className="border-t border-[#444] pt-4 mb-4">
+              <div className="flex justify-between mb-2 text-[#D4CFC0]">
                 <span>Subtotal</span>
                 <span>${total.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between mb-2">
+              <div className="flex justify-between mb-2 text-[#A8A090]">
                 <span>Shipping</span>
                 <span>$0.00</span>
               </div>
-              <div className="flex justify-between mb-2">
+              <div className="flex justify-between mb-2 text-[#A8A090]">
                 <span>Tax</span>
                 <span>$0.00</span>
               </div>
             </div>
 
-            <div className="flex justify-between font-bold text-lg border-t pt-4">
+            <div className="flex justify-between font-bold text-lg border-t border-[#444] pt-4 text-[#F5F0E1]">
               <span>Total</span>
-              <span>${total.toFixed(2)}</span>
+              <span className="text-[#8B2332]">${total.toFixed(2)}</span>
             </div>
 
             {step >= 2 && (
-              <div className="mt-4 p-3 bg-gray-50 rounded">
-                <p className="text-sm text-gray-600">Payment Method:</p>
-                <p className="font-semibold">
+              <div className="mt-4 p-3 bg-[#333] rounded">
+                <p className="text-sm text-[#A8A090]">Payment Method:</p>
+                <p className="font-semibold text-[#F5F0E1]">
                   {paymentMethods.find(m => m.id === formData.paymentMethod)?.name}
                 </p>
               </div>

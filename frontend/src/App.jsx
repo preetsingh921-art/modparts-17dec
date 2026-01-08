@@ -35,6 +35,7 @@ import AdminAnalytics from './pages/admin/Analytics'
 import AdminReviews from './pages/admin/Reviews'
 import LogoManagement from './pages/admin/LogoManagement'
 import Inventory from './pages/admin/Inventory'
+import SiteSettings from './pages/admin/SiteSettings'
 import LoadingDemo from './pages/LoadingDemo'
 import Wishlist from './pages/Wishlist'
 import NotFound from './pages/NotFound'
@@ -124,6 +125,7 @@ function App() {
                         <Route path="reviews" element={<AdminReviews />} />
                         <Route path="logo" element={<LogoManagement />} />
                         <Route path="inventory" element={<Inventory />} />
+                        <Route path="settings" element={<SiteSettings />} />
                       </Route>
 
 

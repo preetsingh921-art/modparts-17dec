@@ -75,64 +75,6 @@ const Dashboard = () => {
             </button>
           </div>
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Link
-            to="/admin/products"
-            className="flex items-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-            Manage Products
-          </Link>
-          <Link
-            to="/admin/orders"
-            className="flex items-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Manage Orders
-          </Link>
-          <Link
-            to="/admin/users"
-            className="flex items-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-            </svg>
-            Manage Users
-          </Link>
-          <Link
-            to="/admin/user-approval"
-            className="flex items-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            User Approval
-          </Link>
-          <Link
-            to="/admin/analytics"
-            className="flex items-center bg-green-700 text-green-50 px-4 py-2 rounded hover:bg-green-600 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            Financial Analytics
-          </Link>
-          <Link
-            to="/admin/reviews"
-            className="btn-primary flex items-center px-4 py-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-            </svg>
-            Manage Reviews
-          </Link>
-
-        </div>
       </div>
 
       {/* Stats Cards */}
@@ -308,14 +250,13 @@ const Dashboard = () => {
                         </td>
                         <td className="p-2 text-white">{order.first_name} {order.last_name}</td>
                         <td className="p-2">
-                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                            !order.status || typeof order.status !== 'string' ? 'bg-gray-600 text-gray-100' :
-                            order.status === 'pending' ? 'bg-yellow-600 text-yellow-100' :
-                            order.status === 'processing' ? 'bg-blue-600 text-blue-100' :
-                            order.status === 'shipped' ? 'bg-emerald-600 text-emerald-100' :
-                            order.status === 'delivered' ? 'bg-green-600 text-green-100' :
-                            'bg-red-600 text-red-100'
-                          }`}>
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${!order.status || typeof order.status !== 'string' ? 'bg-gray-600 text-gray-100' :
+                              order.status === 'pending' ? 'bg-yellow-600 text-yellow-100' :
+                                order.status === 'processing' ? 'bg-blue-600 text-blue-100' :
+                                  order.status === 'shipped' ? 'bg-emerald-600 text-emerald-100' :
+                                    order.status === 'delivered' ? 'bg-green-600 text-green-100' :
+                                      'bg-red-600 text-red-100'
+                            }`}>
                             {order.status && typeof order.status === 'string' && order.status.length > 0
                               ? (order.status.charAt(0).toUpperCase() + order.status.slice(1))
                               : 'Pending'}

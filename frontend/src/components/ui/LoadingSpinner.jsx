@@ -37,15 +37,49 @@ const LoadingSpinner = ({
     </svg>
   );
 
-  // Rusted Gear Image Component - Vintage Yamaha RD350 style
-  const RustedGearIcon = ({ className }) => (
-    <img
-      src="/images/rusted-gear-loader.png"
-      alt="Loading..."
-      className={className}
-      style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
-    />
-  );
+  // Dual Gear Component - Two interlocking gears rotating in opposite directions
+  const DualGearIcon = () => {
+    const gearSizes = {
+      sm: { large: 32, small: 24, offset: 18 },
+      md: { large: 48, small: 36, offset: 28 },
+      lg: { large: 64, small: 48, offset: 38 },
+      xl: { large: 80, small: 60, offset: 48 }
+    };
+    const sizes = gearSizes[size] || gearSizes.md;
+
+    return (
+      <div className="relative" style={{ width: sizes.large + sizes.offset, height: sizes.large }}>
+        {/* Large gear - rotates clockwise */}
+        <img
+          src="/images/gear-large.png"
+          alt=""
+          className="absolute animate-spin"
+          style={{
+            width: sizes.large,
+            height: sizes.large,
+            left: 0,
+            top: 0,
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
+            animationDuration: '3s'
+          }}
+        />
+        {/* Small gear - rotates counter-clockwise */}
+        <img
+          src="/images/gear-small.png"
+          alt=""
+          className="absolute"
+          style={{
+            width: sizes.small,
+            height: sizes.small,
+            right: 0,
+            top: (sizes.large - sizes.small) / 2,
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
+            animation: 'spin 2s linear infinite reverse'
+          }}
+        />
+      </div>
+    );
+  };
 
   // Simple spinner component
   const SimpleSpinner = ({ className }) => (
@@ -66,16 +100,15 @@ const LoadingSpinner = ({
     const spinnerClass = `${sizeClasses[size]} text-emerald-500`;
 
     switch (variant) {
-      case 'rusted':
-        return <RustedGearIcon className={`${spinnerClass} animate-spin`} />;
       case 'gear':
-        return <RustedGearIcon className={`${spinnerClass} animate-spin`} />; // Use rusted as default gear
+      case 'rusted':
+        return <DualGearIcon />;
       case 'simple':
         return <SimpleSpinner className={spinnerClass} />;
       case 'dots':
         return <DotsSpinner className={spinnerClass} />;
       default:
-        return <RustedGearIcon className={`${spinnerClass} animate-spin`} />;
+        return <DualGearIcon />;
     }
   };
 

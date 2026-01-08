@@ -76,7 +76,7 @@ const Cart = () => {
   };
 
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto px-4 py-8 bg-[#1a1a1a] min-h-screen">
       {/* Confirm Dialog */}
       <ConfirmDialog
         isOpen={isOpen}
@@ -89,7 +89,12 @@ const Cart = () => {
         confirmButtonClass={dialogProps.confirmButtonClass}
       />
 
-      <h1 className="text-3xl font-bold mb-6">Your Cart</h1>
+      <h1
+        className="text-3xl font-bold mb-6 text-[#F5F0E1] uppercase tracking-wide"
+        style={{ fontFamily: "'Oswald', sans-serif" }}
+      >
+        Your Cart
+      </h1>
 
       {loading ? (
         <div className="text-center py-12 card">
@@ -106,11 +111,11 @@ const Cart = () => {
           </Link>
         </div>
       ) : cart.length === 0 ? (
-        <div className="text-center py-12 card">
-          <p className="text-xl text-gray-600 mb-6">Your cart is empty</p>
+        <div className="text-center py-12 bg-[#242424] border border-[#333] rounded-lg">
+          <p className="text-xl text-[#A8A090] mb-6">Your cart is empty</p>
           <Link
             to="/products"
-            className="bg-blue-800 text-white px-6 py-3 rounded font-semibold hover:bg-blue-700"
+            className="btn-vintage-red inline-block"
           >
             Continue Shopping
           </Link>
@@ -118,18 +123,18 @@ const Cart = () => {
       ) : (
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="lg:w-2/3">
-            <div className="card overflow-hidden">
+            <div className="bg-[#242424] border border-[#333] rounded-lg overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-100">
+                <thead className="bg-[#333]">
                   <tr>
-                    <th className="text-left p-4">Product</th>
-                    <th className="text-center p-4">Price</th>
-                    <th className="text-center p-4">Quantity</th>
-                    <th className="text-center p-4">Total</th>
-                    <th className="text-center p-4">Actions</th>
+                    <th className="text-left p-4 text-[#F5F0E1]">Product</th>
+                    <th className="text-center p-4 text-[#F5F0E1]">Price</th>
+                    <th className="text-center p-4 text-[#F5F0E1]">Quantity</th>
+                    <th className="text-center p-4 text-[#F5F0E1]">Total</th>
+                    <th className="text-center p-4 text-[#F5F0E1]">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-[#444]">
                   {cart.map(item => (
                     <tr key={item.id}>
                       <td className="p-4">
@@ -151,7 +156,7 @@ const Cart = () => {
                           <div>
                             <Link
                               to={`/products/${item.product_id}`}
-                              className="font-semibold hover:text-blue-600"
+                              className="font-semibold text-[#F5F0E1] hover:text-[#B8860B]"
                             >
                               {item.name}
                             </Link>
@@ -163,7 +168,7 @@ const Cart = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-4 text-center text-[#D4CFC0]">
                         ${parseFloat(item.price).toFixed(2)}
                       </td>
                       <td className="p-4 text-center">
@@ -202,7 +207,7 @@ const Cart = () => {
                           </p>
                         )}
                       </td>
-                      <td className="p-4 text-center font-semibold">
+                      <td className="p-4 text-center font-semibold text-[#8B2332]">
                         ${item.subtotal ? parseFloat(item.subtotal).toFixed(2) : (parseFloat(item.price) * item.quantity).toFixed(2)}
                       </td>
                       <td className="p-4 text-center">
@@ -264,32 +269,37 @@ const Cart = () => {
           </div>
 
           <div className="lg:w-1/3">
-            <div className="card p-6 mt-6 lg:mt-0">
-              <h2 className="text-xl font-bold mb-4">Order Summary</h2>
+            <div className="bg-[#242424] border border-[#333] rounded-lg p-6 mt-6 lg:mt-0">
+              <h2
+                className="text-xl font-bold mb-4 text-[#F5F0E1] uppercase"
+                style={{ fontFamily: "'Oswald', sans-serif" }}
+              >
+                Order Summary
+              </h2>
 
-              <div className="border-t border-b py-4 mb-4">
-                <div className="flex justify-between mb-2">
+              <div className="border-t border-b border-[#444] py-4 mb-4">
+                <div className="flex justify-between mb-2 text-[#D4CFC0]">
                   <span>Subtotal</span>
                   <span>${total.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between mb-2">
+                <div className="flex justify-between mb-2 text-[#A8A090]">
                   <span>Shipping</span>
                   <span>Calculated at checkout</span>
                 </div>
-                <div className="flex justify-between mb-2">
+                <div className="flex justify-between mb-2 text-[#A8A090]">
                   <span>Tax</span>
                   <span>Calculated at checkout</span>
                 </div>
               </div>
 
-              <div className="flex justify-between font-bold text-lg mb-6">
+              <div className="flex justify-between font-bold text-lg mb-6 text-[#F5F0E1]">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span className="text-[#8B2332]">${total.toFixed(2)}</span>
               </div>
 
               <button
                 onClick={handleCheckout}
-                className="w-full bg-blue-800 text-white py-3 rounded font-semibold hover:bg-blue-700"
+                className="btn-vintage-red w-full"
                 disabled={loading || cart.length === 0}
               >
                 {loading ? 'Loading...' : 'Proceed to Checkout'}
@@ -297,8 +307,9 @@ const Cart = () => {
             </div>
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 };
 

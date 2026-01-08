@@ -297,473 +297,474 @@ const ProductList = () => {
   };
 
   return (
-    <div className="min-h-screen backdrop-product-grid">
-      <div className="container mx-auto px-4 relative z-10">
-      <h1 className="text-3xl font-bold mb-6">
-        {searchQuery
-          ? `Search Results for "${searchQuery}"`
-          : categoryId
-            ? `${categories.find(c => c.id === categoryId)?.name || 'Category'} Parts`
-            : 'All Products'}
-      </h1>
+    <div className="min-h-screen bg-[#1a1a1a]">
+      <div className="container mx-auto px-4 py-8 relative z-10">
+        <h1
+          className="text-3xl font-bold mb-6 text-[#F5F0E1] uppercase tracking-wide"
+          style={{ fontFamily: "'Oswald', sans-serif" }}
+        >
+          {searchQuery
+            ? `Search Results for "${searchQuery}"`
+            : categoryId
+              ? `${categories.find(c => c.id === categoryId)?.name || 'Category'} Parts`
+              : 'Parts Catalog'}
+        </h1>
 
-      <div className="flex flex-col md:flex-row mb-8">
-        {/* Filters */}
-        <div className="w-full md:w-1/4 mb-4 md:mb-0 md:mr-6">
-          {/* Mobile Filter Toggle Button */}
-          <div className="md:hidden mb-4">
-            <button
-              onClick={() => setShowFilters(prev => !prev)}
-              className="btn-primary w-full py-2 px-4 flex items-center justify-center"
-            >
-              <span className="mr-2">{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-
-          <div className={`card p-4 ${!showFilters && 'hidden md:block'}`}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-slate-100">Filters</h2>
+        <div className="flex flex-col md:flex-row mb-8">
+          {/* Filters */}
+          <div className="w-full md:w-1/4 mb-4 md:mb-0 md:mr-6">
+            {/* Mobile Filter Toggle Button */}
+            <div className="md:hidden mb-4">
               <button
-                onClick={clearAllFilters}
-                className="text-sm text-emerald-400 hover:text-emerald-300"
+                onClick={() => setShowFilters(prev => !prev)}
+                className="btn-primary w-full py-2 px-4 flex items-center justify-center"
               >
-                Clear All
-              </button>
-            </div>
-
-            {/* Category Filter - Multi-select Checkboxes */}
-            <div className="mb-6 border-b pb-4">
-              <button
-                className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
-                onClick={() => toggleSection('categories')}
-              >
-                <span>Categories</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-5 w-5 transition-transform ${expandedSections.categories ? 'transform rotate-180' : ''}`}
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                <span className="mr-2">{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                 </svg>
               </button>
-
-              {expandedSections.categories && (
-                <div className="max-h-48 overflow-y-auto border rounded p-2 mt-2">
-                  {categories.map(category => {
-                    // Ensure category ID is a string
-                    const categoryId = String(category.id);
-                    return (
-                      <div key={categoryId} className="flex items-center mb-2">
-                        <input
-                          type="checkbox"
-                          id={`category-${categoryId}`}
-                          checked={selectedCategories.includes(categoryId)}
-                          onChange={() => handleCategoryCheckboxChange(categoryId)}
-                          className="mr-2"
-                        />
-                        <label htmlFor={`category-${categoryId}`} className="text-sm">
-                          {category.name}
-                        </label>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
-            {/* Price Range Filter with Slider */}
-            <div className="mb-6 border-b pb-4">
-              <button
-                className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
-                onClick={() => toggleSection('priceRange')}
-              >
-                <span>Price Range</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-5 w-5 transition-transform ${expandedSections.priceRange ? 'transform rotate-180' : ''}`}
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+            <div className={`bg-[#242424] border border-[#333] rounded-lg p-4 ${!showFilters && 'hidden md:block'}`}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-[#F5F0E1]" style={{ fontFamily: "'Oswald', sans-serif" }}>Filters</h2>
+                <button
+                  onClick={clearAllFilters}
+                  className="text-sm text-[#B8860B] hover:text-[#d4a50d]"
                 >
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
+                  Clear All
+                </button>
+              </div>
 
-              {expandedSections.priceRange && (
-                <div className="mt-2">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">${currentPriceRange.min}</span>
-                    <span className="text-sm font-medium">${currentPriceRange.max === 99999 ? '99999+' : currentPriceRange.max}</span>
-                  </div>
-
-                  {/* Custom Range Slider with two handles */}
-                  <RangeSlider
-                    min={0}
-                    max={1000}
-                    minValue={Math.min(currentPriceRange.min, 1000)}
-                    maxValue={Math.min(currentPriceRange.max, 1000)}
-                    onChange={(values) => {
-                      // Scale values back to full range if needed
-                      const scaledValues = {
-                        min: values.min,
-                        max: values.max === 1000 ? 99999 : values.max
-                      };
-                      handlePriceRangeChange(scaledValues);
-                    }}
-                    onAfterChange={(values) => {
-                      // Scale values back to full range if needed
-                      const scaledValues = {
-                        min: values.min,
-                        max: values.max === 1000 ? 99999 : values.max
-                      };
-                      handlePriceRangeApply(scaledValues);
-                    }}
-                  />
-
-                  <div className="flex space-x-2 mt-4">
-                    <div className="w-1/2">
-                      <input
-                        type="number"
-                        placeholder="Min"
-                        value={currentPriceRange.min}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value, 10);
-                          if (!isNaN(value)) {
-                            const newMin = Math.max(0, Math.min(value, currentPriceRange.max - 1));
-                            handlePriceRangeChange({
-                              min: newMin,
-                              max: currentPriceRange.max
-                            });
-                          }
-                        }}
-                        onBlur={() => handlePriceRangeApply(currentPriceRange)}
-                        className="w-full p-2 border rounded text-sm"
-                        min={0}
-                        max={currentPriceRange.max - 1}
-                      />
-                    </div>
-                    <div className="w-1/2">
-                      <input
-                        type="number"
-                        placeholder="Max"
-                        value={currentPriceRange.max}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value, 10);
-                          if (!isNaN(value)) {
-                            const newMax = Math.min(99999, Math.max(value, currentPriceRange.min + 1));
-                            handlePriceRangeChange({
-                              min: currentPriceRange.min,
-                              max: newMax
-                            });
-                          }
-                        }}
-                        onBlur={() => handlePriceRangeApply(currentPriceRange)}
-                        className="w-full p-2 border rounded text-sm"
-                        min={currentPriceRange.min + 1}
-                        max={99999}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Availability Filter - Checkboxes */}
-            <div className="mb-6 border-b pb-4">
-              <button
-                className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
-                onClick={() => toggleSection('availability')}
-              >
-                <span>Availability</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-5 w-5 transition-transform ${expandedSections.availability ? 'transform rotate-180' : ''}`}
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+              {/* Category Filter - Multi-select Checkboxes */}
+              <div className="mb-6 border-b border-[#444] pb-4">
+                <button
+                  className="w-full flex justify-between items-center font-semibold text-[#D4CFC0] mb-2"
+                  onClick={() => toggleSection('categories')}
                 >
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
+                  <span>Categories</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-5 w-5 transition-transform ${expandedSections.categories ? 'transform rotate-180' : ''}`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
 
-              {expandedSections.availability && (
-                <div className="space-y-2 mt-2">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="availability-in-stock"
-                      checked={availabilityFilters.inStock}
-                      onChange={() => handleAvailabilityChange('inStock')}
-                      className="mr-2"
-                    />
-                    <label htmlFor="availability-in-stock" className="text-sm">In Stock</label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="availability-out-of-stock"
-                      checked={availabilityFilters.outOfStock}
-                      onChange={() => handleAvailabilityChange('outOfStock')}
-                      className="mr-2"
-                    />
-                    <label htmlFor="availability-out-of-stock" className="text-sm">Out of Stock</label>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Sort Options */}
-            <div>
-              <button
-                className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
-                onClick={() => toggleSection('sortOptions')}
-              >
-                <span>Sort By</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-5 w-5 transition-transform ${expandedSections.sortOptions ? 'transform rotate-180' : ''}`}
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-
-              {expandedSections.sortOptions && (
-                <select
-                  className="w-full p-2 border rounded mt-2"
-                  value={sortOption}
-                  onChange={handleSortChange}
-                >
-                  <option value="name-asc">Name (A-Z)</option>
-                  <option value="name-desc">Name (Z-A)</option>
-                  <option value="price-asc">Price (Low to High)</option>
-                  <option value="price-desc">Price (High to Low)</option>
-                </select>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Product Grid */}
-        <div className="w-full md:w-3/4">
-          {/* Active Filters Summary */}
-          {(selectedCategories.length > 0 ||
-            (priceRange.min !== 0 || priceRange.max !== 1000) ||
-            availabilityFilters.inStock ||
-            availabilityFilters.outOfStock) && (
-            <div className="bg-gray-100 p-3 rounded mb-4">
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-sm font-semibold text-gray-700">Active Filters:</span>
-
-                {/* Category filters */}
-                {selectedCategories.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {selectedCategories.map(catId => {
-                      // Ensure catId is a string for consistent comparison
-                      const strCatId = String(catId);
-                      console.log(`Looking for category with ID: ${strCatId}`);
-
-                      // Find the category by ID
-                      const category = categories.find(c => String(c.id) === strCatId);
-                      console.log(`Found category:`, category);
-
-                      return category ? (
-                        <span key={strCatId} className="bg-emerald-600 text-emerald-100 text-xs px-2 py-1 rounded-full flex items-center">
-                          {category.name}
-                          <button
-                            onClick={() => handleCategoryCheckboxChange(strCatId)}
-                            className="ml-1 text-emerald-100 hover:text-white"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ) : null;
+                {expandedSections.categories && (
+                  <div className="max-h-48 overflow-y-auto bg-[#333] border border-[#444] rounded p-2 mt-2">
+                    {categories.map(category => {
+                      const categoryId = String(category.id);
+                      return (
+                        <div key={categoryId} className="flex items-center mb-2">
+                          <input
+                            type="checkbox"
+                            id={`category-${categoryId}`}
+                            checked={selectedCategories.includes(categoryId)}
+                            onChange={() => handleCategoryCheckboxChange(categoryId)}
+                            className="mr-2 accent-[#8B2332]"
+                          />
+                          <label htmlFor={`category-${categoryId}`} className="text-sm text-[#D4CFC0]">
+                            {category.name}
+                          </label>
+                        </div>
+                      );
                     })}
                   </div>
                 )}
+              </div>
 
-                {/* Price range filters */}
-                {(priceRange.min > 0 || priceRange.max < 99999) && (
-                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
-                    Price: ${priceRange.min} - ${priceRange.max === 99999 ? 'Any' : priceRange.max}
-                    <button
-                      onClick={() => {
-                        // Reset to default fixed range
-                        const defaultRange = { min: 0, max: 99999 };
-                        setPriceRange(defaultRange);
-                        setCurrentPriceRange(defaultRange);
+              {/* Price Range Filter with Slider */}
+              <div className="mb-6 border-b pb-4">
+                <button
+                  className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
+                  onClick={() => toggleSection('priceRange')}
+                >
+                  <span>Price Range</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-5 w-5 transition-transform ${expandedSections.priceRange ? 'transform rotate-180' : ''}`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+
+                {expandedSections.priceRange && (
+                  <div className="mt-2">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium">${currentPriceRange.min}</span>
+                      <span className="text-sm font-medium">${currentPriceRange.max === 99999 ? '99999+' : currentPriceRange.max}</span>
+                    </div>
+
+                    {/* Custom Range Slider with two handles */}
+                    <RangeSlider
+                      min={0}
+                      max={1000}
+                      minValue={Math.min(currentPriceRange.min, 1000)}
+                      maxValue={Math.min(currentPriceRange.max, 1000)}
+                      onChange={(values) => {
+                        // Scale values back to full range if needed
+                        const scaledValues = {
+                          min: values.min,
+                          max: values.max === 1000 ? 99999 : values.max
+                        };
+                        handlePriceRangeChange(scaledValues);
                       }}
-                      className="ml-1 text-green-800 hover:text-green-900"
-                      title="Clear price filter"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-
-                {/* Availability filters */}
-                {(availabilityFilters.inStock || availabilityFilters.outOfStock) && (
-                  <div className="flex flex-wrap gap-1">
-                    {availabilityFilters.inStock && (
-                      <span className="bg-emerald-600 text-emerald-100 text-xs px-2 py-1 rounded-full flex items-center">
-                        In Stock
-                        <button
-                          onClick={() => handleAvailabilityChange('inStock')}
-                          className="ml-1 text-emerald-100 hover:text-white"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    )}
-                    {availabilityFilters.outOfStock && (
-                      <span className="bg-slate-600 text-slate-100 text-xs px-2 py-1 rounded-full flex items-center">
-                        Out of Stock
-                        <button
-                          onClick={() => handleAvailabilityChange('outOfStock')}
-                          className="ml-1 text-slate-100 hover:text-white"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  onClick={clearAllFilters}
-                  className="text-xs text-red-600 hover:text-red-800 ml-auto"
-                >
-                  Clear All Filters
-                </button>
-              </div>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="text-center py-8">
-              <LoadingSpinner size="xl" text="Loading products..." variant="gear" />
-            </div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-xl text-gray-600">No products available.</p>
-              <p className="text-sm text-gray-500 mt-2">Check your internet connection or try refreshing the page.</p>
-            </div>
-          ) : filteredAndSortedProducts.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-xl text-gray-600">No products match your filters.</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Found {products.length} total products, but none match your current filters.
-              </p>
-              {(selectedCategories.length > 0 ||
-                (priceRange.min > 0 || priceRange.max < 99999) ||
-                availabilityFilters.inStock ||
-                availabilityFilters.outOfStock) && (
-                <button
-                  onClick={clearAllFilters}
-                  className="mt-4 text-blue-600 hover:text-blue-800"
-                >
-                  Clear all filters to see all {products.length} products
-                </button>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="mb-4 text-sm text-gray-600">
-                Showing {filteredAndSortedProducts.length} {filteredAndSortedProducts.length === 1 ? 'product' : 'products'}
-                {products.length > filteredAndSortedProducts.length && ` (filtered from ${products.length})`}
-              </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSortedProducts.filter(product => product && product.id && product.name).map(product => (
-                <div key={product.id} className="card-interactive overflow-hidden">
-                  <div className="h-48 relative bg-slate-700">
-                    <PlaceholderImage
-                      src={processImageUrl(product.image_url)}
-                      alt={product.name}
-                      className="w-full h-full object-contain"
-                      placeholderText="No Image Available"
-                      loading="lazy"
+                      onAfterChange={(values) => {
+                        // Scale values back to full range if needed
+                        const scaledValues = {
+                          min: values.min,
+                          max: values.max === 1000 ? 99999 : values.max
+                        };
+                        handlePriceRangeApply(scaledValues);
+                      }}
                     />
-                    {/* Wishlist Button Overlay */}
-                    <div className="absolute top-2 right-2">
-                      <WishlistButton product={product} size="md" variant="icon" />
+
+                    <div className="flex space-x-2 mt-4">
+                      <div className="w-1/2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={currentPriceRange.min}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value, 10);
+                            if (!isNaN(value)) {
+                              const newMin = Math.max(0, Math.min(value, currentPriceRange.max - 1));
+                              handlePriceRangeChange({
+                                min: newMin,
+                                max: currentPriceRange.max
+                              });
+                            }
+                          }}
+                          onBlur={() => handlePriceRangeApply(currentPriceRange)}
+                          className="w-full p-2 border rounded text-sm"
+                          min={0}
+                          max={currentPriceRange.max - 1}
+                        />
+                      </div>
+                      <div className="w-1/2">
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={currentPriceRange.max}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value, 10);
+                            if (!isNaN(value)) {
+                              const newMax = Math.min(99999, Math.max(value, currentPriceRange.min + 1));
+                              handlePriceRangeChange({
+                                min: currentPriceRange.min,
+                                max: newMax
+                              });
+                            }
+                          }}
+                          onBlur={() => handlePriceRangeApply(currentPriceRange)}
+                          className="w-full p-2 border rounded text-sm"
+                          min={currentPriceRange.min + 1}
+                          max={99999}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-1 text-slate-100">{product.name}</h3>
-                    <p className="text-sm text-slate-400 mb-2">{product.category_name}</p>
-                    <div className="flex items-center mb-2">
-                      <span className="text-sm bg-emerald-600 text-emerald-100 px-2 py-1 rounded">
-                        {product.condition_status}
-                      </span>
-                      <span className="ml-2 text-sm text-slate-400">
-                        {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
-                      </span>
-                    </div>
-                    <p className="text-emerald-400 font-bold text-xl mb-3">
-                      ${parseFloat(product.price).toFixed(2)}
-                    </p>
-                    <div className="flex justify-between">
-                      <Link
-                        to={`/products/${product.id}`}
-                        className="btn-secondary px-4 py-2 text-sm"
-                      >
-                        Details
-                      </Link>
-                      <button
-                        onClick={() => handleAddToCart(product)}
-                        className={`btn-primary flex items-center justify-center px-4 py-2 text-sm ${
-                          product.quantity <= 0 || addingToCart[product.id]
-                            ? 'opacity-50 cursor-not-allowed'
-                            : ''
-                        }`}
-                        disabled={product.quantity <= 0 || addingToCart[product.id]}
-                      >
-                        {addingToCart[product.id] ? (
-                          <>
-                            {/* Gear spinning animation */}
-                            <svg
-                              className="animate-spin h-4 w-4 mr-2"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
-                            </svg>
-                            Adding...
-                          </>
-                        ) : (
-                          'Add to Cart'
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Pagination - show when using backend pagination */}
-            {!searchQuery && pagination && (
-              <div className="mt-8">
-                <Pagination
-                  totalItems={pagination.totalItems}
-                  itemsPerPage={itemsPerPage}
-                  currentPage={currentPage}
-                  onPageChange={setCurrentPage}
-                  onItemsPerPageChange={setItemsPerPage}
-                />
-
-                <div className="mt-4 text-sm text-gray-600 text-center">
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, pagination.totalItems)} of {pagination.totalItems} products
-                </div>
+                )}
               </div>
+
+              {/* Availability Filter - Checkboxes */}
+              <div className="mb-6 border-b pb-4">
+                <button
+                  className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
+                  onClick={() => toggleSection('availability')}
+                >
+                  <span>Availability</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-5 w-5 transition-transform ${expandedSections.availability ? 'transform rotate-180' : ''}`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+
+                {expandedSections.availability && (
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="availability-in-stock"
+                        checked={availabilityFilters.inStock}
+                        onChange={() => handleAvailabilityChange('inStock')}
+                        className="mr-2"
+                      />
+                      <label htmlFor="availability-in-stock" className="text-sm">In Stock</label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="availability-out-of-stock"
+                        checked={availabilityFilters.outOfStock}
+                        onChange={() => handleAvailabilityChange('outOfStock')}
+                        className="mr-2"
+                      />
+                      <label htmlFor="availability-out-of-stock" className="text-sm">Out of Stock</label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sort Options */}
+              <div>
+                <button
+                  className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
+                  onClick={() => toggleSection('sortOptions')}
+                >
+                  <span>Sort By</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-5 w-5 transition-transform ${expandedSections.sortOptions ? 'transform rotate-180' : ''}`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+
+                {expandedSections.sortOptions && (
+                  <select
+                    className="w-full p-2 border rounded mt-2"
+                    value={sortOption}
+                    onChange={handleSortChange}
+                  >
+                    <option value="name-asc">Name (A-Z)</option>
+                    <option value="name-desc">Name (Z-A)</option>
+                    <option value="price-asc">Price (Low to High)</option>
+                    <option value="price-desc">Price (High to Low)</option>
+                  </select>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Product Grid */}
+          <div className="w-full md:w-3/4">
+            {/* Active Filters Summary */}
+            {(selectedCategories.length > 0 ||
+              (priceRange.min !== 0 || priceRange.max !== 1000) ||
+              availabilityFilters.inStock ||
+              availabilityFilters.outOfStock) && (
+                <div className="bg-gray-100 p-3 rounded mb-4">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-semibold text-gray-700">Active Filters:</span>
+
+                    {/* Category filters */}
+                    {selectedCategories.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {selectedCategories.map(catId => {
+                          // Ensure catId is a string for consistent comparison
+                          const strCatId = String(catId);
+                          console.log(`Looking for category with ID: ${strCatId}`);
+
+                          // Find the category by ID
+                          const category = categories.find(c => String(c.id) === strCatId);
+                          console.log(`Found category:`, category);
+
+                          return category ? (
+                            <span key={strCatId} className="bg-emerald-600 text-emerald-100 text-xs px-2 py-1 rounded-full flex items-center">
+                              {category.name}
+                              <button
+                                onClick={() => handleCategoryCheckboxChange(strCatId)}
+                                className="ml-1 text-emerald-100 hover:text-white"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+
+                    {/* Price range filters */}
+                    {(priceRange.min > 0 || priceRange.max < 99999) && (
+                      <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
+                        Price: ${priceRange.min} - ${priceRange.max === 99999 ? 'Any' : priceRange.max}
+                        <button
+                          onClick={() => {
+                            // Reset to default fixed range
+                            const defaultRange = { min: 0, max: 99999 };
+                            setPriceRange(defaultRange);
+                            setCurrentPriceRange(defaultRange);
+                          }}
+                          className="ml-1 text-green-800 hover:text-green-900"
+                          title="Clear price filter"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+
+                    {/* Availability filters */}
+                    {(availabilityFilters.inStock || availabilityFilters.outOfStock) && (
+                      <div className="flex flex-wrap gap-1">
+                        {availabilityFilters.inStock && (
+                          <span className="bg-emerald-600 text-emerald-100 text-xs px-2 py-1 rounded-full flex items-center">
+                            In Stock
+                            <button
+                              onClick={() => handleAvailabilityChange('inStock')}
+                              className="ml-1 text-emerald-100 hover:text-white"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        )}
+                        {availabilityFilters.outOfStock && (
+                          <span className="bg-slate-600 text-slate-100 text-xs px-2 py-1 rounded-full flex items-center">
+                            Out of Stock
+                            <button
+                              onClick={() => handleAvailabilityChange('outOfStock')}
+                              className="ml-1 text-slate-100 hover:text-white"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={clearAllFilters}
+                      className="text-xs text-red-600 hover:text-red-800 ml-auto"
+                    >
+                      Clear All Filters
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            {loading ? (
+              <div className="text-center py-8">
+                <LoadingSpinner size="xl" text="Loading products..." variant="gear" />
+              </div>
+            ) : products.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-xl text-gray-600">No products available.</p>
+                <p className="text-sm text-gray-500 mt-2">Check your internet connection or try refreshing the page.</p>
+              </div>
+            ) : filteredAndSortedProducts.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-xl text-gray-600">No products match your filters.</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Found {products.length} total products, but none match your current filters.
+                </p>
+                {(selectedCategories.length > 0 ||
+                  (priceRange.min > 0 || priceRange.max < 99999) ||
+                  availabilityFilters.inStock ||
+                  availabilityFilters.outOfStock) && (
+                    <button
+                      onClick={clearAllFilters}
+                      className="mt-4 text-blue-600 hover:text-blue-800"
+                    >
+                      Clear all filters to see all {products.length} products
+                    </button>
+                  )}
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 text-sm text-gray-600">
+                  Showing {filteredAndSortedProducts.length} {filteredAndSortedProducts.length === 1 ? 'product' : 'products'}
+                  {products.length > filteredAndSortedProducts.length && ` (filtered from ${products.length})`}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredAndSortedProducts.filter(product => product && product.id && product.name).map(product => (
+                    <div key={product.id} className="bg-[#242424] border border-[#333] rounded-lg overflow-hidden group hover:border-[#8B2332] transition-all duration-300">
+                      <div className="h-48 relative bg-slate-700">
+                        <PlaceholderImage
+                          src={processImageUrl(product.image_url)}
+                          alt={product.name}
+                          className="w-full h-full object-contain"
+                          placeholderText="No Image Available"
+                          loading="lazy"
+                        />
+                        {/* Wishlist Button Overlay */}
+                        <div className="absolute top-2 right-2">
+                          <WishlistButton product={product} size="md" variant="icon" />
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold mb-1 text-[#F5F0E1] uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{product.name}</h3>
+                        <p className="text-sm text-[#A8A090] mb-2">{product.category_name}</p>
+                        <div className="flex items-center mb-2">
+                          <span className="text-sm bg-emerald-600 text-emerald-100 px-2 py-1 rounded">
+                            {product.condition_status}
+                          </span>
+                          <span className="ml-2 text-sm text-slate-400">
+                            {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+                          </span>
+                        </div>
+                        <p className="text-[#8B2332] font-bold text-xl mb-3">
+                          ${parseFloat(product.price).toFixed(2)}
+                        </p>
+                        <div className="flex justify-between">
+                          <Link
+                            to={`/products/${product.id}`}
+                            className="btn-vintage-gray px-4 py-2 text-sm"
+                          >
+                            Details
+                          </Link>
+                          <button
+                            onClick={() => handleAddToCart(product)}
+                            className={`btn-primary flex items-center justify-center px-4 py-2 text-sm ${product.quantity <= 0 || addingToCart[product.id]
+                              ? 'opacity-50 cursor-not-allowed'
+                              : ''
+                              }`}
+                            disabled={product.quantity <= 0 || addingToCart[product.id]}
+                          >
+                            {addingToCart[product.id] ? (
+                              <>
+                                {/* Gear spinning animation */}
+                                <svg
+                                  className="animate-spin h-4 w-4 mr-2"
+                                  fill="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
+                                </svg>
+                                Adding...
+                              </>
+                            ) : (
+                              'Add to Cart'
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination - show when using backend pagination */}
+                {!searchQuery && pagination && (
+                  <div className="mt-8">
+                    <Pagination
+                      totalItems={pagination.totalItems}
+                      itemsPerPage={itemsPerPage}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                      onItemsPerPageChange={setItemsPerPage}
+                    />
+
+                    <div className="mt-4 text-sm text-gray-600 text-center">
+                      Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, pagination.totalItems)} of {pagination.totalItems} products
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-            </>
-          )}
+          </div>
         </div>
       </div>
-    </div>
     </div>
   );
 };

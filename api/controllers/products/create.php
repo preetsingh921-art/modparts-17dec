@@ -15,7 +15,7 @@ include_once '../../middleware/auth.php';
 if (!validateAdmin()) {
     // Set response code - 403 Forbidden
     http_response_code(403);
-    
+
     // Tell the user access denied
     echo json_encode(array("message" => "Access denied."));
     exit;
@@ -48,13 +48,34 @@ if (
     $product->quantity = $data->quantity;
     $product->image_url = $data->image_url ?? "";
 
+    // Inventory fields
+    $product->part_number = $data->part_number ?? null;
+    $product->barcode = $data->barcode ?? null;
+    $product->warehouse_id = $data->warehouse_id ?? null;
+    $product->bin_number = $data->bin_number ?? null;
+
     // Create the product
     if ($product->create()) {
+        // If barcode is missing but part number exists, generate it
+        if (empty($product->barcode) && !empty($product->part_number)) {
+            $product->generateBarcode();
+            $product->updateBarcode();
+        }
+
+        // If warehouse info is provided, update location
+        if (!empty($product->warehouse_id) || !empty($product->bin_number)) {
+            $product->updateLocation();
+        }
+
         // Set response code - 201 Created
         http_response_code(201);
 
         // Tell the user
-        echo json_encode(array("message" => "Product was created."));
+        echo json_encode(array(
+            "message" => "Product was created.",
+            "id" => $product->id,
+            "barcode" => $product->barcode
+        ));
     } else {
         // Set response code - 503 Service Unavailable
         http_response_code(503);

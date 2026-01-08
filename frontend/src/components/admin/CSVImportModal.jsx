@@ -4,12 +4,12 @@ import Papa from 'papaparse';
 
 // Sample CSV data for the template
 const sampleCsvData = [
-  ['name', 'price', 'category_id', 'quantity', 'description', 'condition_status'],
-  ['Universal Piston Kit', '149.99', 'Engine Parts', '10', 'High-quality universal piston kit. Includes piston rings and pins.', 'New'],
-  ['Front Brake Caliper', '89.95', 'Brakes', '5', 'Refurbished front brake caliper for various vehicle models.', 'Refurbished'],
-  ['Electrical Wiring Harness', '75.50', 'Electrical', '8', 'Complete wiring harness for automotive applications. Direct replacement part.', 'New'],
-  ['Carburetor Rebuild Kit', '45.00', 'Engine Parts', '15', 'Complete rebuild kit for automotive carburetors. Includes all necessary gaskets and jets.', 'New'],
-  ['Headlight Assembly', '65.75', 'Bodywork', '3', 'Chrome headlight assembly for Yamaha RD models. Includes mounting hardware.', 'Used']
+  ['name', 'price', 'category_id', 'quantity', 'description', 'condition_status', 'part_number', 'barcode', 'warehouse_id', 'bin_number'],
+  ['Universal Piston Kit', '149.99', 'Engine Parts', '10', 'High-quality universal piston kit.', 'New', 'PK-001', '123456789', '1', 'A-01'],
+  ['Front Brake Caliper', '89.95', 'Brakes', '5', 'Refurbished front brake caliper.', 'Refurbished', 'BC-102', '', '1', 'B-05'],
+  ['Electrical Wiring Harness', '75.50', 'Electrical', '8', 'Complete wiring harness.', 'New', 'WH-200', '', '2', 'C-10'],
+  ['Carburetor Rebuild Kit', '45.00', 'Engine Parts', '15', 'Complete rebuild kit.', 'New', 'CRK-55', '', '1', 'A-02'],
+  ['Headlight Assembly', '65.75', 'Bodywork', '3', 'Chrome headlight assembly.', 'Used', 'HL-88', '', '2', 'D-03']
 ];
 
 /**
@@ -231,6 +231,12 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
         processedRow.image_url = ''; // No image for imported products
         processedRow.condition_status = processedRow.condition_status || 'New';
 
+        // Pass validation for inventory fields
+        processedRow.part_number = processedRow.part_number || '';
+        processedRow.barcode = processedRow.barcode || '';
+        processedRow.warehouse_id = processedRow.warehouse_id || '';
+        processedRow.bin_number = processedRow.bin_number || '';
+
         return processedRow;
       });
 
@@ -377,6 +383,10 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
                               <option value="quantity">Quantity</option>
                               <option value="description">Description</option>
                               <option value="condition_status">Condition</option>
+                              <option value="part_number">Part Number</option>
+                              <option value="barcode">Barcode</option>
+                              <option value="warehouse_id">Warehouse ID</option>
+                              <option value="bin_number">Bin Number</option>
                             </select>
                           </th>
                         ))}

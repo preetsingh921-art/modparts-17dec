@@ -20,7 +20,9 @@ const ProductForm = () => {
     category_id: '',
     condition_status: 'New',
     quantity: '',
-    image_url: ''
+    image_url: '',
+    part_number: '',
+    barcode: ''
   });
 
   const [categories, setCategories] = useState([]);
@@ -63,7 +65,9 @@ const ProductForm = () => {
           category_id: data.category_id,
           condition_status: data.condition_status,
           quantity: data.quantity,
-          image_url: data.image_url || ''
+          image_url: data.image_url || '',
+          part_number: data.part_number || '',
+          barcode: data.barcode || ''
         });
 
         // Set image preview if image_url exists
@@ -199,7 +203,9 @@ const ProductForm = () => {
         ...formData,
         price: parseFloat(formData.price),
         quantity: parseInt(formData.quantity),
-        image_url: imageUrl
+        image_url: imageUrl,
+        part_number: formData.part_number || null,
+        barcode: formData.barcode || null
       };
 
       console.log('Final product data for submission:', productData);
@@ -287,6 +293,41 @@ const ProductForm = () => {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Part Number and Barcode */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className="block text-gray-700 mb-2">Part Number</label>
+              <input
+                type="text"
+                name="part_number"
+                value={formData.part_number}
+                onChange={handleChange}
+                className="w-full p-2 border rounded"
+                placeholder="e.g., YAM-RD350-001"
+              />
+              <p className="text-xs text-gray-500 mt-1">Used to auto-generate barcode if not provided</p>
+            </div>
+
+            <div>
+              <label className="block text-gray-700 mb-2">Barcode</label>
+              <input
+                type="text"
+                name="barcode"
+                value={formData.barcode}
+                onChange={handleChange}
+                className="w-full p-2 border rounded bg-gray-100"
+                placeholder="Auto-generated from part number"
+                readOnly={isEditMode && !!formData.barcode}
+              />
+              {isEditMode && formData.barcode && (
+                <p className="text-xs text-green-600 mt-1">✓ Barcode: {formData.barcode}</p>
+              )}
+              {!formData.barcode && (
+                <p className="text-xs text-gray-500 mt-1">Will be auto-generated when product is saved</p>
+              )}
             </div>
           </div>
 
@@ -453,7 +494,7 @@ const ProductForm = () => {
                     borderRadius: '4px',
                     margin: '12px 0 0 0'
                   }}>
-                    📋 <strong>Supported formats:</strong> JPG, JPEG, PNG, GIF<br/>
+                    📋 <strong>Supported formats:</strong> JPG, JPEG, PNG, GIF<br />
                     📏 <strong>Maximum size:</strong> 5MB
                   </p>
                 </div>

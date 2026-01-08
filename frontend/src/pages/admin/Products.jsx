@@ -150,7 +150,7 @@ const Products = () => {
     return processedProducts.filter(product => {
       // Category filtering
       const matchesCategory = selectedCategory === 'all' ||
-                             (product.category_id === selectedCategory);
+        (product.category_id === selectedCategory);
 
       // Search filtering
       const productName = (product.name || '').toLowerCase();
@@ -158,7 +158,7 @@ const Products = () => {
       const searchQueryLower = searchQuery.toLowerCase();
 
       const matchesSearch = productName.includes(searchQueryLower) ||
-                            productDesc.includes(searchQueryLower);
+        productDesc.includes(searchQueryLower);
 
       // For debugging specific products
       if (!matchesCategory && selectedCategory !== 'all') {
@@ -179,9 +179,9 @@ const Products = () => {
   const currentProducts = itemsPerPage === -1
     ? filteredProducts
     : filteredProducts.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-      );
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    );
 
   // Calculate indices for display purposes
   const indexOfFirstProduct = itemsPerPage === -1 ? 1 : (currentPage - 1) * itemsPerPage + 1;
@@ -418,48 +418,48 @@ const Products = () => {
   return (
     <div>
       {/* Confirm Dialog */}
-        <ConfirmDialog
-          isOpen={isOpen}
-          onClose={handleClose}
-          onConfirm={handleConfirm}
-          title={dialogProps.title}
-          message={dialogProps.message}
-          confirmText={dialogProps.confirmText}
-          cancelText={dialogProps.cancelText}
-          confirmButtonClass={dialogProps.confirmButtonClass}
-        />
+      <ConfirmDialog
+        isOpen={isOpen}
+        onClose={handleClose}
+        onConfirm={handleConfirm}
+        title={dialogProps.title}
+        message={dialogProps.message}
+        confirmText={dialogProps.confirmText}
+        cancelText={dialogProps.cancelText}
+        confirmButtonClass={dialogProps.confirmButtonClass}
+      />
 
-        {/* Export Progress Bar */}
-        <ProgressBar
-          progress={exportProgress}
-          isVisible={isExporting}
-          onComplete={() => setIsExporting(false)}
-        />
+      {/* Export Progress Bar */}
+      <ProgressBar
+        progress={exportProgress}
+        isVisible={isExporting}
+        onComplete={() => setIsExporting(false)}
+      />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h2 className="text-2xl font-bold text-white">Manage Products</h2>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center justify-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 w-full sm:w-auto transition-colors"
-              disabled={isExporting}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-              </svg>
-              Import from CSV
-            </button>
-            <Link
-              to="/admin/products/add"
-              className="flex items-center justify-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 w-full sm:w-auto transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add New Product
-            </Link>
-          </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <h2 className="text-2xl font-bold text-white">Manage Products</h2>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center justify-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 w-full sm:w-auto transition-colors"
+            disabled={isExporting}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+            </svg>
+            Import from CSV
+          </button>
+          <Link
+            to="/admin/products/add"
+            className="flex items-center justify-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 w-full sm:w-auto transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add New Product
+          </Link>
         </div>
+      </div>
 
       {/* CSV Import Modal */}
       <CSVImportModal
@@ -469,22 +469,22 @@ const Products = () => {
         categories={categories}
       />
 
-        <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 gap-4">
-            <div className="w-full md:w-1/3">
-              <label className="block text-white mb-2">Filter by Category</label>
-              <select
-                className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded"
-                value={selectedCategory}
-                onChange={(e) => {
-                  // Log the selected value and its type
-                  const selectedValue = e.target.value;
-                  console.log('Category selected:', selectedValue, typeof selectedValue);
+      <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 gap-4">
+          <div className="w-full md:w-1/3">
+            <label className="block text-white mb-2">Filter by Category</label>
+            <select
+              className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded"
+              value={selectedCategory}
+              onChange={(e) => {
+                // Log the selected value and its type
+                const selectedValue = e.target.value;
+                console.log('Category selected:', selectedValue, typeof selectedValue);
 
-                  // Set the selected category
-                  setSelectedCategory(selectedValue);
-                }}
-              >
+                // Set the selected category
+                setSelectedCategory(selectedValue);
+              }}
+            >
               <option value="all">All Categories</option>
               {categories.filter(category => category && category.id && category.name).map(category => {
                 // Convert category.id to string to ensure consistent type
@@ -500,116 +500,117 @@ const Products = () => {
             </select>
           </div>
 
-            <div className="w-full md:w-1/2">
-              <label className="block text-white mb-2">Search Products</label>
-              <input
-                type="text"
-                placeholder="Search by name or description..."
-                className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded placeholder-gray-400"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+          <div className="w-full md:w-1/2">
+            <label className="block text-white mb-2">Search Products</label>
+            <input
+              type="text"
+              placeholder="Search by name or description..."
+              className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded placeholder-gray-400"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="text-center py-12">
-            <LoadingSpinner size="xl" text="Loading products..." variant="gear" />
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-red-400 mb-4">{error}</p>
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-12 bg-midnight-900 border border-midnight-700 rounded-lg shadow">
-            <p className="text-xl text-midnight-300 mb-6">No products found</p>
-            <Link
-              to="/admin/products/add"
-              className="bg-midnight-700 text-midnight-50 px-6 py-3 rounded font-semibold hover:bg-midnight-600"
-            >
-              Add New Product
-            </Link>
-          </div>
-        ) : (
-          <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow overflow-hidden">
-            <div className="flex justify-between items-center p-4 bg-midnight-800 border-b border-midnight-700">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="select-all"
-                  checked={selectAll}
-                  onChange={handleSelectAll}
-                  className="h-4 w-4 text-midnight-300 rounded border-midnight-600 bg-midnight-700 focus:ring-midnight-500"
-                />
-                <label htmlFor="select-all" className="text-sm font-medium text-midnight-200">
-                  Select All
-                </label>
-                <span className="text-sm text-midnight-400">
-                  ({selectedProducts.length} selected)
-                </span>
-              </div>
+      {loading ? (
+        <div className="text-center py-12">
+          <LoadingSpinner size="xl" text="Loading products..." variant="gear" />
+        </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <p className="text-red-400 mb-4">{error}</p>
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="text-center py-12 bg-midnight-900 border border-midnight-700 rounded-lg shadow">
+          <p className="text-xl text-midnight-300 mb-6">No products found</p>
+          <Link
+            to="/admin/products/add"
+            className="bg-midnight-700 text-midnight-50 px-6 py-3 rounded font-semibold hover:bg-midnight-600"
+          >
+            Add New Product
+          </Link>
+        </div>
+      ) : (
+        <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow overflow-hidden">
+          <div className="flex justify-between items-center p-4 bg-midnight-800 border-b border-midnight-700">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="select-all"
+                checked={selectAll}
+                onChange={handleSelectAll}
+                className="h-4 w-4 text-midnight-300 rounded border-midnight-600 bg-midnight-700 focus:ring-midnight-500"
+              />
+              <label htmlFor="select-all" className="text-sm font-medium text-midnight-200">
+                Select All
+              </label>
+              <span className="text-sm text-midnight-400">
+                ({selectedProducts.length} selected)
+              </span>
+            </div>
 
-              <div className="flex space-x-2">
-                {selectedProducts.length > 0 && (
-                  <>
+            <div className="flex space-x-2">
+              {selectedProducts.length > 0 && (
+                <>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                    disabled={isExporting}
+                  >
+                    Delete Selected
+                  </button>
+                  <div className="relative">
                     <button
-                      onClick={handleBulkDelete}
-                      className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                      className="bg-midnight-600 text-midnight-50 px-3 py-1 rounded text-sm hover:bg-midnight-500 flex items-center"
+                      onClick={() => document.getElementById('exportSelectedDropdown').classList.toggle('hidden')}
                       disabled={isExporting}
                     >
-                      Delete Selected
+                      <span>Export Selected</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
                     </button>
-                    <div className="relative">
-                      <button
-                        className="bg-midnight-600 text-midnight-50 px-3 py-1 rounded text-sm hover:bg-midnight-500 flex items-center"
-                        onClick={() => document.getElementById('exportSelectedDropdown').classList.toggle('hidden')}
-                        disabled={isExporting}
-                      >
-                        <span>Export Selected</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      <div id="exportSelectedDropdown" className="hidden absolute right-0 mt-1 w-40 bg-midnight-800 border border-midnight-600 rounded-md shadow-lg z-10">
-                        <div className="py-1">
-                          <button
-                            onClick={() => handleExportSelected('pdf')}
-                            className="block w-full text-left px-4 py-2 text-sm text-midnight-200 hover:bg-midnight-700"
-                            disabled={isExporting}
-                          >
-                            Export to PDF
-                          </button>
-                          <button
-                            onClick={() => handleExportSelected('xlsx')}
-                            className="block w-full text-left px-4 py-2 text-sm text-midnight-200 hover:bg-midnight-700"
-                            disabled={isExporting}
-                          >
-                            Export to Excel
-                          </button>
-                        </div>
+                    <div id="exportSelectedDropdown" className="hidden absolute right-0 mt-1 w-40 bg-midnight-800 border border-midnight-600 rounded-md shadow-lg z-10">
+                      <div className="py-1">
+                        <button
+                          onClick={() => handleExportSelected('pdf')}
+                          className="block w-full text-left px-4 py-2 text-sm text-midnight-200 hover:bg-midnight-700"
+                          disabled={isExporting}
+                        >
+                          Export to PDF
+                        </button>
+                        <button
+                          onClick={() => handleExportSelected('xlsx')}
+                          className="block w-full text-left px-4 py-2 text-sm text-midnight-200 hover:bg-midnight-700"
+                          disabled={isExporting}
+                        >
+                          Export to Excel
+                        </button>
                       </div>
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
-                <thead className="bg-midnight-800">
-                  <tr>
-                    <th className="p-4 w-10">
-                      <span className="sr-only">Select</span>
-                    </th>
-                    <th className="text-left p-4 text-white min-w-[200px]">Product</th>
-                    <th className="text-left p-4 text-white min-w-[120px]">Category</th>
-                    <th className="text-center p-4 text-white min-w-[80px]">Price</th>
-                    <th className="text-center p-4 text-white min-w-[80px]">Stock</th>
-                    <th className="text-center p-4 text-white min-w-[100px]">Condition</th>
-                    <th className="text-center p-4 text-white min-w-[120px]">Actions</th>
-                  </tr>
-                </thead>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-midnight-800">
+                <tr>
+                  <th className="p-4 w-10">
+                    <span className="sr-only">Select</span>
+                  </th>
+                  <th className="text-left p-4 text-white min-w-[200px]">Product</th>
+                  <th className="text-left p-4 text-white min-w-[120px]">Category</th>
+                  <th className="text-left p-4 text-white min-w-[120px]">Barcode</th>
+                  <th className="text-center p-4 text-white min-w-[80px]">Price</th>
+                  <th className="text-center p-4 text-white min-w-[80px]">Stock</th>
+                  <th className="text-center p-4 text-white min-w-[100px]">Condition</th>
+                  <th className="text-center p-4 text-white min-w-[120px]">Actions</th>
+                </tr>
+              </thead>
               <tbody>
                 {currentProducts.map(product => (
                   <tr key={product.id} className="border-t border-midnight-700">
@@ -641,7 +642,16 @@ const Products = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-white">{product.category_name}</td>
+                    <td className="p-4 text-white">{product.category_name || 'Uncategorized'}</td>
+                    <td className="p-4">
+                      {product.barcode ? (
+                        <span className="text-xs font-mono bg-gray-700 text-green-300 px-2 py-1 rounded">
+                          {product.barcode}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500 italic">No barcode</span>
+                      )}
+                    </td>
                     <td className="p-4 text-center text-white">${parseFloat(product.price).toFixed(2)}</td>
                     <td className="p-4 text-center">
                       <span className={`font-semibold ${product.quantity <= 0 ? 'text-red-400' : product.quantity <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
@@ -688,19 +698,19 @@ const Products = () => {
                   </tr>
                 ))}
               </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <Pagination
-              totalItems={filteredProducts.length}
-              itemsPerPage={itemsPerPage}
-              currentPage={currentPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={setItemsPerPage}
-            />
+            </table>
           </div>
-        )}
+
+          {/* Pagination */}
+          <Pagination
+            totalItems={filteredProducts.length}
+            itemsPerPage={itemsPerPage}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        </div>
+      )}
 
       {!loading && !error && filteredProducts.length > 0 && (
         <div className="mt-4 text-sm text-midnight-400">

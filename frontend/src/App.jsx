@@ -34,6 +34,7 @@ import AdminProductForm from './pages/admin/ProductForm'
 import AdminAnalytics from './pages/admin/Analytics'
 import AdminReviews from './pages/admin/Reviews'
 import LogoManagement from './pages/admin/LogoManagement'
+import Inventory from './pages/admin/Inventory'
 import LoadingDemo from './pages/LoadingDemo'
 import Wishlist from './pages/Wishlist'
 import NotFound from './pages/NotFound'
@@ -52,86 +53,87 @@ function App() {
         <LogoProvider>
           <CartProvider>
             <WishlistProvider>
-          <Router>
-            <div className="flex flex-col min-h-screen backdrop-automotive text-slate-100">
-              <Header />
-              <main className="flex-grow container mx-auto px-4 py-8">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/products" element={<ProductList />} />
-                <Route path="/products/category/:categoryId" element={<ProductList />} />
-                <Route path="/products/:id" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={
-                  <ProtectedRoute>
-                    <Checkout />
-                  </ProtectedRoute>
-                } />
-                <Route path="/order-confirmation/:id" element={
-                  <ProtectedRoute>
-                    <OrderConfirmation />
-                  </ProtectedRoute>
-                } />
-                <Route path="/orders" element={
-                  <ProtectedRoute>
-                    <MyOrders />
-                  </ProtectedRoute>
-                } />
-                <Route path="/orders/:id" element={
-                  <ProtectedRoute>
-                    <OrderDetail />
-                  </ProtectedRoute>
-                } />
-                <Route path="/order/:id" element={
-                  <ProtectedRoute>
-                    <OrderDetail />
-                  </ProtectedRoute>
-                } />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                } />
-                <Route path="/wishlist" element={
-                  <ProtectedRoute>
-                    <Wishlist />
-                  </ProtectedRoute>
-                } />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/verify-email" element={<VerifyEmail />} />
-                <Route path="/resend-verification" element={<ResendVerification />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/loading-demo" element={<LoadingDemo />} />
+              <Router>
+                <div className="flex flex-col min-h-screen backdrop-automotive text-slate-100">
+                  <Header />
+                  <main className="flex-grow container mx-auto px-4 py-8">
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/products" element={<ProductList />} />
+                      <Route path="/products/category/:categoryId" element={<ProductList />} />
+                      <Route path="/products/:id" element={<ProductDetail />} />
+                      <Route path="/cart" element={<Cart />} />
+                      <Route path="/checkout" element={
+                        <ProtectedRoute>
+                          <Checkout />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/order-confirmation/:id" element={
+                        <ProtectedRoute>
+                          <OrderConfirmation />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/orders" element={
+                        <ProtectedRoute>
+                          <MyOrders />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/orders/:id" element={
+                        <ProtectedRoute>
+                          <OrderDetail />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/order/:id" element={
+                        <ProtectedRoute>
+                          <OrderDetail />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/profile" element={
+                        <ProtectedRoute>
+                          <Profile />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/wishlist" element={
+                        <ProtectedRoute>
+                          <Wishlist />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/register" element={<Register />} />
+                      <Route path="/verify-email" element={<VerifyEmail />} />
+                      <Route path="/resend-verification" element={<ResendVerification />} />
+                      <Route path="/auth/callback" element={<AuthCallback />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
+                      <Route path="/loading-demo" element={<LoadingDemo />} />
 
-                {/* Admin Routes */}
-                <Route path="/admin" element={
-                  <AdminRoute>
-                    <AdminLayout />
-                  </AdminRoute>
-                }>
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="products" element={<AdminProducts />} />
-                  <Route path="products/add" element={<AdminProductForm />} />
-                  <Route path="products/edit/:id" element={<AdminProductForm />} />
-                  <Route path="orders" element={<AdminOrders />} />
-                  <Route path="users" element={<AdminUsers />} />
-                  <Route path="user-approval" element={<UserApproval />} />
-                  <Route path="analytics" element={<AdminAnalytics />} />
-                  <Route path="reviews" element={<AdminReviews />} />
-                  <Route path="logo" element={<LogoManagement />} />
-                </Route>
+                      {/* Admin Routes */}
+                      <Route path="/admin" element={
+                        <AdminRoute>
+                          <AdminLayout />
+                        </AdminRoute>
+                      }>
+                        <Route index element={<AdminDashboard />} />
+                        <Route path="products" element={<AdminProducts />} />
+                        <Route path="products/add" element={<AdminProductForm />} />
+                        <Route path="products/edit/:id" element={<AdminProductForm />} />
+                        <Route path="orders" element={<AdminOrders />} />
+                        <Route path="users" element={<AdminUsers />} />
+                        <Route path="user-approval" element={<UserApproval />} />
+                        <Route path="analytics" element={<AdminAnalytics />} />
+                        <Route path="reviews" element={<AdminReviews />} />
+                        <Route path="logo" element={<LogoManagement />} />
+                        <Route path="inventory" element={<Inventory />} />
+                      </Route>
 
 
-                <Route path="/404" element={<NotFound />} />
-                <Route path="*" element={<Navigate to="/404" replace />} />
-              </Routes>
-            </main>
-            <Footer />
-          </div>
-        </Router>
+                      <Route path="/404" element={<NotFound />} />
+                      <Route path="*" element={<Navigate to="/404" replace />} />
+                    </Routes>
+                  </main>
+                  <Footer />
+                </div>
+              </Router>
             </WishlistProvider>
           </CartProvider>
         </LogoProvider>

@@ -1,5 +1,6 @@
 <?php
-class Product {
+class Product
+{
     private $conn;
     private $table_name = "products";
 
@@ -7,15 +8,21 @@ class Product {
     public $category_id;
     public $name;
     public $description;
+    public $part_number;
+    public $barcode;
     public $condition_status;
     public $price;
     public $quantity;
     public $image_url;
+    public $warehouse_id;
+    public $bin_number;
     public $created_at;
     public $updated_at;
     public $category_name;
+    public $warehouse_name;
 
-    public function __construct($db) {
+    public function __construct($db)
+    {
         $this->conn = $db;
 
         // Ensure the products table exists
@@ -23,7 +30,8 @@ class Product {
     }
 
     // Ensure the products table exists
-    private function ensureTableExists() {
+    private function ensureTableExists()
+    {
         try {
             // Check if table exists
             $tableExists = false;
@@ -123,11 +131,15 @@ class Product {
     }
 
     // Read all products
-    public function read() {
-        $query = "SELECT c.name as category_name, p.id, p.category_id, p.name, p.description,
-                         p.condition_status, p.price, p.quantity, p.image_url, p.created_at, p.updated_at
+    public function read()
+    {
+        $query = "SELECT c.name as category_name, w.name as warehouse_name,
+                         p.id, p.category_id, p.name, p.description, p.part_number, p.barcode,
+                         p.condition_status, p.price, p.quantity, p.image_url,
+                         p.warehouse_id, p.bin_number, p.created_at, p.updated_at
                 FROM " . $this->table_name . " p
                 LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN warehouses w ON p.warehouse_id = w.id
                 ORDER BY p.created_at DESC";
 
         $stmt = $this->conn->prepare($query);
@@ -137,11 +149,15 @@ class Product {
     }
 
     // Read products by category
-    public function readByCategory() {
-        $query = "SELECT c.name as category_name, p.id, p.category_id, p.name, p.description,
-                         p.condition_status, p.price, p.quantity, p.image_url, p.created_at, p.updated_at
+    public function readByCategory()
+    {
+        $query = "SELECT c.name as category_name, w.name as warehouse_name,
+                         p.id, p.category_id, p.name, p.description, p.part_number, p.barcode,
+                         p.condition_status, p.price, p.quantity, p.image_url,
+                         p.warehouse_id, p.bin_number, p.created_at, p.updated_at
                 FROM " . $this->table_name . " p
                 LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN warehouses w ON p.warehouse_id = w.id
                 WHERE p.category_id = ?
                 ORDER BY p.created_at DESC";
 
@@ -153,13 +169,17 @@ class Product {
     }
 
     // Read single product
-    public function readOne() {
-        $query = "SELECT c.name as category_name, p.id, p.category_id, p.name, p.description,
-                         p.condition_status, p.price, p.quantity, p.image_url, p.created_at, p.updated_at
+    public function readOne()
+    {
+        $query = "SELECT c.name as category_name, w.name as warehouse_name,
+                         p.id, p.category_id, p.name, p.description, p.part_number, p.barcode,
+                         p.condition_status, p.price, p.quantity, p.image_url,
+                         p.warehouse_id, p.bin_number, p.created_at, p.updated_at
                 FROM " . $this->table_name . " p
                 LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN warehouses w ON p.warehouse_id = w.id
                 WHERE p.id = ?
-                LIMIT 0,1";
+                LIMIT 1";
 
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(1, $this->id);
@@ -172,21 +192,82 @@ class Product {
             $this->category_id = $row['category_id'];
             $this->name = $row['name'];
             $this->description = $row['description'];
+            $this->part_number = $row['part_number'];
+            $this->barcode = $row['barcode'];
             $this->condition_status = $row['condition_status'];
             $this->price = $row['price'];
             $this->quantity = $row['quantity'];
             $this->image_url = $row['image_url'];
+            $this->warehouse_id = $row['warehouse_id'];
+            $this->bin_number = $row['bin_number'];
             $this->created_at = $row['created_at'];
             $this->updated_at = $row['updated_at'];
             $this->category_name = $row['category_name'];
+            $this->warehouse_name = $row['warehouse_name'];
             return true;
         }
 
         return false;
     }
 
+    // Read product by barcode
+    public function readByBarcode($barcode)
+    {
+        $query = "SELECT c.name as category_name, w.name as warehouse_name,
+                         p.id, p.category_id, p.name, p.description, p.part_number, p.barcode,
+                         p.condition_status, p.price, p.quantity, p.image_url,
+                         p.warehouse_id, p.bin_number, p.created_at, p.updated_at
+                FROM " . $this->table_name . " p
+                LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN warehouses w ON p.warehouse_id = w.id
+                WHERE p.barcode = ?
+                LIMIT 1";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(1, $barcode);
+        $stmt->execute();
+
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    // Generate barcode for product
+    public function generateBarcode()
+    {
+        // Generate barcode based on part_number or product ID
+        if (!empty($this->part_number)) {
+            $this->barcode = strtoupper(str_replace([' ', '-'], '', $this->part_number));
+        } else {
+            $this->barcode = 'MP-' . str_pad($this->id, 6, '0', STR_PAD_LEFT);
+        }
+        return $this->barcode;
+    }
+
+    // Update barcode for a product
+    public function updateBarcode()
+    {
+        $query = "UPDATE " . $this->table_name . " SET barcode = :barcode WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':barcode', $this->barcode);
+        $stmt->bindParam(':id', $this->id);
+        return $stmt->execute();
+    }
+
+    // Update warehouse and bin location
+    public function updateLocation()
+    {
+        $query = "UPDATE " . $this->table_name . " 
+                  SET warehouse_id = :warehouse_id, bin_number = :bin_number 
+                  WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':warehouse_id', $this->warehouse_id);
+        $stmt->bindParam(':bin_number', $this->bin_number);
+        $stmt->bindParam(':id', $this->id);
+        return $stmt->execute();
+    }
+
     // Create product
-    public function create() {
+    public function create()
+    {
         $query = "INSERT INTO " . $this->table_name . "
                 SET
                     category_id = :category_id,
@@ -226,7 +307,8 @@ class Product {
     }
 
     // Update product
-    public function update() {
+    public function update()
+    {
         $query = "UPDATE " . $this->table_name . "
                 SET
                     category_id = :category_id,
@@ -269,7 +351,8 @@ class Product {
     }
 
     // Delete product
-    public function delete() {
+    public function delete()
+    {
         $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
 
         $stmt = $this->conn->prepare($query);
@@ -284,7 +367,8 @@ class Product {
     }
 
     // Search products
-    public function search($keywords) {
+    public function search($keywords)
+    {
         $query = "SELECT c.name as category_name, p.id, p.category_id, p.name, p.description,
                          p.condition_status, p.price, p.quantity, p.image_url, p.created_at, p.updated_at
                 FROM " . $this->table_name . " p
@@ -310,7 +394,8 @@ class Product {
     }
 
     // Read products with pagination
-    public function readPaging($from_record_num, $records_per_page) {
+    public function readPaging($from_record_num, $records_per_page)
+    {
         $query = "SELECT c.name as category_name, p.id, p.category_id, p.name, p.description,
                          p.condition_status, p.price, p.quantity, p.image_url, p.created_at, p.updated_at
                 FROM " . $this->table_name . " p
@@ -331,7 +416,8 @@ class Product {
     }
 
     // Used for paging products
-    public function count() {
+    public function count()
+    {
         $query = "SELECT COUNT(*) as total_rows FROM " . $this->table_name;
 
         $stmt = $this->conn->prepare($query);

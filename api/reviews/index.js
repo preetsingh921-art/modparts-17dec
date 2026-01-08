@@ -79,31 +79,33 @@ async function getProductReviews(req, res, productId, page, limit, offset, sort)
   try {
     console.log(`📝 Fetching reviews for product ${productId}`);
 
-    // Build sort clause
+    // Build sort clause - schema uses helpful_count directly
     let sortClause = 'pr.created_at DESC';
     switch (sort) {
       case 'oldest': sortClause = 'pr.created_at ASC'; break;
       case 'highest_rating': sortClause = 'pr.rating DESC'; break;
       case 'lowest_rating': sortClause = 'pr.rating ASC'; break;
-      case 'most_helpful': sortClause = 'helpful_count_calc DESC'; break;
+      case 'most_helpful': sortClause = 'pr.helpful_count DESC'; break;
     }
 
-    // 1. Fetch Reviews with User info and helpful counts
-    // Note: Use subqueries for helpful counts to avoid group by complexity with all columns
+    // Fetch Reviews with User info
+    // Schema uses: title, comment (not review_title, review_text)
+    // Schema does NOT have is_approved column - return all reviews
     const reviewsQuery = `
       SELECT 
-        pr.*,
-        u.first_name, u.last_name, u.email,
-        (SELECT COUNT(*) FROM review_helpfulness rh WHERE rh.review_id = pr.id AND rh.is_helpful = true) as helpful_count_calc,
-        (SELECT COUNT(*) FROM review_helpfulness rh WHERE rh.review_id = pr.id AND rh.is_helpful = false) as not_helpful_count_calc
+        pr.id, pr.product_id, pr.user_id, pr.rating, 
+        pr.title, pr.comment, 
+        pr.is_verified_purchase, pr.helpful_count, pr.not_helpful_count,
+        pr.created_at, pr.updated_at,
+        u.first_name, u.last_name, u.email
       FROM product_reviews pr
       LEFT JOIN users u ON pr.user_id = u.id
-      WHERE pr.product_id = $1 AND pr.is_approved = true
+      WHERE pr.product_id = $1
       ORDER BY ${sortClause}
       LIMIT $2 OFFSET $3
     `;
 
-    const countQuery = `SELECT COUNT(*) FROM product_reviews WHERE product_id = $1 AND is_approved = true`;
+    const countQuery = `SELECT COUNT(*) FROM product_reviews WHERE product_id = $1`;
 
     const [reviewsResult, countResult] = await Promise.all([
       db.query(reviewsQuery, [productId, limit, offset]),
@@ -113,11 +115,11 @@ async function getProductReviews(req, res, productId, page, limit, offset, sort)
     const reviews = reviewsResult.rows;
     const totalCount = parseInt(countResult.rows[0].count);
 
-    // 2. Calculate Stats (Rating Distribution & Avg)
+    // Calculate Stats (Rating Distribution & Avg)
     const statsQuery = `
       SELECT rating, COUNT(*) as count 
       FROM product_reviews 
-      WHERE product_id = $1 AND is_approved = true
+      WHERE product_id = $1
       GROUP BY rating
     `;
     const statsResult = await db.query(statsQuery, [productId]);
@@ -134,15 +136,15 @@ async function getProductReviews(req, res, productId, page, limit, offset, sort)
 
     const averageRating = totalReviews > 0 ? sumRating / totalReviews : 0;
 
-    // Format response
+    // Format response - map schema columns to frontend expected format
     const formattedReviews = reviews.map(review => ({
       id: review.id,
       rating: review.rating,
-      title: review.review_title,
-      text: review.review_text,
+      title: review.title,           // Schema column: title
+      text: review.comment,          // Schema column: comment
       isVerifiedPurchase: review.is_verified_purchase,
-      helpfulCount: parseInt(review.helpful_count_calc) || 0,
-      notHelpfulCount: parseInt(review.not_helpful_count_calc) || 0,
+      helpfulCount: parseInt(review.helpful_count) || 0,
+      notHelpfulCount: parseInt(review.not_helpful_count) || 0,
       createdAt: review.created_at,
       updatedAt: review.updated_at,
       user: {
@@ -179,7 +181,11 @@ async function getProductReviews(req, res, productId, page, limit, offset, sort)
 // Create a new review
 async function createReview(req, res, body) {
   try {
-    const { product_id, rating, review_title, review_text } = body;
+    // Accept both naming conventions from frontend
+    const { product_id, rating, title, review_title, comment, review_text } = body;
+    const reviewTitle = title || review_title;
+    const reviewComment = comment || review_text;
+
     const user = verifyToken(req);
 
     if (!user) {
@@ -199,8 +205,7 @@ async function createReview(req, res, body) {
       return res.status(400).json({ success: false, message: 'You have already reviewed this product' });
     }
 
-    // Check verified purchase (User has an order with this product that is paid/delivered)
-    // Checking if product exists in any of user's orders
+    // Check verified purchase
     const purchaseQuery = `
       SELECT 1 FROM orders o
       JOIN order_items oi ON o.id = oi.order_id
@@ -210,11 +215,11 @@ async function createReview(req, res, body) {
     const purchaseResult = await db.query(purchaseQuery, [userId, product_id]);
     const isVerifiedPurchase = purchaseResult.rows.length > 0;
 
-    // Insert Review
+    // Insert Review - use schema column names: title, comment
     const insertQuery = `
       INSERT INTO product_reviews 
-      (product_id, user_id, rating, review_title, review_text, is_verified_purchase, created_at, updated_at, is_approved)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), DEFAULT)
+      (product_id, user_id, rating, title, comment, is_verified_purchase, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       RETURNING *
     `;
 
@@ -222,8 +227,8 @@ async function createReview(req, res, body) {
       product_id,
       userId,
       rating,
-      review_title || null,
-      review_text || null,
+      reviewTitle || null,
+      reviewComment || null,
       isVerifiedPurchase
     ]);
 
@@ -236,8 +241,8 @@ async function createReview(req, res, body) {
       data: {
         id: review.id,
         rating: review.rating,
-        title: review.review_title,
-        text: review.review_text,
+        title: review.title,
+        text: review.comment,
         isVerifiedPurchase: review.is_verified_purchase,
         helpfulCount: 0,
         createdAt: review.created_at,
@@ -254,7 +259,10 @@ async function createReview(req, res, body) {
 // Update an existing review
 async function updateReview(req, res, reviewId, body) {
   try {
-    const { rating, review_title, review_text, is_approved } = body;
+    const { rating, title, review_title, comment, review_text } = body;
+    const reviewTitleVal = title || review_title;
+    const reviewCommentVal = comment || review_text;
+
     const user = verifyToken(req);
 
     if (!user) {
@@ -279,15 +287,14 @@ async function updateReview(req, res, reviewId, body) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Build update query
+    // Build update query with correct schema column names
     const updates = [];
     const values = [];
     let idx = 1;
 
     if (rating !== undefined) { updates.push(`rating = $${idx++}`); values.push(rating); }
-    if (review_title !== undefined) { updates.push(`review_title = $${idx++}`); values.push(review_title); }
-    if (review_text !== undefined) { updates.push(`review_text = $${idx++}`); values.push(review_text); }
-    if (is_approved !== undefined && isAdmin) { updates.push(`is_approved = $${idx++}`); values.push(is_approved); }
+    if (reviewTitleVal !== undefined) { updates.push(`title = $${idx++}`); values.push(reviewTitleVal); }
+    if (reviewCommentVal !== undefined) { updates.push(`comment = $${idx++}`); values.push(reviewCommentVal); }
 
     if (updates.length === 0) {
       return res.status(400).json({ success: false, message: 'No valid fields to update' });
@@ -362,29 +369,26 @@ async function getAllReviews(req, res, page, limit, offset, status) {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
-    let whereClause = '';
-    const values = [limit, offset];
-
-    if (status === 'pending') whereClause = 'WHERE pr.is_approved = false';
-    else if (status === 'approved') whereClause = 'WHERE pr.is_approved = true';
-
+    // No is_approved column in schema, so no status filtering
     const query = `
       SELECT 
-        pr.*,
+        pr.id, pr.product_id, pr.user_id, pr.rating, 
+        pr.title, pr.comment, 
+        pr.is_verified_purchase, pr.helpful_count, pr.not_helpful_count,
+        pr.created_at, pr.updated_at,
         u.first_name, u.last_name, u.email,
         p.name as product_name
       FROM product_reviews pr
       LEFT JOIN users u ON pr.user_id = u.id
       LEFT JOIN products p ON pr.product_id = p.id
-      ${whereClause}
       ORDER BY pr.created_at DESC
       LIMIT $1 OFFSET $2
     `;
 
-    const countSql = `SELECT COUNT(*) FROM product_reviews pr ${whereClause}`;
+    const countSql = `SELECT COUNT(*) FROM product_reviews`;
 
     const [rowsResult, countResult] = await Promise.all([
-      db.query(query, values),
+      db.query(query, [limit, offset]),
       db.query(countSql)
     ]);
 
@@ -412,7 +416,10 @@ async function getReviewById(req, res, reviewId) {
   try {
     const query = `
       SELECT 
-        pr.*,
+        pr.id, pr.product_id, pr.user_id, pr.rating, 
+        pr.title, pr.comment, 
+        pr.is_verified_purchase, pr.helpful_count, pr.not_helpful_count,
+        pr.created_at, pr.updated_at,
         u.first_name, u.last_name, u.email,
         p.name as product_name
       FROM product_reviews pr

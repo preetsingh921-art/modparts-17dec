@@ -32,40 +32,42 @@ ON CONFLICT (email) DO NOTHING;
 
 -- ===========================================
 -- 3. SAMPLE PRODUCTS (Vintage Motorcycle Parts)
+-- Valid condition_status values: 'New', 'Used - Like New', 'Used - Good', 'Used - Fair'
 -- ===========================================
 INSERT INTO products (name, description, part_number, barcode, condition_status, price, quantity, category_id, image_url) VALUES
 -- Engine Parts (category_id = 1)
 ('Royal Enfield Bullet 350 Piston Kit', 'Complete piston kit with rings and gudgeon pin for 1960s Bullet 350. Bore size: STD.', 'RE-PK-350-STD', 'MP-1001-RE350', 'New', 2500.00, 15, 1, NULL),
 ('BSA A65 Cylinder Head Gasket Set', 'Complete gasket set for BSA A65 Lightning/Thunderbolt 1966-1972.', 'BSA-GS-A65', 'MP-1002-BSAA65', 'New', 1800.00, 8, 1, NULL),
 ('Norton Commando Camshaft', 'Original Norton Commando 750/850 camshaft. Good condition.', 'NOR-CAM-750', 'MP-1003-NORCAM', 'Used - Good', 8500.00, 2, 1, NULL),
-('Triumph Bonneville T120 Connecting Rods', 'Pair of connecting rods for Triumph T120/TR6 1963-1970.', 'TRI-CR-T120', 'MP-1004-TRICR', 'Refurbished', 12000.00, 3, 1, NULL),
+('Triumph Bonneville T120 Connecting Rods', 'Pair of connecting rods for Triumph T120/TR6 1963-1970.', 'TRI-CR-T120', 'MP-1004-TRICR', 'Used - Like New', 12000.00, 3, 1, NULL),
 -- Electrical (category_id = 2)
-('Lucas K2F Magneto Points Set', 'NOS Lucas points for K2F magneto. Fits Triumph, BSA, Norton twins.', 'LUC-PTS-K2F', 'MP-2001-LUCPTS', 'NOS', 950.00, 20, 2, NULL),
+('Lucas K2F Magneto Points Set', 'NOS Lucas points for K2F magneto. Fits Triumph, BSA, Norton twins.', 'LUC-PTS-K2F', 'MP-2001-LUCPTS', 'New', 950.00, 20, 2, NULL),
 ('6V Rectifier for Vintage British Bikes', 'Solid state 6V rectifier to replace original selenium units.', 'VSS-REC-6V', 'MP-2002-REC6V', 'New', 650.00, 25, 2, NULL),
 ('Wiring Harness - Royal Enfield Continental GT', 'Complete reproduction wiring harness 1965-1967.', 'RE-WH-CGT', 'MP-2003-REWH', 'New', 4500.00, 5, 2, NULL),
-('Lucas Altette Horn 12V', 'Refurbished Lucas Altette horn. Replated and tested.', 'LUC-HRN-ALT', 'MP-2004-LUCHRN', 'Refurbished', 2200.00, 7, 2, NULL),
+('Lucas Altette Horn 12V', 'Refurbished Lucas Altette horn. Replated and tested.', 'LUC-HRN-ALT', 'MP-2004-LUCHRN', 'Used - Like New', 2200.00, 7, 2, NULL),
 -- Brakes (category_id = 3)
 ('Brake Shoes - Triumph/BSA 8 inch Full Width Hub', 'Premium brake shoe set for 8 inch TLS front hub.', 'BRK-SH-8TLS', 'MP-3001-BRKSH', 'New', 1600.00, 30, 3, NULL),
 ('Front Brake Cable - Norton Commando', 'Reproduction front brake cable for Norton Commando.', 'NOR-BRC-FRT', 'MP-3002-NORBRC', 'New', 450.00, 18, 3, NULL),
 -- Suspension (category_id = 4)
 ('Girling Rear Shocks - 325mm', 'New reproduction Girling-style rear shocks. 325mm.', 'GIR-SHK-325', 'MP-4001-GIRSHK', 'New', 5500.00, 10, 4, NULL),
-('Fork Stanchions - BSA A10/A65', 'Rechromed fork stanchions for BSA A10 and A65.', 'BSA-FS-A10', 'MP-4002-BSAFS', 'Refurbished', 7800.00, 4, 4, NULL),
+('Fork Stanchions - BSA A10/A65', 'Rechromed fork stanchions for BSA A10 and A65.', 'BSA-FS-A10', 'MP-4002-BSAFS', 'Used - Like New', 7800.00, 4, 4, NULL),
 -- Exhaust (category_id = 5)
 ('Silencer - Triumph Bonneville Peashooter Style', 'Reproduction peashooter silencer for T120/TR6.', 'TRI-SIL-PS', 'MP-5001-TRISIL', 'New', 3200.00, 12, 5, NULL),
 ('Exhaust Pipes - Norton Dominator 88/99', 'Complete exhaust pipe set for Dominator twins.', 'NOR-EXH-DOM', 'MP-5002-NOREXH', 'New', 6500.00, 6, 5, NULL),
 -- Transmission (category_id = 6)
 ('Clutch Plates - Royal Enfield Bullet', 'Complete clutch plate set for Bullet 350/500.', 'RE-CLP-BUL', 'MP-6001-RECLP', 'New', 1100.00, 22, 6, NULL),
-('Gearbox Sprocket - 17T Triumph 4-Speed', 'NOS gearbox sprocket 17 tooth for Triumph 4-speed.', 'TRI-GSP-17', 'MP-6002-TRIGSP', 'NOS', 800.00, 9, 6, NULL),
+('Gearbox Sprocket - 17T Triumph 4-Speed', 'NOS gearbox sprocket 17 tooth for Triumph 4-speed.', 'TRI-GSP-17', 'MP-6002-TRIGSP', 'New', 800.00, 9, 6, NULL),
 -- Fuel System (category_id = 7)
-('Amal Monobloc 376 Carburetor', 'Rebuilt Amal Monobloc 376 carburetor. Ready to fit.', 'AMAL-376-RB', 'MP-7001-AMAL', 'Refurbished', 4800.00, 5, 7, NULL),
+('Amal Monobloc 376 Carburetor', 'Rebuilt Amal Monobloc 376 carburetor. Ready to fit.', 'AMAL-376-RB', 'MP-7001-AMAL', 'Used - Like New', 4800.00, 5, 7, NULL),
 ('Petcock - BSA/Triumph', 'Reproduction petcock with reserve. Chrome plated.', 'BSA-PET-CHR', 'MP-7002-BSAPET', 'New', 750.00, 15, 7, NULL),
 -- Body & Frame (category_id = 8)
 ('Tank Badges - Royal Enfield Script', 'Pair of reproduction tank badges with gold/chrome finish.', 'RE-TKB-SCR', 'MP-8001-RETKB', 'New', 1200.00, 20, 8, NULL),
-('Seat - Triumph Tiger Cub', 'Recovered solo seat for Triumph Tiger Cub.', 'TRI-ST-CUB', 'MP-8002-TRIST', 'Refurbished', 3500.00, 3, 8, NULL)
+('Seat - Triumph Tiger Cub', 'Recovered solo seat for Triumph Tiger Cub.', 'TRI-ST-CUB', 'MP-8002-TRIST', 'Used - Like New', 3500.00, 3, 8, NULL)
 ON CONFLICT DO NOTHING;
 
 -- ===========================================
 -- 4. SAMPLE ORDERS
+-- Valid status values: 'pending', 'processing', 'shipped', 'delivered', 'cancelled'
 -- ===========================================
 DO $$
 DECLARE
@@ -76,18 +78,19 @@ BEGIN
     SELECT id INTO user_preet_id FROM users WHERE email = 'preet@example.com';
     
     IF user_john_id IS NOT NULL THEN
-        INSERT INTO orders (user_id, status, total, shipping_address, payment_method) 
+        INSERT INTO orders (user_id, status, total_amount, shipping_address, payment_method) 
         VALUES (user_john_id, 'delivered', 5950.00, '456 Rider Street, Amritsar, Punjab 143001', 'card');
         
-        INSERT INTO orders (user_id, status, total, shipping_address, payment_method) 
+        INSERT INTO orders (user_id, status, total_amount, shipping_address, payment_method) 
         VALUES (user_john_id, 'processing', 8500.00, '456 Rider Street, Amritsar, Punjab 143001', 'upi');
     END IF;
     
     IF user_preet_id IS NOT NULL THEN
-        INSERT INTO orders (user_id, status, total, shipping_address, payment_method) 
+        INSERT INTO orders (user_id, status, total_amount, shipping_address, payment_method) 
         VALUES (user_preet_id, 'shipped', 6700.00, '789 Classic Ave, Ludhiana, Punjab 141001', 'cod');
     END IF;
 END $$;
+
 
 -- ===========================================
 -- 5. SAMPLE ORDER ITEMS

@@ -176,8 +176,19 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // Auto-generate barcode if not provided
-      const generatedBarcode = barcode || `MP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      // Barcode logic:
+      // 1. If barcode is provided explicitly, use it
+      // 2. If part_number is provided, use it as barcode
+      // 3. Otherwise, auto-generate a barcode
+      let generatedBarcode = barcode;
+      if (!generatedBarcode && part_number) {
+        generatedBarcode = part_number;
+      } else if (!generatedBarcode) {
+        // Auto-generate from name initials + timestamp for uniqueness
+        const initials = name.split(' ').map(w => w.charAt(0).toUpperCase()).join('').substring(0, 4);
+        generatedBarcode = `${initials}-${Date.now().toString(36).toUpperCase()}`;
+      }
+
 
       const insertQuery = `
         INSERT INTO products (

@@ -71,12 +71,12 @@ const AdminTabs = () => {
   ];
 
   return (
-    <div className="bg-midnight-900 border-b border-midnight-700">
+    <div className="bg-[#1a1a1a] border-b-2 border-[#333]">
       <div className="container mx-auto px-4">
         {/* Mobile dropdown for small screens */}
         <div className="sm:hidden">
           <select
-            className="w-full bg-midnight-800 text-white border border-midnight-600 rounded-md py-2 px-3 text-sm"
+            className="w-full bg-[#242424] text-[#F5F0E1] border border-[#444] rounded-md py-2 px-3 text-sm"
             value={location.pathname}
             onChange={(e) => window.location.href = e.target.value}
           >
@@ -90,7 +90,7 @@ const AdminTabs = () => {
 
         {/* Desktop tabs for larger screens */}
         <div className="hidden sm:block">
-          <nav className="flex space-x-8" aria-label="Tabs">
+          <nav className="flex space-x-1" aria-label="Tabs">
             {tabs.map((tab) => {
               const isActive = location.pathname === tab.to ||
                 (tab.to !== '/admin' && location.pathname.startsWith(tab.to));
@@ -99,10 +99,11 @@ const AdminTabs = () => {
                 <Link
                   key={tab.to}
                   to={tab.to}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${isActive
-                      ? 'border-white text-white'
-                      : 'border-transparent text-gray-300 hover:text-white hover:border-gray-300'
+                  className={`flex items-center space-x-2 py-3 px-4 border-b-3 text-sm transition-all uppercase tracking-wide ${isActive
+                    ? 'border-[#8B2332] text-[#F5F0E1] bg-[#8B2332]/10'
+                    : 'border-transparent text-[#A8A090] hover:text-[#F5F0E1] hover:bg-[#333]/50'
                     }`}
+                  style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 500 }}
                 >
                   {tab.icon}
                   <span>{tab.label}</span>

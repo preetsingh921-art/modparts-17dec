@@ -459,3 +459,107 @@ h6 {
   height: 24px;
   fill: currentColor;
 }
+
+/* Vintage Paper Texture Background */
+.paper-texture-bg {
+  background-color: #D4C5A9;
+  background-image: url('/images/paper-texture.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Fallback for when image doesn't load */
+.paper-texture-bg-solid {
+  background: linear-gradient(135deg, #D4C5A9 0%, #C9BA9B 50%, #BFB08D 100%);
+  min-height: 100vh;
+}
+
+/* Vintage Admin Card */
+.card-vintage {
+  background: rgba(36, 36, 36, 0.95);
+  border: 1px solid #444;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Vintage Admin Sidebar */
+.sidebar-vintage {
+  background: linear-gradient(180deg, #1a1a1a 0%, #242424 100%);
+  border-right: 1px solid #333;
+}
+
+/* Vintage Table Styles */
+.table-vintage {
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid #333;
+}
+
+.table-vintage thead {
+  background: #333;
+}
+
+.table-vintage th {
+  color: #F5F0E1;
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  padding: 12px 16px;
+}
+
+.table-vintage td {
+  color: #D4CFC0;
+  padding: 12px 16px;
+  border-bottom: 1px solid #3d3d3d;
+}
+
+.table-vintage tr:hover {
+  background: rgba(139, 35, 50, 0.1);
+}
+
+/* Vintage Tab Navigation */
+.nav-tabs-vintage {
+  border-bottom: 2px solid #333;
+}
+
+.nav-tab-vintage {
+  color: #A8A090;
+  padding: 12px 24px;
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+
+.nav-tab-vintage:hover {
+  color: #F5F0E1;
+  background: rgba(139, 35, 50, 0.1);
+}
+
+.nav-tab-vintage.active {
+  color: #F5F0E1;
+  border-bottom-color: #8B2332;
+}
+
+/* Vintage Badge/Tag */
+.badge-vintage {
+  background: #8B2332;
+  color: #F5F0E1;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-vintage-brass {
+  background: rgba(184, 134, 11, 0.2);
+  color: #B8860B;
+  border: 1px solid #B8860B;
+}

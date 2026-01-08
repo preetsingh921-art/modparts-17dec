@@ -54,7 +54,7 @@ function App() {
           <CartProvider>
             <WishlistProvider>
               <Router>
-                <div className="flex flex-col min-h-screen backdrop-automotive text-slate-100">
+                <div className="flex flex-col min-h-screen paper-texture-bg text-[#1a1a1a]">
                   <Header />
                   <main className="flex-grow container mx-auto px-4 py-8">
                     <Routes>

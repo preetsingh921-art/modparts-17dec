@@ -26,9 +26,25 @@ module.exports = async (req, res) => {
     });
   }
 
+  // Check if Cloudinary is configured
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    console.error('❌ Cloudinary not configured. Missing env variables.');
+    return res.status(500).json({
+      success: false,
+      message: 'Image upload service not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.',
+      error: 'CLOUDINARY_NOT_CONFIGURED'
+    });
+  }
+
   try {
     // Verify authentication
     const user = verifyToken(req);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
     if (!user) {
       return res.status(401).json({
         success: false,

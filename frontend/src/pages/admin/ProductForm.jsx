@@ -62,7 +62,7 @@ const ProductForm = () => {
           name: data.name,
           description: data.description,
           price: data.price,
-          category_id: data.category_id,
+          category_id: data.category_id ? String(data.category_id) : '',
           condition_status: data.condition_status,
           quantity: data.quantity,
           image_url: data.image_url || '',

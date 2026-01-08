@@ -1,9 +1,9 @@
 import React from 'react';
 
-const LoadingSpinner = ({ 
-  size = 'md', 
-  text = 'Loading...', 
-  showText = true, 
+const LoadingSpinner = ({
+  size = 'md',
+  text = 'Loading...',
+  showText = true,
   className = '',
   variant = 'gear' // 'gear', 'simple', 'dots'
 }) => {
@@ -24,10 +24,10 @@ const LoadingSpinner = ({
 
   // Gear SVG Component
   const GearIcon = ({ className }) => (
-    <svg 
+    <svg
       className={className}
-      viewBox="0 0 24 24" 
-      fill="none" 
+      viewBox="0 0 24 24"
+      fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
@@ -35,6 +35,16 @@ const LoadingSpinner = ({
         fill="currentColor"
       />
     </svg>
+  );
+
+  // Rusted Gear Image Component - Vintage Yamaha RD350 style
+  const RustedGearIcon = ({ className }) => (
+    <img
+      src="/images/rusted-gear-loader.png"
+      alt="Loading..."
+      className={className}
+      style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
+    />
   );
 
   // Simple spinner component
@@ -54,16 +64,18 @@ const LoadingSpinner = ({
   // Render the appropriate spinner based on variant
   const renderSpinner = () => {
     const spinnerClass = `${sizeClasses[size]} text-emerald-500`;
-    
+
     switch (variant) {
+      case 'rusted':
+        return <RustedGearIcon className={`${spinnerClass} animate-spin`} />;
       case 'gear':
-        return <GearIcon className={`${spinnerClass} animate-spin`} />;
+        return <RustedGearIcon className={`${spinnerClass} animate-spin`} />; // Use rusted as default gear
       case 'simple':
         return <SimpleSpinner className={spinnerClass} />;
       case 'dots':
         return <DotsSpinner className={spinnerClass} />;
       default:
-        return <GearIcon className={`${spinnerClass} animate-spin`} />;
+        return <RustedGearIcon className={`${spinnerClass} animate-spin`} />;
     }
   };
 
@@ -80,11 +92,11 @@ const LoadingSpinner = ({
 };
 
 // Full-screen loading overlay component
-export const LoadingOverlay = ({ 
-  isVisible, 
-  text = 'Loading...', 
+export const LoadingOverlay = ({
+  isVisible,
+  text = 'Loading...',
   variant = 'gear',
-  backdrop = true 
+  backdrop = true
 }) => {
   if (!isVisible) return null;
 
@@ -104,16 +116,16 @@ export const LoadingOverlay = ({
 };
 
 // Inline loading component for smaller spaces
-export const InlineLoader = ({ 
-  text = 'Loading...', 
+export const InlineLoader = ({
+  text = 'Loading...',
   variant = 'gear',
-  size = 'sm' 
+  size = 'sm'
 }) => (
   <div className="flex items-center space-x-2">
-    <LoadingSpinner 
-      size={size} 
-      text="" 
-      showText={false} 
+    <LoadingSpinner
+      size={size}
+      text=""
+      showText={false}
       variant={variant}
     />
     <span className="text-gray-600 text-sm">{text}</span>

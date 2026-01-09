@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
 
   try {
     console.log('🔍 Orders API - User from JWT:', user);
-    const userId = user.id; // User ID from JWT
+    const userId = user.userId || user.id; // User ID from JWT (handle both formats)
 
     // Check if user exists in database
     const userCheckQuery = 'SELECT id, email, role FROM users WHERE id = $1';

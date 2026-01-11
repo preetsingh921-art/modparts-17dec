@@ -12,6 +12,7 @@ import ProgressBar from '../../components/ui/ProgressBar';
 import { exportToPDF, exportToXLSX } from '../../utils/exportUtils';
 import PlaceholderImage from '../../components/ui/PlaceholderImage';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import InlineBarcode from '../../components/ui/InlineBarcode';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -645,9 +646,12 @@ const Products = () => {
                     <td className="p-4 text-white">{product.category_name || 'Uncategorized'}</td>
                     <td className="p-4">
                       {product.barcode ? (
-                        <span className="text-xs font-mono bg-gray-700 text-green-300 px-2 py-1 rounded">
-                          {product.barcode}
-                        </span>
+                        <div className="flex flex-col items-start">
+                          <InlineBarcode barcode={product.barcode} width={1} height={25} />
+                          <span className="text-xs font-mono text-gray-400 mt-1">
+                            {product.barcode}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-xs text-gray-500 italic">No barcode</span>
                       )}

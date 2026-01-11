@@ -14,7 +14,7 @@ module.exports = async function handler(req, res) {
     if (pathname === '/auth/google') {
       // Initiate Google OAuth
       console.log('🚀 Initiating Google OAuth flow');
-      
+
       passport.authenticate('google', {
         scope: ['profile', 'email']
       })(req, res);
@@ -22,8 +22,8 @@ module.exports = async function handler(req, res) {
     } else if (pathname === '/auth/google/callback') {
       // Handle Google OAuth callback
       console.log('🔄 Handling Google OAuth callback');
-      
-      passport.authenticate('google', { 
+
+      passport.authenticate('google', {
         session: false,
         failureRedirect: '/login?error=oauth_failed'
       }, async (err, user, info) => {
@@ -39,27 +39,17 @@ module.exports = async function handler(req, res) {
           }
 
           console.log('✅ OAuth authentication successful for:', user.email);
-          console.log('User status:', user.status);
+          console.log('User is_approved:', user.is_approved, 'email_verified:', user.email_verified);
 
-          // Check user status
-          if (user.status === 'pending_verification' || !user.email_verified) {
+          // Check user status - using is_approved (boolean) from schema
+          if (!user.email_verified) {
             console.log('⏳ User needs email verification, redirecting with message');
             return res.redirect('/login?status=pending_verification&email=' + encodeURIComponent(user.email));
           }
 
-          if (user.status === 'rejected') {
-            console.log('❌ User account rejected');
-            return res.redirect('/login?error=account_rejected');
-          }
-
-          if (user.status === 'suspended') {
-            console.log('❌ User account suspended');
-            return res.redirect('/login?error=account_suspended');
-          }
-
-          if (user.status !== 'active') {
-            console.log('❌ User account not active, status:', user.status);
-            return res.redirect('/login?error=account_inactive');
+          if (user.is_approved === false) {
+            console.log('❌ User account not approved');
+            return res.redirect('/login?error=account_pending');
           }
 
           // Generate JWT token for active users
@@ -112,9 +102,9 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ Google OAuth route error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'OAuth authentication failed',
-      error: error.message 
+      error: error.message
     });
   }
 };

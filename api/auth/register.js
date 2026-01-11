@@ -74,27 +74,27 @@ module.exports = async function handler(req, res) {
     }
 
     // Prepare user data
-    let status = 'active';
+    let isApproved = true;
     let emailVerified = true;
 
     if (emailService) {
-      status = 'pending_approval';
+      isApproved = false;
       emailVerified = false;
-      console.log('📧 Email verification enabled - user status: pending_approval');
+      console.log('📧 Email verification enabled - user is_approved: false');
     } else {
       console.log('📧 Email verification disabled - user will be active immediately');
     }
 
-    // Create user in Neon DB
+    // Create user in Neon DB - using correct column names from schema
     const insertUserQuery = `
       INSERT INTO users (
         email, password, first_name, last_name, phone, address, 
-        role, status, email_verified, 
+        role, is_approved, email_verified, 
         email_verification_token, email_verification_expires, email_verification_sent_at,
         created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-      RETURNING id, email, first_name, last_name, role, status
+      RETURNING id, email, first_name, last_name, role, is_approved
     `;
 
     const values = [
@@ -105,7 +105,7 @@ module.exports = async function handler(req, res) {
       phone || null,
       address || null,
       'customer',
-      status,
+      isApproved,
       emailVerified,
       verificationToken || null,
       verificationExpires || null,

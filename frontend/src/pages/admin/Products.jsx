@@ -670,7 +670,7 @@ const Products = () => {
                     <td className="p-4 text-center">
                       <div className="flex justify-center space-x-2">
                         <Link
-                          to={`/products/${product.id}`}
+                          to={`/admin/products/view/${product.id}`}
                           className="text-green-400 hover:text-green-300"
                           title="View Product"
                         >

@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext';
 import { processImageUrl, handleImageError } from '../../utils/imageHelper';
 import { InlineLoader } from '../../components/ui/LoadingSpinner';
 import PlaceholderImage from '../../components/ui/PlaceholderImage';
+import InlineBarcode from '../../components/ui/InlineBarcode';
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -323,7 +324,11 @@ const ProductForm = () => {
                 readOnly={isEditMode && !!formData.barcode}
               />
               {isEditMode && formData.barcode && (
-                <p className="text-xs text-green-600 mt-1">✓ Barcode: {formData.barcode}</p>
+                <div className="mt-2 p-3 bg-white border rounded-lg">
+                  <p className="text-xs text-gray-500 mb-2">Barcode Preview:</p>
+                  <InlineBarcode barcode={formData.barcode} width={1.5} height={35} />
+                  <p className="text-xs text-green-600 mt-2">✓ Barcode: {formData.barcode}</p>
+                </div>
               )}
               {!formData.barcode && (
                 <p className="text-xs text-gray-500 mt-1">Will be auto-generated when product is saved</p>

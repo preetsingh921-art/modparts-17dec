@@ -177,13 +177,15 @@ module.exports = async function handler(req, res) {
       }
 
       // Barcode logic:
-      // 1. If barcode is provided explicitly, use it
-      // 2. If part_number is provided, use it as barcode
-      // 3. Otherwise, auto-generate a barcode
-      let generatedBarcode = barcode;
-      if (!generatedBarcode && part_number) {
+      // ALWAYS use part_number as barcode when available (so scanning returns the part number)
+      // Only use explicit barcode or auto-generate if no part_number exists
+      let generatedBarcode;
+      if (part_number) {
+        // Part number is the barcode - this is what scanners will read
         generatedBarcode = part_number;
-      } else if (!generatedBarcode) {
+      } else if (barcode) {
+        generatedBarcode = barcode;
+      } else {
         // Auto-generate from name initials + timestamp for uniqueness
         const initials = name.split(' ').map(w => w.charAt(0).toUpperCase()).join('').substring(0, 4);
         generatedBarcode = `${initials}-${Date.now().toString(36).toUpperCase()}`;

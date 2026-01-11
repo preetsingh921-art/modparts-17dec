@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+# Disallow admin and user-specific pages
+Disallow: /admin/
+Disallow: /profile
+Disallow: /orders
+Disallow: /checkout
+Disallow: /order-confirmation/
+Disallow: /wishlist
+
+# Allow important pages
+Allow: /products
+Allow: /login
+Allow: /register
+
+# Sitemap location
+Sitemap: https://www.partsformyrd350.com/sitemap.xml
+
+# Crawl delay (optional)
+Crawl-delay: 1

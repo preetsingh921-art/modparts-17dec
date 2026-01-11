@@ -49,6 +49,18 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // Barcode logic: ALWAYS use part_number as barcode when available
+      // This ensures scanning the barcode returns the part number
+      let generatedBarcode;
+      if (part_number) {
+        generatedBarcode = part_number;
+      } else if (barcode) {
+        generatedBarcode = barcode;
+      } else {
+        // Keep existing barcode if neither part_number nor barcode is provided
+        generatedBarcode = null;
+      }
+
       const updateQuery = `
         UPDATE products 
         SET 
@@ -75,7 +87,7 @@ module.exports = async function handler(req, res) {
         category_id ? parseInt(category_id) : null,
         image_url || null,
         part_number || null,
-        barcode || null,
+        generatedBarcode,
         id
       ];
 

@@ -34,6 +34,81 @@ const Inventory = () => {
         status: 'active'
     });
 
+    // Geolocation state
+    const [userLocation, setUserLocation] = useState(null);
+    const [nearestWarehouse, setNearestWarehouse] = useState(null);
+    const [locationError, setLocationError] = useState(null);
+
+    // Calculate distance between two coordinates using Haversine formula
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Distance in km
+    };
+
+    // Find nearest warehouse based on user location
+    const findNearestWarehouse = (location, warehouseList) => {
+        if (!location || !warehouseList || warehouseList.length === 0) return null;
+
+        let nearest = null;
+        let minDistance = Infinity;
+
+        warehouseList.forEach(w => {
+            if (w.latitude && w.longitude) {
+                const distance = calculateDistance(
+                    location.latitude, location.longitude,
+                    parseFloat(w.latitude), parseFloat(w.longitude)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = { ...w, distance: Math.round(distance) };
+                }
+            }
+        });
+
+        return nearest;
+    };
+
+    // Get user's current location
+    const detectUserLocation = () => {
+        if (!navigator.geolocation) {
+            setLocationError('Geolocation not supported by your browser');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const location = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                setUserLocation(location);
+                setLocationError(null);
+
+                // Find and set nearest warehouse
+                const nearest = findNearestWarehouse(location, warehouses);
+                if (nearest) {
+                    setNearestWarehouse(nearest);
+                    setSelectedWarehouse(String(nearest.id));
+                    setMessage({
+                        type: 'success',
+                        text: `📍 Detected nearest warehouse: ${nearest.name} (${nearest.distance} km away)`
+                    });
+                }
+            },
+            (error) => {
+                console.error('Geolocation error:', error);
+                setLocationError('Unable to get your location. Please select warehouse manually.');
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
     // Fetch initial data
     useEffect(() => {
         fetchWarehouses();
@@ -330,6 +405,54 @@ const Inventory = () => {
                                         <div style={{ marginTop: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px' }}>
                                             <h4 style={{ marginBottom: '15px', color: '#1976d2' }}>📦 Warehouse Actions</h4>
 
+                                            {/* Detect Location Button */}
+                                            <div style={{ marginBottom: '15px' }}>
+                                                <button
+                                                    onClick={detectUserLocation}
+                                                    style={{
+                                                        padding: '10px 15px',
+                                                        backgroundColor: '#9c27b0',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 'bold',
+                                                        width: '100%',
+                                                        marginBottom: '10px'
+                                                    }}
+                                                >
+                                                    📍 Detect My Location & Find Nearest Warehouse
+                                                </button>
+
+                                                {/* Show nearest warehouse info */}
+                                                {nearestWarehouse && (
+                                                    <div style={{
+                                                        padding: '10px',
+                                                        background: '#e8f5e9',
+                                                        borderRadius: '4px',
+                                                        marginBottom: '10px',
+                                                        border: '1px solid #4caf50'
+                                                    }}>
+                                                        <strong style={{ color: '#2e7d32' }}>✅ Nearest: {nearestWarehouse.name}</strong>
+                                                        <span style={{ marginLeft: '10px', color: '#666' }}>
+                                                            ({nearestWarehouse.distance} km away)
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {locationError && (
+                                                    <div style={{
+                                                        padding: '10px',
+                                                        background: '#ffebee',
+                                                        borderRadius: '4px',
+                                                        color: '#c62828',
+                                                        fontSize: '13px'
+                                                    }}>
+                                                        ⚠️ {locationError}
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             {/* Select destination warehouse */}
                                             <div style={{ marginBottom: '15px' }}>
                                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
@@ -350,6 +473,7 @@ const Inventory = () => {
                                                     {warehouses.map(w => (
                                                         <option key={w.id} value={w.id}>
                                                             {w.name} {w.location ? `(${w.location})` : ''}
+                                                            {nearestWarehouse && nearestWarehouse.id === w.id ? ' ⭐ NEAREST' : ''}
                                                         </option>
                                                     ))}
                                                 </select>

@@ -15,6 +15,7 @@ const Inventory = () => {
     const [scannedProduct, setScannedProduct] = useState(null);
     const [notFoundBarcode, setNotFoundBarcode] = useState(null);
     const [selectedWarehouse, setSelectedWarehouse] = useState('');
+    const [transferAction, setTransferAction] = useState('send'); // 'send' or 'receive'
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [newBin, setNewBin] = useState({ bin_number: '', description: '', capacity: 100 });
@@ -455,10 +456,40 @@ const Inventory = () => {
                                                 )}
                                             </div>
 
-                                            {/* Select destination warehouse */}
+                                            {/* Radio Button Toggle for Send/Receive */}
+                                            <div style={{ marginBottom: '15px' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '10px' }}>
+                                                    <input
+                                                        type="radio"
+                                                        name="transferAction"
+                                                        value="send"
+                                                        checked={transferAction === 'send'}
+                                                        onChange={() => setTransferAction('send')}
+                                                        style={{ width: '18px', height: '18px' }}
+                                                    />
+                                                    <span style={{ fontWeight: transferAction === 'send' ? 'bold' : 'normal', color: transferAction === 'send' ? '#ff9800' : '#666' }}>
+                                                        📤 Send to Another Warehouse
+                                                    </span>
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                                    <input
+                                                        type="radio"
+                                                        name="transferAction"
+                                                        value="receive"
+                                                        checked={transferAction === 'receive'}
+                                                        onChange={() => setTransferAction('receive')}
+                                                        style={{ width: '18px', height: '18px' }}
+                                                    />
+                                                    <span style={{ fontWeight: transferAction === 'receive' ? 'bold' : 'normal', color: transferAction === 'receive' ? '#4caf50' : '#666' }}>
+                                                        📥 Receive at This Warehouse
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            {/* Warehouse Selection - Only show OTHER warehouses for Send */}
                                             <div style={{ marginBottom: '15px' }}>
                                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                                                    Select Warehouse:
+                                                    {transferAction === 'send' ? 'Destination Warehouse:' : 'Receiving Warehouse:'}
                                                 </label>
                                                 <select
                                                     value={selectedWarehouse}
@@ -472,76 +503,76 @@ const Inventory = () => {
                                                     }}
                                                 >
                                                     <option value="">-- Select Warehouse --</option>
-                                                    {warehouses.map(w => (
-                                                        <option key={w.id} value={w.id}>
-                                                            {w.name} {w.location ? `(${w.location})` : ''}
-                                                            {nearestWarehouse && nearestWarehouse.id === w.id ? ' ⭐ NEAREST' : ''}
-                                                        </option>
-                                                    ))}
+                                                    {warehouses
+                                                        .filter(w => transferAction === 'send'
+                                                            ? w.id !== scannedProduct?.warehouse_id // Exclude current warehouse for Send
+                                                            : true // Show all for Receive
+                                                        )
+                                                        .map(w => (
+                                                            <option key={w.id} value={w.id}>
+                                                                {w.name} {w.location ? `(${w.location})` : ''}
+                                                                {nearestWarehouse && nearestWarehouse.id === w.id ? ' ⭐ NEAREST' : ''}
+                                                            </option>
+                                                        ))
+                                                    }
                                                 </select>
                                             </div>
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                                <button
-                                                    onClick={async () => {
-                                                        if (!selectedWarehouse) {
-                                                            setMessage({ type: 'error', text: 'Please select a destination warehouse' });
-                                                            return;
+                                            {/* Action Button */}
+                                            <button
+                                                onClick={async () => {
+                                                    if (!selectedWarehouse) {
+                                                        setMessage({ type: 'error', text: 'Please select a warehouse' });
+                                                        return;
+                                                    }
+                                                    setLoading(true);
+                                                    try {
+                                                        if (transferAction === 'send') {
+                                                            // Send: decrease quantity at source, create movement
+                                                            await movementsAPI.ship(
+                                                                [scannedProduct.id],
+                                                                scannedProduct.warehouse_id,
+                                                                selectedWarehouse,
+                                                                'Shipped via barcode scan'
+                                                            );
+                                                            setMessage({
+                                                                type: 'success',
+                                                                text: `✅ Product shipped! Quantity decreased at ${scannedProduct.warehouse_name}. Notification sent to destination warehouse.`
+                                                            });
+                                                        } else {
+                                                            // Receive: increase quantity at this warehouse
+                                                            await movementsAPI.receive({
+                                                                barcode: scannedProduct.barcode || scannedProduct.part_number,
+                                                                warehouse_id: selectedWarehouse
+                                                            });
+                                                            setMessage({
+                                                                type: 'success',
+                                                                text: `✅ Product received! Quantity increased at selected warehouse.`
+                                                            });
                                                         }
-                                                        setLoading(true);
-                                                        try {
-                                                            await movementsAPI.ship([scannedProduct.id], scannedProduct.warehouse_id, selectedWarehouse, 'Shipped via barcode scan');
-                                                            setMessage({ type: 'success', text: `Product shipped to selected warehouse` });
-                                                        } catch (err) {
-                                                            setMessage({ type: 'error', text: 'Failed to ship product' });
-                                                        }
-                                                        setLoading(false);
-                                                    }}
-                                                    disabled={loading || !selectedWarehouse}
-                                                    style={{
-                                                        padding: '12px',
-                                                        backgroundColor: '#ff9800',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '6px',
-                                                        cursor: loading || !selectedWarehouse ? 'not-allowed' : 'pointer',
-                                                        opacity: loading || !selectedWarehouse ? 0.6 : 1,
-                                                        fontWeight: 'bold'
-                                                    }}
-                                                >
-                                                    📤 Send To Warehouse
-                                                </button>
-
-                                                <button
-                                                    onClick={async () => {
-                                                        if (!selectedWarehouse) {
-                                                            setMessage({ type: 'error', text: 'Please select source warehouse' });
-                                                            return;
-                                                        }
-                                                        setLoading(true);
-                                                        try {
-                                                            await movementsAPI.receive({ barcode: scannedProduct.barcode || scannedProduct.part_number });
-                                                            setMessage({ type: 'success', text: `Product received at current warehouse` });
-                                                        } catch (err) {
-                                                            setMessage({ type: 'error', text: 'Failed to receive product' });
-                                                        }
-                                                        setLoading(false);
-                                                    }}
-                                                    disabled={loading}
-                                                    style={{
-                                                        padding: '12px',
-                                                        backgroundColor: '#4caf50',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '6px',
-                                                        cursor: loading ? 'not-allowed' : 'pointer',
-                                                        opacity: loading ? 0.6 : 1,
-                                                        fontWeight: 'bold'
-                                                    }}
-                                                >
-                                                    📥 Receive Here
-                                                </button>
-                                            </div>
+                                                        // Refresh product data
+                                                        setScannedProduct(null);
+                                                    } catch (err) {
+                                                        setMessage({ type: 'error', text: `Failed to ${transferAction} product` });
+                                                    }
+                                                    setLoading(false);
+                                                }}
+                                                disabled={loading || !selectedWarehouse}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '15px',
+                                                    backgroundColor: transferAction === 'send' ? '#ff9800' : '#4caf50',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    cursor: loading || !selectedWarehouse ? 'not-allowed' : 'pointer',
+                                                    opacity: loading || !selectedWarehouse ? 0.6 : 1,
+                                                    fontWeight: 'bold',
+                                                    fontSize: '16px'
+                                                }}
+                                            >
+                                                {loading ? 'Processing...' : (transferAction === 'send' ? '📤 SEND TO WAREHOUSE' : '📥 RECEIVE HERE')}
+                                            </button>
                                         </div>
 
                                         {/* Assign to Bin */}

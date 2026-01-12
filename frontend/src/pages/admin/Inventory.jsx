@@ -977,23 +977,40 @@ const Inventory = () => {
                                                     </div>
                                                 </div>
                                                 {warehouseForm.latitude && warehouseForm.longitude && (
-                                                    <a
-                                                        href={`https://www.google.com/maps?q=${warehouseForm.latitude},${warehouseForm.longitude}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        style={{
-                                                            display: 'inline-block',
-                                                            marginTop: '10px',
-                                                            padding: '6px 12px',
-                                                            backgroundColor: '#4285f4',
-                                                            color: 'white',
-                                                            borderRadius: '4px',
-                                                            textDecoration: 'none',
-                                                            fontSize: '12px'
-                                                        }}
-                                                    >
-                                                        🗺️ View on Google Maps
-                                                    </a>
+                                                    <div style={{ marginTop: '15px' }}>
+                                                        {/* Embedded Google Maps */}
+                                                        <div style={{
+                                                            borderRadius: '8px',
+                                                            overflow: 'hidden',
+                                                            border: '1px solid #ddd',
+                                                            marginBottom: '10px'
+                                                        }}>
+                                                            <iframe
+                                                                title="Warehouse Location"
+                                                                width="100%"
+                                                                height="200"
+                                                                style={{ border: 0 }}
+                                                                loading="lazy"
+                                                                src={`https://maps.google.com/maps?q=${warehouseForm.latitude},${warehouseForm.longitude}&z=15&output=embed`}
+                                                            />
+                                                        </div>
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${warehouseForm.latitude},${warehouseForm.longitude}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{
+                                                                display: 'inline-block',
+                                                                padding: '6px 12px',
+                                                                backgroundColor: '#4285f4',
+                                                                color: 'white',
+                                                                borderRadius: '4px',
+                                                                textDecoration: 'none',
+                                                                fontSize: '12px'
+                                                            }}
+                                                        >
+                                                            🗺️ Open in Google Maps
+                                                        </a>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>

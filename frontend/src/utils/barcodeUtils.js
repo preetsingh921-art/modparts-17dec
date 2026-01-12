@@ -236,8 +236,9 @@ export const printBarcodeLabel = ({ svgElement, productName, partNumber, price, 
 /**
  * Print multiple barcode labels (bulk print)
  * @param {Array} products - Array of product objects with barcode info
+ * @param {Object} sizeConfig - Optional size configuration { width, height }
  */
-export const printBulkBarcodeLabels = (products) => {
+export const printBulkBarcodeLabels = (products, sizeConfig = { width: 2, height: 60 }) => {
   if (!products || products.length === 0) return;
 
   const printWindow = window.open('', '_blank');
@@ -257,8 +258,8 @@ export const printBulkBarcodeLabels = (products) => {
         try {
           JsBarcode('#barcode-${product.id}', '${product.barcode}', {
             format: 'CODE128',
-            width: 2,
-            height: 60,
+            width: ${sizeConfig.width},
+            height: ${sizeConfig.height},
             displayValue: false,
             margin: 5,
             background: '#ffffff',

@@ -41,13 +41,13 @@ const AdminProductDetail = () => {
 
     // Copy barcode text to clipboard
     const handleCopyBarcode = async () => {
-        if (!product?.barcode) return;
+        if (!product?.part_number) return;
 
         try {
-            await navigator.clipboard.writeText(product.barcode);
-            success('Barcode number copied to clipboard!');
+            await navigator.clipboard.writeText(product.part_number);
+            success('Part number copied to clipboard!');
         } catch (err) {
-            showError('Failed to copy barcode');
+            showError('Failed to copy part number');
         }
     };
 
@@ -58,7 +58,7 @@ const AdminProductDetail = () => {
         try {
             const svgElement = barcodeRef.current.getSvgElement();
             if (svgElement) {
-                await copyBarcodeAsImage(svgElement, product.barcode);
+                await copyBarcodeAsImage(svgElement, product.part_number);
                 success('Barcode image copied to clipboard!');
             }
         } catch (err) {
@@ -74,7 +74,7 @@ const AdminProductDetail = () => {
         try {
             const svgElement = barcodeRef.current.getSvgElement();
             if (svgElement) {
-                await downloadBarcodeAsPng(svgElement, `barcode-${product.barcode}`, product.barcode);
+                await downloadBarcodeAsPng(svgElement, `barcode-${product.part_number}`, product.part_number);
                 success('Barcode downloaded!');
             }
         } catch (err) {
@@ -91,7 +91,7 @@ const AdminProductDetail = () => {
             printBarcodeLabel({
                 svgElement,
                 productName: product.name,
-                partNumber: product.barcode,
+                partNumber: product.part_number,
                 price: product.price,
                 showPrice: true
             });
@@ -114,7 +114,7 @@ const AdminProductDetail = () => {
     // Share to WhatsApp
     const handleShareWhatsApp = () => {
         const productUrl = `${window.location.origin}/products/${product.id}`;
-        const message = `Check out this product: ${product.name}\nPrice: $${parseFloat(product.price).toFixed(2)}\nPart Number: ${product.barcode || product.part_number || 'N/A'}\n\n${productUrl}`;
+        const message = `Check out this product: ${product.name}\nPrice: $${parseFloat(product.price).toFixed(2)}\nPart Number: ${product.part_number || 'N/A'}\n\n${productUrl}`;
         const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
         setShowShareMenu(false);
@@ -351,16 +351,16 @@ const AdminProductDetail = () => {
                 <div className="border-t border-midnight-700 p-6">
                     <h3 className="text-lg font-semibold text-white mb-4">Barcode</h3>
 
-                    {product.barcode ? (
+                    {product.part_number ? (
                         <div className="space-y-4">
                             {/* Barcode Display */}
                             <div className="bg-white p-6 rounded-lg inline-block">
                                 <InlineBarcode
                                     ref={barcodeRef}
-                                    barcode={product.barcode}
+                                    barcode={product.part_number}
                                     size="large"
                                     showPartNumber={true}
-                                    partNumber={product.barcode}
+                                    partNumber={product.part_number}
                                 />
                             </div>
 

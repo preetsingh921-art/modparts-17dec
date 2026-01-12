@@ -39,6 +39,10 @@ const Products = () => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
 
+  // Print modal state
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printSizeLevel, setPrintSizeLevel] = useState(3);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -463,12 +467,12 @@ const Products = () => {
           {selectedProducts.length > 0 && (
             <button
               onClick={() => {
-                const productsToPrint = products.filter(p => selectedProducts.includes(p.id) && p.barcode);
+                const productsToPrint = products.filter(p => selectedProducts.includes(p.id) && p.part_number);
                 if (productsToPrint.length === 0) {
-                  showError('No selected products have barcodes');
+                  showError('No selected products have part numbers');
                   return;
                 }
-                printBulkBarcodeLabels(productsToPrint);
+                setShowPrintModal(true);
               }}
               className="flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full sm:w-auto transition-colors"
             >
@@ -497,6 +501,87 @@ const Products = () => {
         onImport={handleImport}
         categories={categories}
       />
+
+      {/* Print Labels Modal with Size Controls */}
+      {showPrintModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-midnight-900 border border-midnight-700 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-white mb-4">Print Barcode Labels</h3>
+
+            <p className="text-gray-400 mb-4">
+              Printing {selectedProducts.filter(id => products.find(p => p.id === id)?.part_number).length} labels
+            </p>
+
+            {/* Size Controls */}
+            <div className="mb-6">
+              <label className="block text-gray-400 text-sm mb-3">Barcode Size</label>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setPrintSizeLevel(Math.max(1, printSizeLevel - 1))}
+                  disabled={printSizeLevel <= 1}
+                  className={`w-12 h-12 rounded-lg font-bold text-2xl flex items-center justify-center ${printSizeLevel <= 1
+                      ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                    }`}
+                >
+                  −
+                </button>
+                <div className="flex-1 text-center">
+                  <span className="text-white font-semibold text-xl">
+                    {['XS', 'S', 'M', 'L', 'XL'][printSizeLevel - 1]}
+                  </span>
+                  <span className="text-gray-400 text-sm ml-2">(Level {printSizeLevel}/5)</span>
+                </div>
+                <button
+                  onClick={() => setPrintSizeLevel(Math.min(5, printSizeLevel + 1))}
+                  disabled={printSizeLevel >= 5}
+                  className={`w-12 h-12 rounded-lg font-bold text-2xl flex items-center justify-center ${printSizeLevel >= 5
+                      ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPrintModal(false)}
+                className="flex-1 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const productsToPrint = products
+                    .filter(p => selectedProducts.includes(p.id) && p.part_number)
+                    .map(p => ({ ...p, barcode: p.part_number })); // Use part_number as barcode
+
+                  // Size configurations based on level
+                  const sizeConfigs = {
+                    1: { width: 1.2, height: 35 },
+                    2: { width: 1.8, height: 50 },
+                    3: { width: 2.2, height: 65 },
+                    4: { width: 2.8, height: 80 },
+                    5: { width: 3.5, height: 100 }
+                  };
+                  const sizeConfig = sizeConfigs[printSizeLevel] || sizeConfigs[3];
+
+                  printBulkBarcodeLabels(productsToPrint, sizeConfig);
+                  setShowPrintModal(false);
+                  setSelectedProducts([]);
+                  setSelectAll(false);
+                }}
+                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+              >
+                🖨️ Print Labels
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 gap-4">
@@ -673,15 +758,15 @@ const Products = () => {
                     </td>
                     <td className="p-4 text-white">{product.category_name || 'Uncategorized'}</td>
                     <td className="p-4">
-                      {product.barcode ? (
+                      {product.part_number ? (
                         <div className="flex flex-col items-start">
-                          <InlineBarcode barcode={product.barcode} width={1} height={25} />
+                          <InlineBarcode barcode={product.part_number} width={1} height={25} showPartNumber={false} />
                           <span className="text-xs font-mono text-gray-400 mt-1">
-                            {product.barcode}
+                            {product.part_number}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-500 italic">No barcode</span>
+                        <span className="text-xs text-gray-500 italic">No part number</span>
                       )}
                     </td>
                     <td className="p-4 text-center text-white">${parseFloat(product.price).toFixed(2)}</td>

@@ -90,7 +90,7 @@ module.exports = async function handler(req, res) {
             const {
                 id, name, code, address, city, state, zip,
                 phone, notes, latitude, longitude,
-                location, country, is_active, status
+                location, country, is_active, status, assigned_admin_id
             } = req.body;
 
             if (!id) {
@@ -125,6 +125,17 @@ module.exports = async function handler(req, res) {
 
             if (result.rows.length === 0) {
                 return res.status(404).json({ message: 'Warehouse not found' });
+            }
+
+            // Update admin assignment if provided
+            if (assigned_admin_id !== undefined) {
+                // First, unassign any existing admin from this warehouse
+                await db.query(`UPDATE users SET warehouse_id = NULL WHERE warehouse_id = $1`, [id]);
+
+                // Then assign the new admin if one was selected
+                if (assigned_admin_id) {
+                    await db.query(`UPDATE users SET warehouse_id = $1 WHERE id = $2`, [id, assigned_admin_id]);
+                }
             }
 
             return res.json({

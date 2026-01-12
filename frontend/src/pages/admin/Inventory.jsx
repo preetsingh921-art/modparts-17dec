@@ -37,8 +37,10 @@ const Inventory = () => {
         notes: '',
         status: 'active',
         latitude: '',
-        longitude: ''
+        longitude: '',
+        assigned_admin_id: ''
     });
+    const [adminUsers, setAdminUsers] = useState([]);
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -119,6 +121,7 @@ const Inventory = () => {
     useEffect(() => {
         fetchWarehouses();
         fetchMovements();
+        fetchAdminUsers();
     }, []);
 
     useEffect(() => {
@@ -136,6 +139,22 @@ const Inventory = () => {
             }
         } catch (error) {
             console.error('Error fetching warehouses:', error);
+        }
+    };
+
+    // Fetch admin users for warehouse assignment
+    const fetchAdminUsers = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/users?role=admin', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setAdminUsers(data.users || []);
+            }
+        } catch (error) {
+            console.error('Error fetching admin users:', error);
         }
     };
 
@@ -966,6 +985,28 @@ const Inventory = () => {
                                                         <option value="inactive">Inactive</option>
                                                     </select>
                                                 </div>
+                                            </div>
+
+                                            {/* Admin Assignment */}
+                                            <div style={{ padding: '15px', background: '#fff3e0', borderRadius: '8px', border: '1px solid #ff9800' }}>
+                                                <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold', color: '#e65100' }}>
+                                                    👤 Assign Warehouse Admin
+                                                </label>
+                                                <select
+                                                    value={warehouseForm.assigned_admin_id}
+                                                    onChange={(e) => setWarehouseForm({ ...warehouseForm, assigned_admin_id: e.target.value })}
+                                                    style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                >
+                                                    <option value="">-- No Admin Assigned --</option>
+                                                    {adminUsers.map(admin => (
+                                                        <option key={admin.id} value={admin.id}>
+                                                            {admin.first_name || ''} {admin.last_name || ''} ({admin.email})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#666' }}>
+                                                    This admin will be responsible for receiving inventory at this warehouse.
+                                                </p>
                                             </div>
                                             <div>
                                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>Notes</label>

@@ -109,13 +109,14 @@ const AdminTabs = () => {
 
   return (
     <div className="bg-[#1a1a1a] border-b-2 border-[#333]">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-2 sm:px-4">
         {/* Mobile dropdown for small screens */}
-        <div className="sm:hidden">
+        <div className="md:hidden py-2">
           <select
-            className="w-full bg-[#242424] text-[#F5F0E1] border border-[#444] rounded-md py-2 px-3 text-sm"
+            className="w-full bg-[#242424] text-[#F5F0E1] border border-[#444] rounded-md py-3 px-3 text-base font-medium"
             value={location.pathname}
             onChange={(e) => window.location.href = e.target.value}
+            style={{ fontFamily: "'Oswald', sans-serif" }}
           >
             {tabs.map((tab) => (
               <option key={tab.to} value={tab.to}>
@@ -125,9 +126,9 @@ const AdminTabs = () => {
           </select>
         </div>
 
-        {/* Desktop tabs for larger screens */}
-        <div className="hidden sm:block">
-          <nav className="flex space-x-1" aria-label="Tabs">
+        {/* Desktop/Tablet tabs with horizontal scroll */}
+        <div className="hidden md:block overflow-x-auto scrollbar-hide">
+          <nav className="flex space-x-1 min-w-max" aria-label="Tabs">
             {tabs.map((tab) => {
               const isActive = location.pathname === tab.to ||
                 (tab.to !== '/admin' && location.pathname.startsWith(tab.to));
@@ -136,14 +137,15 @@ const AdminTabs = () => {
                 <Link
                   key={tab.to}
                   to={tab.to}
-                  className={`flex items-center space-x-2 py-3 px-4 border-b-3 text-sm transition-all uppercase tracking-wide ${isActive
+                  className={`flex items-center space-x-1.5 py-3 px-3 lg:px-4 border-b-3 text-sm transition-all uppercase tracking-wide whitespace-nowrap ${isActive
                     ? 'border-[#8B2332] text-[#F5F0E1] bg-[#8B2332]/10'
                     : 'border-transparent text-[#A8A090] hover:text-[#F5F0E1] hover:bg-[#333]/50'
                     }`}
                   style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 500 }}
                 >
                   {tab.icon}
-                  <span>{tab.label}</span>
+                  <span className="hidden lg:inline">{tab.label}</span>
+                  <span className="lg:hidden">{tab.label.substring(0, 4)}</span>
                 </Link>
               );
             })}

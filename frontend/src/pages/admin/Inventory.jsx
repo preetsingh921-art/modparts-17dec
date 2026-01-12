@@ -153,28 +153,34 @@ const Inventory = () => {
                 </div>
             )}
 
-            {/* Tab Navigation */}
+            {/* Tab Navigation - Responsive */}
             <div style={{
                 display: 'flex',
-                gap: '10px',
+                flexWrap: 'wrap',
+                gap: '8px',
                 marginBottom: '20px',
                 borderBottom: '2px solid #e0e0e0',
-                paddingBottom: '10px'
+                paddingBottom: '10px',
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch'
             }}>
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         style={{
-                            padding: '10px 20px',
+                            padding: '10px 16px',
                             border: 'none',
                             borderRadius: '4px 4px 0 0',
                             cursor: 'pointer',
-                            fontSize: '14px',
+                            fontSize: '13px',
                             fontWeight: activeTab === tab.id ? 'bold' : 'normal',
                             backgroundColor: activeTab === tab.id ? '#1976d2' : '#f5f5f5',
                             color: activeTab === tab.id ? 'white' : '#333',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap',
+                            flex: '0 0 auto',
+                            minWidth: 'fit-content'
                         }}
                     >
                         {tab.label}

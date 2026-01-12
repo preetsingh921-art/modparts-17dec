@@ -115,7 +115,8 @@ const BarcodeGeneratorPage = () => {
                             onChange={(e) => setBarcodeValue(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleGenerate()}
                             placeholder="Enter part number or any text..."
-                            className="w-full px-4 py-3 bg-midnight-800 border border-midnight-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                            className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-500"
+                            style={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#000', background: '#e2e8f0' }}
                         />
                     </div>
 
@@ -128,8 +129,8 @@ const BarcodeGeneratorPage = () => {
                                     key={size}
                                     onClick={() => setBarcodeSize(size)}
                                     className={`px-4 py-2 rounded capitalize ${barcodeSize === size
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-midnight-700 text-gray-300 hover:bg-midnight-600'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-midnight-700 text-gray-300 hover:bg-midnight-600'
                                         }`}
                                 >
                                     {size}
@@ -161,7 +162,8 @@ const BarcodeGeneratorPage = () => {
                                     value={productName}
                                     onChange={(e) => setProductName(e.target.value)}
                                     placeholder="Enter product name..."
-                                    className="w-full px-4 py-2 bg-midnight-700 border border-midnight-600 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                                    className="w-full px-4 py-2 border rounded focus:outline-none focus:border-blue-500"
+                                    style={{ backgroundColor: '#e2e8f0', borderColor: '#334155', color: '#000' }}
                                 />
                             </div>
                             <div>
@@ -172,7 +174,8 @@ const BarcodeGeneratorPage = () => {
                                     value={price}
                                     onChange={(e) => setPrice(e.target.value)}
                                     placeholder="0.00"
-                                    className="w-full px-4 py-2 bg-midnight-700 border border-midnight-600 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                                    className="w-full px-4 py-2 border rounded focus:outline-none focus:border-blue-500"
+                                    style={{ backgroundColor: '#e2e8f0', borderColor: '#334155', color: '#000' }}
                                 />
                             </div>
                         </div>

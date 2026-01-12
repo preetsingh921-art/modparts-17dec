@@ -42,13 +42,14 @@ module.exports = async function handler(req, res) {
       const queryParams = [];
       let paramCount = 1;
 
-      // Add Search Filter
+      // Add Search Filter - search in name, description, part_number, and barcode
       if (search) {
-        const searchClause = ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount})`;
+        const searchClause = ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount} OR p.part_number ILIKE $${paramCount} OR p.barcode ILIKE $${paramCount} OR p.part_number = $${paramCount + 1})`;
         queryText += searchClause;
         countQueryText += searchClause;
         queryParams.push(`%${search}%`);
-        paramCount++;
+        queryParams.push(search); // Exact match for part_number
+        paramCount += 2;
       }
 
       // Add Category Filter (Single)

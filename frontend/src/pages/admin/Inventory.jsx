@@ -278,7 +278,10 @@ const Inventory = () => {
             zip: warehouse.zip || '',
             phone: warehouse.phone || '',
             notes: warehouse.notes || '',
-            status: warehouse.status || 'active'
+            status: warehouse.status || 'active',
+            latitude: warehouse.latitude || '',
+            longitude: warehouse.longitude || '',
+            assigned_admin_id: warehouse.admin_id ? String(warehouse.admin_id) : ''
         });
         setShowWarehouseForm(true);
     };
@@ -998,11 +1001,21 @@ const Inventory = () => {
                                                     style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
                                                 >
                                                     <option value="">-- No Admin Assigned --</option>
-                                                    {adminUsers.map(admin => (
-                                                        <option key={admin.id} value={admin.id}>
-                                                            {admin.first_name || ''} {admin.last_name || ''} ({admin.email})
-                                                        </option>
-                                                    ))}
+                                                    {adminUsers
+                                                        .filter(admin => {
+                                                            // Show admin if:
+                                                            // 1. They have no warehouse assigned (warehouse_id is null)
+                                                            // 2. OR they are the current warehouse's admin
+                                                            if (!admin.warehouse_id) return true;
+                                                            if (editingWarehouse && String(admin.warehouse_id) === String(editingWarehouse.id)) return true;
+                                                            return false;
+                                                        })
+                                                        .map(admin => (
+                                                            <option key={admin.id} value={admin.id}>
+                                                                {admin.first_name || ''} {admin.last_name || ''} ({admin.email})
+                                                            </option>
+                                                        ))
+                                                    }
                                                 </select>
                                                 <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#666' }}>
                                                     This admin will be responsible for receiving inventory at this warehouse.

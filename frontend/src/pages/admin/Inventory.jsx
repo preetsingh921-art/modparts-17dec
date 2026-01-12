@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { barcodeAPI, warehouseAPI, binAPI, movementsAPI } from '../../api/inventory';
+import { useAuth } from '../../context/AuthContext';
 import BarcodeScanner from '../../components/inventory/BarcodeScanner';
 import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
 
@@ -8,6 +9,8 @@ import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
  * Main admin page for barcode scanning, warehouse management, and inventory tracking
  */
 const Inventory = () => {
+    const { user } = useAuth();
+    const adminWarehouseId = user?.warehouse_id;
     const [activeTab, setActiveTab] = useState('scan');
     const [warehouses, setWarehouses] = useState([]);
     const [bins, setBins] = useState([]);
@@ -486,43 +489,67 @@ const Inventory = () => {
                                                 </label>
                                             </div>
 
-                                            {/* Warehouse Selection - Only show OTHER warehouses for Send */}
-                                            <div style={{ marginBottom: '15px' }}>
-                                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                                                    {transferAction === 'send' ? 'Destination Warehouse:' : 'Receiving Warehouse:'}
-                                                </label>
-                                                <select
-                                                    value={selectedWarehouse}
-                                                    onChange={(e) => setSelectedWarehouse(e.target.value)}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '10px',
-                                                        borderRadius: '4px',
-                                                        border: '1px solid #ddd',
-                                                        background: 'white'
-                                                    }}
-                                                >
-                                                    <option value="">-- Select Warehouse --</option>
-                                                    {warehouses
-                                                        .filter(w => transferAction === 'send'
-                                                            ? w.id !== scannedProduct?.warehouse_id // Exclude current warehouse for Send
-                                                            : true // Show all for Receive
-                                                        )
-                                                        .map(w => (
-                                                            <option key={w.id} value={w.id}>
-                                                                {w.name} {w.location ? `(${w.location})` : ''}
-                                                                {nearestWarehouse && nearestWarehouse.id === w.id ? ' ⭐ NEAREST' : ''}
-                                                            </option>
-                                                        ))
-                                                    }
-                                                </select>
-                                            </div>
+                                            {/* Warehouse Selection - Only show dropdown for Send, auto-use admin warehouse for Receive */}
+                                            {transferAction === 'send' ? (
+                                                <div style={{ marginBottom: '15px' }}>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                                                        Destination Warehouse:
+                                                    </label>
+                                                    <select
+                                                        value={selectedWarehouse}
+                                                        onChange={(e) => setSelectedWarehouse(e.target.value)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '10px',
+                                                            borderRadius: '4px',
+                                                            border: '1px solid #ddd',
+                                                            background: 'white'
+                                                        }}
+                                                    >
+                                                        <option value="">-- Select Warehouse --</option>
+                                                        {warehouses
+                                                            .filter(w => w.id !== scannedProduct?.warehouse_id)
+                                                            .map(w => (
+                                                                <option key={w.id} value={w.id}>
+                                                                    {w.name} {w.location ? `(${w.location})` : ''}
+                                                                    {nearestWarehouse && nearestWarehouse.id === w.id ? ' ⭐ NEAREST' : ''}
+                                                                </option>
+                                                            ))
+                                                        }
+                                                    </select>
+                                                </div>
+                                            ) : (
+                                                <div style={{
+                                                    marginBottom: '15px',
+                                                    padding: '15px',
+                                                    backgroundColor: '#e8f5e9',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #4caf50'
+                                                }}>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#2e7d32' }}>
+                                                        🏢 Receiving at Your Warehouse:
+                                                    </label>
+                                                    {adminWarehouseId ? (
+                                                        <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#1b5e20' }}>
+                                                            {warehouses.find(w => String(w.id) === String(adminWarehouseId))?.name || 'Your assigned warehouse'}
+                                                        </p>
+                                                    ) : (
+                                                        <p style={{ margin: 0, color: '#c62828' }}>
+                                                            ⚠️ No warehouse assigned to your account. Contact administrator.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             {/* Action Button */}
                                             <button
                                                 onClick={async () => {
-                                                    if (!selectedWarehouse) {
-                                                        setMessage({ type: 'error', text: 'Please select a warehouse' });
+                                                    if (transferAction === 'send' && !selectedWarehouse) {
+                                                        setMessage({ type: 'error', text: 'Please select a destination warehouse' });
+                                                        return;
+                                                    }
+                                                    if (transferAction === 'receive' && !adminWarehouseId) {
+                                                        setMessage({ type: 'error', text: 'No warehouse assigned to your account. Contact administrator.' });
                                                         return;
                                                     }
                                                     setLoading(true);
@@ -535,19 +562,21 @@ const Inventory = () => {
                                                                 selectedWarehouse,
                                                                 'Shipped via barcode scan'
                                                             );
+                                                            const destWarehouse = warehouses.find(w => String(w.id) === selectedWarehouse);
                                                             setMessage({
                                                                 type: 'success',
-                                                                text: `✅ Product shipped! Quantity decreased at ${scannedProduct.warehouse_name}. Notification sent to destination warehouse.`
+                                                                text: `✅ Product shipped to ${destWarehouse?.name || 'destination'}! Quantity decreased at ${scannedProduct.warehouse_name}.`
                                                             });
                                                         } else {
-                                                            // Receive: increase quantity at this warehouse
+                                                            // Receive: increase quantity at admin's warehouse
                                                             await movementsAPI.receive({
                                                                 barcode: scannedProduct.barcode || scannedProduct.part_number,
-                                                                warehouse_id: selectedWarehouse
+                                                                warehouse_id: adminWarehouseId
                                                             });
+                                                            const myWarehouse = warehouses.find(w => String(w.id) === String(adminWarehouseId));
                                                             setMessage({
                                                                 type: 'success',
-                                                                text: `✅ Product received! Quantity increased at selected warehouse.`
+                                                                text: `✅ Product received at ${myWarehouse?.name || 'your warehouse'}! Quantity +1.`
                                                             });
                                                         }
                                                         // Refresh product data
@@ -557,7 +586,7 @@ const Inventory = () => {
                                                     }
                                                     setLoading(false);
                                                 }}
-                                                disabled={loading || !selectedWarehouse}
+                                                disabled={loading || (transferAction === 'send' && !selectedWarehouse) || (transferAction === 'receive' && !adminWarehouseId)}
                                                 style={{
                                                     width: '100%',
                                                     padding: '15px',
@@ -565,8 +594,8 @@ const Inventory = () => {
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '6px',
-                                                    cursor: loading || !selectedWarehouse ? 'not-allowed' : 'pointer',
-                                                    opacity: loading || !selectedWarehouse ? 0.6 : 1,
+                                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                                    opacity: loading || (transferAction === 'send' && !selectedWarehouse) || (transferAction === 'receive' && !adminWarehouseId) ? 0.6 : 1,
                                                     fontWeight: 'bold',
                                                     fontSize: '16px'
                                                 }}

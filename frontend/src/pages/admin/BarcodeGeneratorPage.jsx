@@ -14,7 +14,8 @@ const BarcodeGeneratorPage = () => {
 
     const [barcodeValue, setBarcodeValue] = useState('');
     const [generatedBarcode, setGeneratedBarcode] = useState('');
-    const [barcodeSize, setBarcodeSize] = useState('large');
+    const [barcodeSize, setBarcodeSize] = useState('medium');
+    const [sizeLevel, setSizeLevel] = useState(2); // 1-5 scale
     const [showProductInfo, setShowProductInfo] = useState(false);
     const [productName, setProductName] = useState('');
     const [price, setPrice] = useState('');
@@ -43,7 +44,7 @@ const BarcodeGeneratorPage = () => {
         try {
             const svgElement = barcodeRef.current.getSvgElement();
             if (svgElement) {
-                await copyBarcodeAsImage(svgElement);
+                await copyBarcodeAsImage(svgElement, generatedBarcode);
                 success('Barcode image copied to clipboard!');
             }
         } catch (err) {
@@ -57,7 +58,7 @@ const BarcodeGeneratorPage = () => {
         try {
             const svgElement = barcodeRef.current.getSvgElement();
             if (svgElement) {
-                await downloadBarcodeAsPng(svgElement, `barcode-${generatedBarcode}`);
+                await downloadBarcodeAsPng(svgElement, `barcode-${generatedBarcode}`, generatedBarcode);
                 success('Barcode PNG downloaded!');
             }
         } catch (err) {
@@ -84,7 +85,22 @@ const BarcodeGeneratorPage = () => {
         setGeneratedBarcode('');
         setProductName('');
         setPrice('');
+        setSizeLevel(2);
     };
+
+    // Get size multipliers based on level
+    const getSizeFromLevel = (level) => {
+        const sizes = {
+            1: { width: 1.2, height: 35, label: 'XS' },
+            2: { width: 1.8, height: 50, label: 'S' },
+            3: { width: 2.2, height: 65, label: 'M' },
+            4: { width: 2.8, height: 80, label: 'L' },
+            5: { width: 3.5, height: 100, label: 'XL' }
+        };
+        return sizes[level] || sizes[3];
+    };
+
+    const currentSize = getSizeFromLevel(sizeLevel);
 
     return (
         <div className="container mx-auto px-4">
@@ -120,22 +136,34 @@ const BarcodeGeneratorPage = () => {
                         />
                     </div>
 
-                    {/* Size Selector */}
+                    {/* Size Controls with +/- buttons */}
                     <div className="mb-4">
                         <label className="block text-gray-400 text-sm mb-2">Barcode Size</label>
-                        <div className="flex gap-2">
-                            {['small', 'medium', 'large'].map((size) => (
-                                <button
-                                    key={size}
-                                    onClick={() => setBarcodeSize(size)}
-                                    className={`px-4 py-2 rounded capitalize ${barcodeSize === size
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-midnight-700 text-gray-300 hover:bg-midnight-600'
-                                        }`}
-                                >
-                                    {size}
-                                </button>
-                            ))}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setSizeLevel(Math.max(1, sizeLevel - 1))}
+                                disabled={sizeLevel <= 1}
+                                className={`w-10 h-10 rounded-lg font-bold text-xl flex items-center justify-center ${sizeLevel <= 1
+                                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                    : 'bg-red-600 text-white hover:bg-red-700'
+                                    }`}
+                            >
+                                −
+                            </button>
+                            <div className="flex-1 text-center">
+                                <span className="text-white font-semibold text-lg">{currentSize.label}</span>
+                                <span className="text-gray-400 text-sm ml-2">(Level {sizeLevel}/5)</span>
+                            </div>
+                            <button
+                                onClick={() => setSizeLevel(Math.min(5, sizeLevel + 1))}
+                                disabled={sizeLevel >= 5}
+                                className={`w-10 h-10 rounded-lg font-bold text-xl flex items-center justify-center ${sizeLevel >= 5
+                                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                    }`}
+                            >
+                                +
+                            </button>
                         </div>
                     </div>
 
@@ -213,7 +241,8 @@ const BarcodeGeneratorPage = () => {
                                     <InlineBarcode
                                         ref={barcodeRef}
                                         barcode={generatedBarcode}
-                                        size={barcodeSize}
+                                        width={currentSize.width}
+                                        height={currentSize.height}
                                         showPartNumber={true}
                                         partNumber={generatedBarcode}
                                     />

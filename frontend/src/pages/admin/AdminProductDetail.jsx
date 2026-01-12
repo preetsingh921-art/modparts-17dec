@@ -58,7 +58,7 @@ const AdminProductDetail = () => {
         try {
             const svgElement = barcodeRef.current.getSvgElement();
             if (svgElement) {
-                await copyBarcodeAsImage(svgElement);
+                await copyBarcodeAsImage(svgElement, product.barcode);
                 success('Barcode image copied to clipboard!');
             }
         } catch (err) {
@@ -74,7 +74,7 @@ const AdminProductDetail = () => {
         try {
             const svgElement = barcodeRef.current.getSvgElement();
             if (svgElement) {
-                await downloadBarcodeAsPng(svgElement, `barcode-${product.barcode}`);
+                await downloadBarcodeAsPng(svgElement, `barcode-${product.barcode}`, product.barcode);
                 success('Barcode downloaded!');
             }
         } catch (err) {

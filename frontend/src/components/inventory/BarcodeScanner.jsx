@@ -338,7 +338,8 @@ const BarcodeScanner = ({
                             borderRadius: '6px',
                             border: '1px solid #ccc',
                             fontSize: '14px',
-                            backgroundColor: 'white'
+                            backgroundColor: 'white',
+                            color: '#333'
                         }}
                     >
                         {cameras.map(camera => (
@@ -423,7 +424,9 @@ const BarcodeScanner = ({
                                 border: '2px solid #1976d2',
                                 borderRadius: '8px',
                                 width: '100%',
-                                boxSizing: 'border-box'
+                                boxSizing: 'border-box',
+                                backgroundColor: 'white',
+                                color: '#333'
                             }}
                         />
 

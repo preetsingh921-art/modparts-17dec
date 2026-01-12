@@ -316,7 +316,7 @@ const Inventory = () => {
                             <select
                                 value={selectedWarehouse}
                                 onChange={(e) => setSelectedWarehouse(e.target.value)}
-                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', color: '#333' }}
                             >
                                 {warehouses.map(w => (
                                     <option key={w.id} value={w.id}>{w.name}</option>
@@ -338,7 +338,7 @@ const Inventory = () => {
                                 placeholder="Bin # (e.g., A-01)"
                                 value={newBin.bin_number}
                                 onChange={(e) => setNewBin({ ...newBin, bin_number: e.target.value })}
-                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', color: '#333' }}
                                 required
                             />
                             <input
@@ -346,7 +346,7 @@ const Inventory = () => {
                                 placeholder="Description"
                                 value={newBin.description}
                                 onChange={(e) => setNewBin({ ...newBin, description: e.target.value })}
-                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', flex: 1 }}
+                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', flex: 1, backgroundColor: 'white', color: '#333' }}
                             />
                             <button
                                 type="submit"

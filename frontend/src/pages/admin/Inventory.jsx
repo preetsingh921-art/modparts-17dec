@@ -13,10 +13,26 @@ const Inventory = () => {
     const [bins, setBins] = useState([]);
     const [movements, setMovements] = useState([]);
     const [scannedProduct, setScannedProduct] = useState(null);
+    const [notFoundBarcode, setNotFoundBarcode] = useState(null);
     const [selectedWarehouse, setSelectedWarehouse] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [newBin, setNewBin] = useState({ bin_number: '', description: '', capacity: 100 });
+
+    // Warehouse CRUD state
+    const [showWarehouseForm, setShowWarehouseForm] = useState(false);
+    const [editingWarehouse, setEditingWarehouse] = useState(null);
+    const [warehouseForm, setWarehouseForm] = useState({
+        name: '',
+        code: '',
+        address: '',
+        city: '',
+        state: '',
+        zip: '',
+        phone: '',
+        notes: '',
+        status: 'active'
+    });
 
     // Fetch initial data
     useEffect(() => {
@@ -63,6 +79,7 @@ const Inventory = () => {
     const handleScan = async (barcode, product = null) => {
         setLoading(true);
         setMessage({ type: '', text: '' });
+        setNotFoundBarcode(null); // Reset not found state
 
         try {
             // If product is already provided by scanner, use it directly
@@ -78,7 +95,10 @@ const Inventory = () => {
                     setScannedProduct(foundProduct);
                     setMessage({ type: 'success', text: `Found: ${foundProduct.name}` });
                 } else {
-                    setMessage({ type: 'error', text: `Product not found for: ${barcode}` });
+                    // Track the not-found barcode for "Add to Inventory" flow
+                    setNotFoundBarcode(barcode);
+                    setScannedProduct(null);
+                    setMessage({ type: 'warning', text: `Product not found for barcode: ${barcode}` });
                 }
             }
         } catch (error) {
@@ -128,6 +148,77 @@ const Inventory = () => {
         setLoading(false);
     };
 
+    // Warehouse CRUD handlers
+    const resetWarehouseForm = () => {
+        setWarehouseForm({
+            name: '',
+            code: '',
+            address: '',
+            city: '',
+            state: '',
+            zip: '',
+            phone: '',
+            notes: '',
+            status: 'active'
+        });
+        setEditingWarehouse(null);
+        setShowWarehouseForm(false);
+    };
+
+    const handleEditWarehouse = (warehouse) => {
+        setEditingWarehouse(warehouse);
+        setWarehouseForm({
+            name: warehouse.name || '',
+            code: warehouse.code || '',
+            address: warehouse.address || '',
+            city: warehouse.city || '',
+            state: warehouse.state || '',
+            zip: warehouse.zip || '',
+            phone: warehouse.phone || '',
+            notes: warehouse.notes || '',
+            status: warehouse.status || 'active'
+        });
+        setShowWarehouseForm(true);
+    };
+
+    const handleSaveWarehouse = async (e) => {
+        e.preventDefault();
+        if (!warehouseForm.name || !warehouseForm.code) {
+            setMessage({ type: 'error', text: 'Name and Code are required' });
+            return;
+        }
+
+        setLoading(true);
+        try {
+            if (editingWarehouse) {
+                await warehouseAPI.update({ id: editingWarehouse.id, ...warehouseForm });
+                setMessage({ type: 'success', text: 'Warehouse updated successfully' });
+            } else {
+                await warehouseAPI.create(warehouseForm);
+                setMessage({ type: 'success', text: 'Warehouse created successfully' });
+            }
+            resetWarehouseForm();
+            fetchWarehouses();
+        } catch (error) {
+            setMessage({ type: 'error', text: `Error ${editingWarehouse ? 'updating' : 'creating'} warehouse` });
+        }
+        setLoading(false);
+    };
+
+    const handleDeleteWarehouse = async (warehouse) => {
+        if (!confirm(`Are you sure you want to delete warehouse "${warehouse.name}"?`)) return;
+
+        setLoading(true);
+        try {
+            await warehouseAPI.delete(warehouse.id);
+            setMessage({ type: 'success', text: 'Warehouse deleted successfully' });
+            fetchWarehouses();
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Error deleting warehouse' });
+        }
+        setLoading(false);
+    };
+
     const tabs = [
         { id: 'scan', label: '📱 Scan & Receive', icon: '📱' },
         { id: 'movements', label: '📦 Movements', icon: '📦' },
@@ -145,9 +236,9 @@ const Inventory = () => {
                     padding: '10px 20px',
                     marginBottom: '20px',
                     borderRadius: '4px',
-                    backgroundColor: message.type === 'success' ? '#e8f5e9' : '#ffebee',
-                    color: message.type === 'success' ? '#2e7d32' : '#c62828',
-                    border: `1px solid ${message.type === 'success' ? '#4caf50' : '#ef5350'}`
+                    backgroundColor: message.type === 'success' ? '#e8f5e9' : message.type === 'warning' ? '#fff3e0' : '#ffebee',
+                    color: message.type === 'success' ? '#2e7d32' : message.type === 'warning' ? '#e65100' : '#c62828',
+                    border: `1px solid ${message.type === 'success' ? '#4caf50' : message.type === 'warning' ? '#ffb74d' : '#ef5350'}`
                 }}>
                     {message.text}
                 </div>
@@ -254,6 +345,67 @@ const Inventory = () => {
                                             </div>
                                         </div>
                                     </div>
+                                ) : notFoundBarcode ? (
+                                    /* Product Not Found - Show Add Options */
+                                    <div style={{
+                                        padding: '20px',
+                                        background: '#fff3e0',
+                                        border: '1px solid #ffb74d',
+                                        borderRadius: '8px'
+                                    }}>
+                                        <h4 style={{ color: '#e65100', marginBottom: '15px' }}>
+                                            ⚠️ Product Not Found
+                                        </h4>
+                                        <p style={{ marginBottom: '10px', color: '#333' }}>
+                                            <strong>Scanned Barcode:</strong>
+                                            <span style={{ fontFamily: 'monospace', marginLeft: '10px', padding: '4px 8px', background: '#fff', borderRadius: '4px' }}>
+                                                {notFoundBarcode}
+                                            </span>
+                                        </p>
+                                        <p style={{ color: '#666', marginBottom: '20px' }}>
+                                            This product is not in the inventory. Choose an action:
+                                        </p>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <a
+                                                href={`/admin/products/add?part_number=${encodeURIComponent(notFoundBarcode)}`}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    padding: '12px 20px',
+                                                    backgroundColor: '#4caf50',
+                                                    color: 'white',
+                                                    textDecoration: 'none',
+                                                    borderRadius: '8px',
+                                                    fontWeight: 'bold'
+                                                }}
+                                            >
+                                                ➕ Create New Product (with barcode pre-filled)
+                                            </a>
+
+                                            <button
+                                                onClick={() => {
+                                                    setNotFoundBarcode(null);
+                                                    setMessage({ type: '', text: '' });
+                                                }}
+                                                style={{
+                                                    padding: '12px 20px',
+                                                    backgroundColor: '#e0e0e0',
+                                                    color: '#333',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                ✖️ Cancel / Scan Another
+                                            </button>
+                                        </div>
+
+                                        <div style={{ marginTop: '20px', padding: '15px', background: 'white', borderRadius: '6px', fontSize: '14px', color: '#666' }}>
+                                            <strong style={{ color: '#1976d2' }}>💡 Tip:</strong> If this is an existing product that should be in inventory,
+                                            check if the part number or barcode is entered correctly in the product details.
+                                        </div>
+                                    </div>
                                 ) : (
                                     <p style={{ color: '#666' }}>Scan a barcode to see product details</p>
                                 )}
@@ -270,40 +422,42 @@ const Inventory = () => {
                         {movements.length === 0 ? (
                             <p style={{ color: '#666', padding: '20px' }}>No shipments in transit</p>
                         ) : (
-                            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px' }}>
-                                <thead>
-                                    <tr style={{ background: '#f5f5f5' }}>
-                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Product</th>
-                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Barcode</th>
-                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>From</th>
-                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>To</th>
-                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Status</th>
-                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Shipped</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {movements.map(m => (
-                                        <tr key={m.id} style={{ borderBottom: '1px solid #eee' }}>
-                                            <td style={{ padding: '12px' }}>{m.product_name}</td>
-                                            <td style={{ padding: '12px', fontFamily: 'monospace' }}>{m.barcode}</td>
-                                            <td style={{ padding: '12px' }}>{m.from_warehouse_name}</td>
-                                            <td style={{ padding: '12px' }}>{m.to_warehouse_name}</td>
-                                            <td style={{ padding: '12px' }}>
-                                                <span style={{
-                                                    padding: '4px 8px',
-                                                    borderRadius: '4px',
-                                                    fontSize: '12px',
-                                                    background: m.status === 'in_transit' ? '#fff3e0' : '#e8f5e9',
-                                                    color: m.status === 'in_transit' ? '#e65100' : '#2e7d32'
-                                                }}>
-                                                    {m.status}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '12px' }}>{new Date(m.created_at).toLocaleDateString()}</td>
+                            <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', minWidth: '600px' }}>
+                                    <thead>
+                                        <tr style={{ background: '#f5f5f5' }}>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Product</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Barcode</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>From</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>To</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Status</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Shipped</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {movements.map(m => (
+                                            <tr key={m.id} style={{ borderBottom: '1px solid #eee' }}>
+                                                <td style={{ padding: '12px' }}>{m.product_name}</td>
+                                                <td style={{ padding: '12px', fontFamily: 'monospace' }}>{m.barcode}</td>
+                                                <td style={{ padding: '12px' }}>{m.from_warehouse_name}</td>
+                                                <td style={{ padding: '12px' }}>{m.to_warehouse_name}</td>
+                                                <td style={{ padding: '12px' }}>
+                                                    <span style={{
+                                                        padding: '4px 8px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '12px',
+                                                        background: m.status === 'in_transit' ? '#fff3e0' : '#e8f5e9',
+                                                        color: m.status === 'in_transit' ? '#e65100' : '#2e7d32'
+                                                    }}>
+                                                        {m.status}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '12px' }}>{new Date(m.created_at).toLocaleDateString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </div>
                 )}
@@ -324,15 +478,16 @@ const Inventory = () => {
                             </select>
                         </div>
 
-                        {/* Create Bin Form */}
+                        {/* Create Bin Form - Responsive */}
                         <form onSubmit={handleCreateBin} style={{
                             display: 'flex',
+                            flexDirection: 'column',
                             gap: '10px',
                             marginBottom: '20px',
                             padding: '15px',
                             background: '#f5f5f5',
                             borderRadius: '4px'
-                        }}>
+                        }} className="md:flex-row">
                             <input
                                 type="text"
                                 placeholder="Bin # (e.g., A-01)"
@@ -401,9 +556,185 @@ const Inventory = () => {
                 {/* WAREHOUSES TAB */}
                 {activeTab === 'warehouses' && (
                     <div className="warehouses-tab">
+                        {/* Add Warehouse Button */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <button
+                                onClick={() => setShowWarehouseForm(true)}
+                                style={{
+                                    padding: '12px 24px',
+                                    backgroundColor: '#4caf50',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                + Add Warehouse
+                            </button>
+                        </div>
+
+                        {/* Warehouse Form Modal */}
+                        {showWarehouseForm && (
+                            <div style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: 'rgba(0,0,0,0.5)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 1000
+                            }}>
+                                <div style={{
+                                    background: 'white',
+                                    padding: '30px',
+                                    borderRadius: '12px',
+                                    maxWidth: '500px',
+                                    width: '90%',
+                                    maxHeight: '90vh',
+                                    overflowY: 'auto'
+                                }}>
+                                    <h2 style={{ marginBottom: '20px', color: '#333' }}>
+                                        {editingWarehouse ? 'Edit Warehouse' : 'Add New Warehouse'}
+                                    </h2>
+                                    <form onSubmit={handleSaveWarehouse}>
+                                        <div style={{ display: 'grid', gap: '15px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>Name *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={warehouseForm.name}
+                                                        onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })}
+                                                        style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>Code *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={warehouseForm.code}
+                                                        onChange={(e) => setWarehouseForm({ ...warehouseForm, code: e.target.value.toUpperCase() })}
+                                                        placeholder="e.g., WH-01"
+                                                        style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>Address</label>
+                                                <input
+                                                    type="text"
+                                                    value={warehouseForm.address}
+                                                    onChange={(e) => setWarehouseForm({ ...warehouseForm, address: e.target.value })}
+                                                    style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>City</label>
+                                                    <input
+                                                        type="text"
+                                                        value={warehouseForm.city}
+                                                        onChange={(e) => setWarehouseForm({ ...warehouseForm, city: e.target.value })}
+                                                        style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>State</label>
+                                                    <input
+                                                        type="text"
+                                                        value={warehouseForm.state}
+                                                        onChange={(e) => setWarehouseForm({ ...warehouseForm, state: e.target.value })}
+                                                        style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>ZIP</label>
+                                                    <input
+                                                        type="text"
+                                                        value={warehouseForm.zip}
+                                                        onChange={(e) => setWarehouseForm({ ...warehouseForm, zip: e.target.value })}
+                                                        style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>Phone</label>
+                                                    <input
+                                                        type="tel"
+                                                        value={warehouseForm.phone}
+                                                        onChange={(e) => setWarehouseForm({ ...warehouseForm, phone: e.target.value })}
+                                                        style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>Status</label>
+                                                    <select
+                                                        value={warehouseForm.status}
+                                                        onChange={(e) => setWarehouseForm({ ...warehouseForm, status: e.target.value })}
+                                                        style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', color: '#333' }}
+                                                    >
+                                                        <option value="active">Active</option>
+                                                        <option value="inactive">Inactive</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>Notes</label>
+                                                <textarea
+                                                    value={warehouseForm.notes}
+                                                    onChange={(e) => setWarehouseForm({ ...warehouseForm, notes: e.target.value })}
+                                                    rows={3}
+                                                    style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', resize: 'vertical', backgroundColor: 'white', color: '#333' }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                                            <button
+                                                type="button"
+                                                onClick={resetWarehouseForm}
+                                                style={{
+                                                    padding: '10px 20px',
+                                                    backgroundColor: '#e0e0e0',
+                                                    color: '#333',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={loading}
+                                                style={{
+                                                    padding: '10px 20px',
+                                                    backgroundColor: '#1976d2',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                {loading ? 'Saving...' : (editingWarehouse ? 'Update' : 'Create')}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Warehouses Grid */}
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                             gap: '20px'
                         }}>
                             {warehouses.map(w => (
@@ -417,10 +748,25 @@ const Inventory = () => {
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                                     }}
                                 >
-                                    <h3 style={{ margin: '0 0 10px 0' }}>🏭 {w.name}</h3>
-                                    <p style={{ color: '#666', margin: '5px 0' }}>
-                                        📍 {w.location || w.country || 'Location not set'}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>🏭 {w.name}</h3>
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            fontSize: '11px',
+                                            borderRadius: '4px',
+                                            backgroundColor: w.status === 'active' ? '#e8f5e9' : '#ffebee',
+                                            color: w.status === 'active' ? '#2e7d32' : '#c62828'
+                                        }}>
+                                            {w.status || 'active'}
+                                        </span>
+                                    </div>
+                                    {w.code && <p style={{ color: '#1976d2', margin: '0 0 10px 0', fontWeight: 'bold' }}>Code: {w.code}</p>}
+                                    <p style={{ color: '#666', margin: '5px 0', fontSize: '14px' }}>
+                                        📍 {w.address || w.city || w.location || 'No address'}
+                                        {w.city && w.state && `, ${w.city}, ${w.state}`}
                                     </p>
+                                    {w.phone && <p style={{ color: '#666', margin: '5px 0', fontSize: '14px' }}>📞 {w.phone}</p>}
+
                                     <div style={{
                                         display: 'flex',
                                         gap: '20px',
@@ -441,9 +787,50 @@ const Inventory = () => {
                                             <div style={{ fontSize: '12px', color: '#666' }}>Bins</div>
                                         </div>
                                     </div>
+
+                                    {/* Action Buttons */}
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                                        <button
+                                            onClick={() => handleEditWarehouse(w)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px',
+                                                backgroundColor: '#1976d2',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                fontSize: '13px'
+                                            }}
+                                        >
+                                            ✏️ Edit
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteWarehouse(w)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px',
+                                                backgroundColor: '#f44336',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                fontSize: '13px'
+                                            }}
+                                        >
+                                            🗑️ Delete
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
+
+                        {warehouses.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                                <p style={{ fontSize: '18px' }}>No warehouses yet</p>
+                                <p>Click "Add Warehouse" to create your first warehouse</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

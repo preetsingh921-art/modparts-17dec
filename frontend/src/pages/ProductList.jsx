@@ -700,8 +700,15 @@ const ProductList = () => {
                           <span className="text-sm bg-emerald-600 text-emerald-100 px-2 py-1 rounded">
                             {product.condition_status}
                           </span>
-                          <span className="ml-2 text-sm text-slate-400">
-                            {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+                          <span className={`ml-2 text-sm font-semibold px-2 py-1 rounded ${product.quantity <= 0
+                              ? 'bg-red-600/20 text-red-400'
+                              : product.quantity <= 5
+                                ? 'bg-yellow-600/20 text-yellow-400'
+                                : 'bg-green-600/20 text-green-400'
+                            }`}>
+                            {product.quantity > 0
+                              ? `📦 ${product.quantity} in stock`
+                              : '❌ Out of stock'}
                           </span>
                         </div>
                         <p className="text-[#8B2332] font-bold text-xl mb-3">

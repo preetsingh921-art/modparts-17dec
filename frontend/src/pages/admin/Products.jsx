@@ -520,8 +520,8 @@ const Products = () => {
                   onClick={() => setPrintSizeLevel(Math.max(1, printSizeLevel - 1))}
                   disabled={printSizeLevel <= 1}
                   className={`w-12 h-12 rounded-lg font-bold text-2xl flex items-center justify-center ${printSizeLevel <= 1
-                      ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                      : 'bg-red-600 text-white hover:bg-red-700'
+                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
                     }`}
                 >
                   −
@@ -536,8 +536,8 @@ const Products = () => {
                   onClick={() => setPrintSizeLevel(Math.min(5, printSizeLevel + 1))}
                   disabled={printSizeLevel >= 5}
                   className={`w-12 h-12 rounded-lg font-bold text-2xl flex items-center justify-center ${printSizeLevel >= 5
-                      ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
+                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
                     }`}
                 >
                   +
@@ -721,6 +721,7 @@ const Products = () => {
                   <th className="text-left p-4 text-white min-w-[120px]">Barcode</th>
                   <th className="text-center p-4 text-white min-w-[80px]">Price</th>
                   <th className="text-center p-4 text-white min-w-[80px]">Stock</th>
+                  <th className="text-center p-4 text-white min-w-[140px]">Warehouse</th>
                   <th className="text-center p-4 text-white min-w-[100px]">Condition</th>
                   <th className="text-center p-4 text-white min-w-[120px]">Actions</th>
                 </tr>
@@ -774,6 +775,18 @@ const Products = () => {
                       <span className={`font-semibold ${product.quantity <= 0 ? 'text-red-400' : product.quantity <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
                         {product.quantity}
                       </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      {product.warehouse_name ? (
+                        <div className="text-sm">
+                          <span className="text-blue-400">📍 {product.warehouse_name}</span>
+                          {product.bin_number && (
+                            <span className="text-gray-400 block">Bin: {product.bin_number}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-sm italic">Not assigned</span>
+                      )}
                     </td>
                     <td className="p-4 text-center">
                       <span className="inline-block px-2 py-1 bg-midnight-600 text-midnight-100 rounded-full text-xs">

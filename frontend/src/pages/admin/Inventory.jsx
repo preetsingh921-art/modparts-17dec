@@ -88,7 +88,9 @@ const Inventory = () => {
                 setMessage({ type: 'success', text: `Found: ${product.name}` });
             } else {
                 // Fallback: search for product by barcode/part_number
-                const { products } = await import('../../api/products').then(m => m.getProducts({ search: barcode, limit: 1 }));
+                const productsModule = await import('../../api/products');
+                const result = await productsModule.getProducts({ search: barcode, limit: 1 });
+                const products = result.products || result;
                 const foundProduct = products?.find(p => p.part_number === barcode || p.barcode === barcode) || products?.[0];
 
                 if (foundProduct) {

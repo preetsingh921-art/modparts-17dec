@@ -62,7 +62,7 @@ export const barcodeAPI = {
 export const warehouseAPI = {
   // Get all warehouses
   getAll: async () => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/warehouses.php`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/warehouses`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -71,7 +71,7 @@ export const warehouseAPI = {
 
   // Get single warehouse
   getOne: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/warehouses.php?id=${id}`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/warehouses?id=${id}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -80,7 +80,7 @@ export const warehouseAPI = {
 
   // Create warehouse
   create: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/warehouses.php`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/warehouses`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(data),
@@ -90,7 +90,7 @@ export const warehouseAPI = {
 
   // Update warehouse
   update: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/warehouses.php`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/warehouses`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(data),
@@ -100,7 +100,7 @@ export const warehouseAPI = {
 
   // Delete warehouse
   delete: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/warehouses.php?id=${id}`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/warehouses?id=${id}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });
@@ -115,7 +115,7 @@ export const warehouseAPI = {
 export const binAPI = {
   // Get all bins (optionally by warehouse)
   getAll: async (warehouseId = null) => {
-    let url = `${API_BASE_URL}/controllers/inventory/bins.php`;
+    let url = `${API_BASE_URL}/inventory/bins`;
     if (warehouseId) {
       url += `?warehouse_id=${warehouseId}`;
     }
@@ -128,7 +128,7 @@ export const binAPI = {
 
   // Get single bin
   getOne: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/bins.php?id=${id}`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/bins?id=${id}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -137,7 +137,7 @@ export const binAPI = {
 
   // Create bin
   create: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/bins.php`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/bins`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(data),
@@ -147,7 +147,7 @@ export const binAPI = {
 
   // Update bin
   update: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/bins.php`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/bins`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(data),
@@ -157,7 +157,7 @@ export const binAPI = {
 
   // Delete bin
   delete: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/bins.php?id=${id}`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/bins?id=${id}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });

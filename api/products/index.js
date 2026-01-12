@@ -23,14 +23,17 @@ module.exports = async function handler(req, res) {
       // Calculate offset
       const offset = (page - 1) * limit;
 
-      // Build Query
+      // Build Query - Include warehouse join
       let queryText = `
         SELECT 
           p.*, 
           c.name as category_name, 
-          c.description as category_description
+          c.description as category_description,
+          w.name as warehouse_name,
+          w.location as warehouse_location
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN warehouses w ON p.warehouse_id = w.id
         WHERE 1=1
       `;
       let countQueryText = `

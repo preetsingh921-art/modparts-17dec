@@ -17,7 +17,7 @@ const getHeaders = () => {
 export const barcodeAPI = {
   // Generate barcode for a single product
   generate: async (productId) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/barcode.php?action=generate`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/barcode?action=generate`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ product_id: productId }),
@@ -27,7 +27,7 @@ export const barcodeAPI = {
 
   // Generate barcodes for multiple products
   bulkGenerate: async (productIds) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/barcode.php?action=bulk-generate`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/barcode?action=bulk-generate`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ product_ids: productIds }),
@@ -37,7 +37,7 @@ export const barcodeAPI = {
 
   // Lookup product by barcode (used when scanning)
   scan: async (barcode) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/barcode.php?action=scan&barcode=${encodeURIComponent(barcode)}`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/barcode?action=scan&barcode=${encodeURIComponent(barcode)}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -46,7 +46,7 @@ export const barcodeAPI = {
 
   // Get print data for labels
   getPrintData: async (productIds) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/barcode.php?action=print-data`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/barcode?action=print-data`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ product_ids: productIds }),
@@ -173,7 +173,7 @@ export const movementsAPI = {
   // Get all movements (with optional filters)
   getAll: async (filters = {}) => {
     const params = new URLSearchParams(filters);
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/movements.php?${params}`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?${params}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -182,7 +182,7 @@ export const movementsAPI = {
 
   // Ship products from Canada to India
   ship: async (productIds, fromWarehouseId = 1, toWarehouseId = 2, notes = null) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/movements.php?action=ship`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=ship`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({
@@ -197,7 +197,7 @@ export const movementsAPI = {
 
   // Receive product at destination (by barcode or movement ID)
   receive: async ({ barcode, movementId, binNumber }) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/movements.php?action=receive`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=receive`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({
@@ -211,7 +211,7 @@ export const movementsAPI = {
 
   // Assign product to a bin
   assignBin: async (productId, binNumber, warehouseId = 2) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/movements.php?action=assign-bin`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=assign-bin`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({
@@ -225,7 +225,7 @@ export const movementsAPI = {
 
   // Update movement status
   updateStatus: async (id, status, notes = null) => {
-    const response = await fetch(`${API_BASE_URL}/controllers/inventory/movements.php`, {
+    const response = await fetch(`${API_BASE_URL}/inventory/movements`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify({ id, status, notes }),

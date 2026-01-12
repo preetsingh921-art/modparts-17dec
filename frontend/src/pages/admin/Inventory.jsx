@@ -321,11 +321,104 @@ const Inventory = () => {
                                             <p><strong>Name:</strong> {scannedProduct.name}</p>
                                             <p><strong>Part #:</strong> {scannedProduct.part_number || 'N/A'}</p>
                                             <p><strong>Price:</strong> ${parseFloat(scannedProduct.price).toFixed(2)}</p>
+                                            <p><strong>Quantity:</strong> <span style={{ color: scannedProduct.quantity > 0 ? '#4caf50' : '#f44336', fontWeight: 'bold' }}>{scannedProduct.quantity} in stock</span></p>
                                             <p><strong>Current Location:</strong> {scannedProduct.warehouse_name || 'Not assigned'}</p>
                                             <p><strong>Bin:</strong> {scannedProduct.bin_number || 'Not assigned'}</p>
                                         </div>
 
-                                        {/* Receive / Assign Bin */}
+                                        {/* Send/Receive Warehouse Actions */}
+                                        <div style={{ marginTop: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px' }}>
+                                            <h4 style={{ marginBottom: '15px', color: '#1976d2' }}>📦 Warehouse Actions</h4>
+
+                                            {/* Select destination warehouse */}
+                                            <div style={{ marginBottom: '15px' }}>
+                                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                                                    Select Warehouse:
+                                                </label>
+                                                <select
+                                                    value={selectedWarehouse}
+                                                    onChange={(e) => setSelectedWarehouse(e.target.value)}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '10px',
+                                                        borderRadius: '4px',
+                                                        border: '1px solid #ddd',
+                                                        background: 'white'
+                                                    }}
+                                                >
+                                                    <option value="">-- Select Warehouse --</option>
+                                                    {warehouses.map(w => (
+                                                        <option key={w.id} value={w.id}>
+                                                            {w.name} {w.location ? `(${w.location})` : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!selectedWarehouse) {
+                                                            setMessage({ type: 'error', text: 'Please select a destination warehouse' });
+                                                            return;
+                                                        }
+                                                        setLoading(true);
+                                                        try {
+                                                            await movementsAPI.ship([scannedProduct.id], scannedProduct.warehouse_id, selectedWarehouse, 'Shipped via barcode scan');
+                                                            setMessage({ type: 'success', text: `Product shipped to selected warehouse` });
+                                                        } catch (err) {
+                                                            setMessage({ type: 'error', text: 'Failed to ship product' });
+                                                        }
+                                                        setLoading(false);
+                                                    }}
+                                                    disabled={loading || !selectedWarehouse}
+                                                    style={{
+                                                        padding: '12px',
+                                                        backgroundColor: '#ff9800',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: loading || !selectedWarehouse ? 'not-allowed' : 'pointer',
+                                                        opacity: loading || !selectedWarehouse ? 0.6 : 1,
+                                                        fontWeight: 'bold'
+                                                    }}
+                                                >
+                                                    📤 Send To Warehouse
+                                                </button>
+
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!selectedWarehouse) {
+                                                            setMessage({ type: 'error', text: 'Please select source warehouse' });
+                                                            return;
+                                                        }
+                                                        setLoading(true);
+                                                        try {
+                                                            await movementsAPI.receive({ barcode: scannedProduct.barcode || scannedProduct.part_number });
+                                                            setMessage({ type: 'success', text: `Product received at current warehouse` });
+                                                        } catch (err) {
+                                                            setMessage({ type: 'error', text: 'Failed to receive product' });
+                                                        }
+                                                        setLoading(false);
+                                                    }}
+                                                    disabled={loading}
+                                                    style={{
+                                                        padding: '12px',
+                                                        backgroundColor: '#4caf50',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                                        opacity: loading ? 0.6 : 1,
+                                                        fontWeight: 'bold'
+                                                    }}
+                                                >
+                                                    📥 Receive Here
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Assign to Bin */}
                                         <div style={{ marginTop: '15px' }}>
                                             <h4>Assign to Bin:</h4>
                                             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>

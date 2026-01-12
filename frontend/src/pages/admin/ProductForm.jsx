@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { getProductById, createProduct, updateProduct, uploadProductImage } from '../../api/products';
 import { getCategories } from '../../api/categories';
 import { useToast } from '../../context/ToastContext';
@@ -11,8 +11,12 @@ import InlineBarcode from '../../components/ui/InlineBarcode';
 const ProductForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isEditMode = !!id;
   const { success, error: showError } = useToast();
+
+  // Get prefilled part_number from URL (from barcode scan)
+  const prefilledPartNumber = searchParams.get('part_number') || '';
 
   const [formData, setFormData] = useState({
     name: '',
@@ -22,8 +26,8 @@ const ProductForm = () => {
     condition_status: 'New',
     quantity: '',
     image_url: '',
-    part_number: '',
-    barcode: ''
+    part_number: prefilledPartNumber,
+    barcode: prefilledPartNumber // Also use as barcode
   });
 
   const [categories, setCategories] = useState([]);

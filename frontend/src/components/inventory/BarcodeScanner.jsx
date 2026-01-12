@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
-import { getProducts, searchProducts } from '../../api/products';
+import { Html5Qrcode } from 'html5-qrcode';
+import { getProducts } from '../../api/products';
 
 /**
  * BarcodeScanner Component
- * Camera-based barcode scanner with product search, autofill, and query logs
+ * Uses html5-qrcode for reliable camera-based barcode scanning
+ * Autofills scanned barcode to search box and triggers product lookup
  */
 const BarcodeScanner = ({
     onScan,
     onError,
-    autoStart = false,
     showPreview = true,
     width = 320,
     height = 240
@@ -18,100 +18,134 @@ const BarcodeScanner = ({
     const [error, setError] = useState(null);
     const [manualInput, setManualInput] = useState('');
     const [hasCamera, setHasCamera] = useState(true);
+    const [cameras, setCameras] = useState([]);
+    const [selectedCameraId, setSelectedCameraId] = useState(null);
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
-    const [queryLogs, setQueryLogs] = useState([]);
-    const [selectedLog, setSelectedLog] = useState(null);
-    const [showLogs, setShowLogs] = useState(false);
-    const videoRef = useRef(null);
-    const readerRef = useRef(null);
+    const [lastScannedCode, setLastScannedCode] = useState('');
+
+    const scannerRef = useRef(null);
+    const html5QrCodeRef = useRef(null);
     const searchTimeoutRef = useRef(null);
-    const inputRef = useRef(null);
 
-    // Add to query log
-    const addQueryLog = (type, params, response, error = null, duration = 0) => {
-        const log = {
-            id: Date.now(),
-            timestamp: new Date().toISOString(),
-            type, // 'scan', 'search', 'lookup'
-            params,
-            response: error ? null : response,
-            error: error ? {
-                message: error.message || String(error),
-                stack: error.stack,
-                name: error.name
-            } : null,
-            success: !error,
-            duration: `${duration}ms`
-        };
-        setQueryLogs(prev => [log, ...prev].slice(0, 50)); // Keep last 50 logs
-        return log;
-    };
-
-    // Initialize barcode reader with proper hints for CODE128
+    // Initialize - get available cameras
     useEffect(() => {
-        try {
-            const hints = new Map();
-            hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-                BarcodeFormat.CODE_128,
-                BarcodeFormat.CODE_39,
-                BarcodeFormat.EAN_13,
-                BarcodeFormat.EAN_8,
-                BarcodeFormat.UPC_A,
-                BarcodeFormat.UPC_E,
-                BarcodeFormat.QR_CODE,
-                BarcodeFormat.DATA_MATRIX
-            ]);
-            hints.set(DecodeHintType.TRY_HARDER, true);
-
-            readerRef.current = new BrowserMultiFormatReader(hints);
-            console.log('✅ Barcode reader initialized successfully');
-        } catch (err) {
-            console.error('Failed to initialize barcode reader:', err);
-            addQueryLog('init', {}, null, err);
-        }
-
-        // Check for camera availability
-        if (navigator.mediaDevices?.enumerateDevices) {
-            navigator.mediaDevices.enumerateDevices()
-                .then(devices => {
-                    const videoDevices = devices.filter(d => d.kind === 'videoinput');
-                    console.log('📷 Found video devices:', videoDevices.length);
-                    setHasCamera(videoDevices.length > 0);
-                })
-                .catch(err => {
-                    console.error('Failed to enumerate devices:', err);
+        Html5Qrcode.getCameras()
+            .then(devices => {
+                if (devices && devices.length > 0) {
+                    setCameras(devices);
+                    // Prefer back camera
+                    const backCamera = devices.find(d =>
+                        d.label.toLowerCase().includes('back') ||
+                        d.label.toLowerCase().includes('rear') ||
+                        d.label.toLowerCase().includes('environment')
+                    );
+                    setSelectedCameraId(backCamera?.id || devices[0].id);
+                    setHasCamera(true);
+                    console.log('📷 Found cameras:', devices.map(d => d.label));
+                } else {
                     setHasCamera(false);
-                });
-        } else {
-            setHasCamera(false);
-        }
+                }
+            })
+            .catch(err => {
+                console.error('Camera detection error:', err);
+                setHasCamera(false);
+            });
 
         return () => {
-            if (readerRef.current) {
-                readerRef.current.reset();
-            }
+            stopScanning();
         };
     }, []);
 
-    // Auto-start scanning if enabled
-    useEffect(() => {
-        if (autoStart && hasCamera) {
-            startScanning();
+    // Handle successful scan
+    const onScanSuccess = useCallback((decodedText, decodedResult) => {
+        console.log('✅ Scanned barcode:', decodedText, decodedResult);
+
+        // Prevent duplicate scans of same code within 2 seconds
+        if (decodedText === lastScannedCode) return;
+        setLastScannedCode(decodedText);
+        setTimeout(() => setLastScannedCode(''), 2000);
+
+        // Vibrate on success (mobile)
+        if (navigator.vibrate) {
+            navigator.vibrate(200);
         }
-        return () => stopScanning();
-    }, [autoStart, hasCamera]);
+
+        // Autofill the search box with scanned barcode
+        setManualInput(decodedText);
+        setError(null);
+
+        // Stop scanning
+        stopScanning();
+
+        // Lookup product
+        lookupProduct(decodedText);
+    }, [lastScannedCode]);
+
+    // Handle scan failure (this fires continuously, so we ignore it mostly)
+    const onScanFailure = useCallback((errorMessage) => {
+        // Ignore most scan failures - they happen every frame when no barcode is visible
+        // Only log real errors
+        if (errorMessage && !errorMessage.includes('No MultiFormat Readers') && !errorMessage.includes('NotFoundException')) {
+            console.log('Scan frame:', errorMessage);
+        }
+    }, []);
+
+    // Start scanning
+    const startScanning = async () => {
+        if (!selectedCameraId) {
+            setError('No camera selected');
+            return;
+        }
+
+        setError(null);
+        setScanning(true);
+
+        try {
+            // Create new instance
+            html5QrCodeRef.current = new Html5Qrcode("barcode-scanner-region");
+
+            await html5QrCodeRef.current.start(
+                selectedCameraId,
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 100 }, // Rectangle for barcode
+                    aspectRatio: 1.5
+                },
+                onScanSuccess,
+                onScanFailure
+            );
+
+            console.log('📷 Scanner started successfully');
+        } catch (err) {
+            console.error('Failed to start scanner:', err);
+            setError(`Camera error: ${err.message || err}`);
+            setScanning(false);
+        }
+    };
+
+    // Stop scanning
+    const stopScanning = async () => {
+        if (html5QrCodeRef.current) {
+            try {
+                await html5QrCodeRef.current.stop();
+                html5QrCodeRef.current.clear();
+            } catch (err) {
+                console.log('Stop scanner:', err);
+            }
+            html5QrCodeRef.current = null;
+        }
+        setScanning(false);
+    };
 
     // Lookup product by barcode/part number
     const lookupProduct = async (barcodeValue) => {
-        const startTime = Date.now();
-        const params = { search: barcodeValue, limit: 1 };
+        if (!barcodeValue) return;
 
         try {
-            console.log('🔍 Looking up barcode:', barcodeValue);
-            const result = await getProducts(params);
-            const duration = Date.now() - startTime;
+            console.log('🔍 Looking up:', barcodeValue);
+            const result = await getProducts({ search: barcodeValue, limit: 5 });
 
             // Find exact match first
             const exactMatch = result.products?.find(p =>
@@ -121,37 +155,22 @@ const BarcodeScanner = ({
 
             const product = exactMatch || result.products?.[0];
 
-            addQueryLog('lookup', params, {
-                found: !!product,
-                product: product ? {
-                    id: product.id,
-                    name: product.name,
-                    part_number: product.part_number
-                } : null,
-                totalResults: result.products?.length || 0
-            }, null, duration);
-
             if (product) {
                 console.log('✅ Product found:', product.name);
                 if (onScan) {
                     onScan(barcodeValue, product);
                 }
-                return product;
             } else {
                 console.log('❌ Product not found for:', barcodeValue);
                 setError(`No product found for: ${barcodeValue}`);
                 if (onScan) {
                     onScan(barcodeValue, null);
                 }
-                return null;
             }
         } catch (err) {
-            const duration = Date.now() - startTime;
-            console.error('❌ Lookup error:', err);
-            addQueryLog('lookup', params, null, err, duration);
+            console.error('Lookup error:', err);
             setError(`Lookup failed: ${err.message}`);
             if (onError) onError(err);
-            return null;
         }
     };
 
@@ -164,27 +183,13 @@ const BarcodeScanner = ({
         }
 
         setIsSearching(true);
-        const startTime = Date.now();
-        const params = { search: query, limit: 10 };
-
         try {
-            console.log('🔍 Searching products:', query);
-            const result = await getProducts(params);
-            const duration = Date.now() - startTime;
+            const result = await getProducts({ search: query, limit: 10 });
             const products = result.products || [];
-
-            addQueryLog('search', params, {
-                count: products.length,
-                products: products.map(p => ({ id: p.id, name: p.name, part_number: p.part_number }))
-            }, null, duration);
-
-            console.log('✅ Search found:', products.length, 'products');
             setSearchResults(products);
             setShowDropdown(products.length > 0);
         } catch (err) {
-            const duration = Date.now() - startTime;
-            console.error('❌ Search error:', err);
-            addQueryLog('search', params, null, err, duration);
+            console.error('Search error:', err);
             setSearchResults([]);
         }
         setIsSearching(false);
@@ -211,176 +216,46 @@ const BarcodeScanner = ({
         setSearchResults([]);
         setError(null);
 
-        // Trigger the scan callback with product data
         if (onScan) {
             onScan(barcodeValue, product);
         }
     };
 
-    const startScanning = useCallback(async () => {
-        if (!readerRef.current) {
-            setError('Scanner not initialized. Please refresh the page.');
-            return;
-        }
-        if (!videoRef.current) {
-            setError('Video element not ready.');
-            return;
-        }
-        if (!hasCamera) {
-            setError('No camera available.');
-            return;
-        }
-
-        setError(null);
-        setScanning(true);
-        const startTime = Date.now();
-
-        try {
-            console.log('📷 Starting camera scan...');
-
-            // Get list of video devices
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(d => d.kind === 'videoinput');
-            console.log('📷 Available cameras:', videoDevices.map(d => d.label || 'Unknown'));
-
-            // Prefer back camera on mobile
-            const backCamera = videoDevices.find(d =>
-                d.label.toLowerCase().includes('back') ||
-                d.label.toLowerCase().includes('rear') ||
-                d.label.toLowerCase().includes('environment')
-            );
-            const deviceId = backCamera?.deviceId || undefined;
-            console.log('📷 Using camera:', backCamera?.label || 'Default');
-
-            addQueryLog('scan_start', {
-                deviceId,
-                cameraLabel: backCamera?.label || 'default',
-                availableCameras: videoDevices.length
-            }, { status: 'scanning' });
-
-            const controls = await readerRef.current.decodeFromVideoDevice(
-                deviceId,
-                videoRef.current,
-                (result, scanError) => {
-                    if (result) {
-                        const barcodeText = result.getText();
-                        const format = result.getBarcodeFormat();
-                        const duration = Date.now() - startTime;
-
-                        console.log('✅ Scanned:', barcodeText, 'Format:', format);
-
-                        addQueryLog('scan_result', { deviceId }, {
-                            barcode: barcodeText,
-                            format: format?.toString() || 'Unknown'
-                        }, null, duration);
-
-                        // Vibrate on successful scan (mobile)
-                        if (navigator.vibrate) {
-                            navigator.vibrate(200);
-                        }
-
-                        // Set the input value and lookup product
-                        setManualInput(barcodeText);
-                        lookupProduct(barcodeText);
-
-                        // Stop scanning after successful read
-                        stopScanning();
-                    }
-                    // Log continuous scan errors (but not NotFoundException which is normal)
-                    if (scanError && scanError.name !== 'NotFoundException') {
-                        console.warn('Scan frame error:', scanError.name, scanError.message);
-                    }
-                }
-            );
-
-            console.log('✅ Scanner started successfully');
-        } catch (err) {
-            const duration = Date.now() - startTime;
-            console.error('❌ Failed to start scanner:', err);
-            addQueryLog('scan_start', {}, null, err, duration);
-            setError(`Camera error: ${err.message}. Check permissions.`);
-            setScanning(false);
-            if (onError) onError(err);
-        }
-    }, [hasCamera, onError]);
-
-    const stopScanning = useCallback(() => {
-        if (readerRef.current) {
-            readerRef.current.reset();
-        }
-        setScanning(false);
-        console.log('⏹️ Scanner stopped');
-    }, []);
-
     const handleManualSubmit = (e) => {
         e.preventDefault();
         if (manualInput.trim()) {
             setShowDropdown(false);
-            setError(null);
             lookupProduct(manualInput.trim());
         }
     };
 
-    const handleClickOutside = useCallback(() => {
-        setTimeout(() => setShowDropdown(false), 200);
-    }, []);
-
     return (
         <div className="barcode-scanner" style={{ textAlign: 'center' }}>
-            {/* Camera Preview */}
+            {/* Scanner Region */}
             {showPreview && hasCamera && (
-                <div
-                    style={{
-                        position: 'relative',
-                        display: 'inline-block',
-                        marginBottom: '15px',
-                        border: scanning ? '3px solid #4CAF50' : '3px solid #666',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        backgroundColor: '#000'
-                    }}
-                >
-                    <video
-                        ref={videoRef}
-                        width={width}
-                        height={height}
-                        style={{ display: 'block' }}
-                        playsInline
-                        muted
-                        autoPlay
+                <div style={{ marginBottom: '15px' }}>
+                    <div
+                        id="barcode-scanner-region"
+                        ref={scannerRef}
+                        style={{
+                            width: `${width}px`,
+                            height: scanning ? `${height}px` : '0px',
+                            margin: '0 auto',
+                            border: scanning ? '3px solid #4CAF50' : 'none',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            transition: 'height 0.3s ease'
+                        }}
                     />
 
-                    {/* Scanning overlay */}
                     {scanning && (
                         <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            pointerEvents: 'none'
+                            marginTop: '10px',
+                            color: '#4CAF50',
+                            fontSize: '14px',
+                            fontWeight: 'bold'
                         }}>
-                            <div style={{
-                                width: '70%',
-                                height: '30%',
-                                border: '2px solid #4CAF50',
-                                borderRadius: '4px',
-                                boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
-                            }} />
-                            <div style={{
-                                position: 'absolute',
-                                bottom: '10px',
-                                color: 'white',
-                                fontSize: '12px',
-                                backgroundColor: 'rgba(0,0,0,0.8)',
-                                padding: '4px 8px',
-                                borderRadius: '4px'
-                            }}>
-                                🔴 Scanning... Point at barcode
-                            </div>
+                            🔴 Scanning... Point camera at barcode
                         </div>
                     )}
                 </div>
@@ -401,6 +276,33 @@ const BarcodeScanner = ({
                 </div>
             )}
 
+            {/* Camera Selection */}
+            {hasCamera && cameras.length > 1 && (
+                <div style={{ marginBottom: '10px' }}>
+                    <select
+                        value={selectedCameraId || ''}
+                        onChange={(e) => {
+                            setSelectedCameraId(e.target.value);
+                            if (scanning) {
+                                stopScanning().then(() => startScanning());
+                            }
+                        }}
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '4px',
+                            border: '1px solid #ccc',
+                            fontSize: '14px'
+                        }}
+                    >
+                        {cameras.map(camera => (
+                            <option key={camera.id} value={camera.id}>
+                                {camera.label || `Camera ${camera.id}`}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
             {/* Camera Controls */}
             {hasCamera && (
                 <div style={{ marginBottom: '15px' }}>
@@ -409,14 +311,15 @@ const BarcodeScanner = ({
                             onClick={startScanning}
                             type="button"
                             style={{
-                                padding: '12px 24px',
+                                padding: '14px 28px',
                                 backgroundColor: '#2196F3',
                                 color: 'white',
                                 border: 'none',
-                                borderRadius: '6px',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
                                 fontSize: '16px',
-                                fontWeight: 'bold'
+                                fontWeight: 'bold',
+                                boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)'
                             }}
                         >
                             📷 Start Camera Scan
@@ -426,14 +329,15 @@ const BarcodeScanner = ({
                             onClick={stopScanning}
                             type="button"
                             style={{
-                                padding: '12px 24px',
+                                padding: '14px 28px',
                                 backgroundColor: '#f44336',
                                 color: 'white',
                                 border: 'none',
-                                borderRadius: '6px',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
                                 fontSize: '16px',
-                                fontWeight: 'bold'
+                                fontWeight: 'bold',
+                                boxShadow: '0 2px 8px rgba(244, 67, 54, 0.3)'
                             }}
                         >
                             ⏹️ Stop Scanning
@@ -460,18 +364,17 @@ const BarcodeScanner = ({
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
                     <div style={{ position: 'relative', width: '280px' }}>
                         <input
-                            ref={inputRef}
                             type="text"
                             placeholder="Type part number or product name..."
                             value={manualInput}
                             onChange={handleInputChange}
                             onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-                            onBlur={handleClickOutside}
+                            onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                             style={{
-                                padding: '12px 40px 12px 12px',
+                                padding: '14px 40px 14px 14px',
                                 fontSize: '16px',
                                 border: '2px solid #1976d2',
-                                borderRadius: '6px',
+                                borderRadius: '8px',
                                 width: '100%',
                                 boxSizing: 'border-box'
                             }}
@@ -499,7 +402,7 @@ const BarcodeScanner = ({
                                 right: 0,
                                 backgroundColor: 'white',
                                 border: '1px solid #ccc',
-                                borderRadius: '0 0 6px 6px',
+                                borderRadius: '0 0 8px 8px',
                                 maxHeight: '250px',
                                 overflowY: 'auto',
                                 zIndex: 1000,
@@ -511,7 +414,7 @@ const BarcodeScanner = ({
                                         key={product.id}
                                         onClick={() => handleSelectProduct(product)}
                                         style={{
-                                            padding: '10px 12px',
+                                            padding: '12px 14px',
                                             cursor: 'pointer',
                                             borderBottom: '1px solid #eee',
                                             backgroundColor: 'white'
@@ -522,13 +425,14 @@ const BarcodeScanner = ({
                                         <div style={{ fontWeight: 'bold', color: '#333' }}>
                                             {product.name}
                                         </div>
-                                        <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                                        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                                             <span style={{
                                                 fontFamily: 'monospace',
                                                 backgroundColor: '#e3f2fd',
-                                                padding: '2px 6px',
-                                                borderRadius: '3px',
-                                                color: '#1976d2'
+                                                padding: '2px 8px',
+                                                borderRadius: '4px',
+                                                color: '#1976d2',
+                                                fontWeight: 'bold'
                                             }}>
                                                 {product.part_number || 'No Part #'}
                                             </span>
@@ -545,164 +449,25 @@ const BarcodeScanner = ({
                     <button
                         type="submit"
                         style={{
-                            padding: '12px 20px',
+                            padding: '14px 24px',
                             backgroundColor: '#4CAF50',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '6px',
+                            borderRadius: '8px',
                             cursor: 'pointer',
                             fontWeight: 'bold',
-                            fontSize: '16px'
+                            fontSize: '16px',
+                            boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)'
                         }}
                     >
                         🔍 Look Up
                     </button>
                 </div>
 
-                <div style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
-                    Type to search products • Results appear as you type
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '10px' }}>
+                    Scan barcode or type to search • Results appear as you type
                 </div>
             </form>
-
-            {/* Query Logs Toggle */}
-            <div style={{ marginTop: '20px' }}>
-                <button
-                    type="button"
-                    onClick={() => setShowLogs(!showLogs)}
-                    style={{
-                        padding: '8px 16px',
-                        backgroundColor: showLogs ? '#673ab7' : '#9e9e9e',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '13px'
-                    }}
-                >
-                    📋 {showLogs ? 'Hide' : 'Show'} Query Logs ({queryLogs.length})
-                </button>
-            </div>
-
-            {/* Query Logs Panel */}
-            {showLogs && (
-                <div style={{
-                    marginTop: '15px',
-                    padding: '15px',
-                    background: '#263238',
-                    borderRadius: '8px',
-                    maxHeight: '300px',
-                    overflowY: 'auto',
-                    textAlign: 'left',
-                    fontFamily: 'monospace',
-                    fontSize: '12px'
-                }}>
-                    <div style={{ color: '#4CAF50', marginBottom: '10px', fontWeight: 'bold' }}>
-                        📋 Query Logs (Last 50)
-                    </div>
-
-                    {queryLogs.length === 0 ? (
-                        <div style={{ color: '#888' }}>No queries yet...</div>
-                    ) : (
-                        queryLogs.map((log) => (
-                            <div
-                                key={log.id}
-                                onClick={() => setSelectedLog(selectedLog?.id === log.id ? null : log)}
-                                style={{
-                                    padding: '8px',
-                                    marginBottom: '5px',
-                                    background: selectedLog?.id === log.id ? '#37474f' : '#1e272c',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    borderLeft: `3px solid ${log.success ? '#4CAF50' : '#f44336'}`
-                                }}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: log.success ? '#81c784' : '#ef5350' }}>
-                                        {log.success ? '✅' : '❌'} [{log.type}] {log.duration}
-                                    </span>
-                                    <span style={{ color: '#888', fontSize: '10px' }}>
-                                        {new Date(log.timestamp).toLocaleTimeString()}
-                                    </span>
-                                </div>
-
-                                {/* Expanded Log Details */}
-                                {selectedLog?.id === log.id && (
-                                    <div style={{ marginTop: '10px', color: '#b0bec5' }}>
-                                        <div style={{ marginBottom: '8px' }}>
-                                            <strong style={{ color: '#64b5f6' }}>📤 Request Params:</strong>
-                                            <pre style={{
-                                                margin: '4px 0',
-                                                padding: '8px',
-                                                background: '#1a1a1a',
-                                                borderRadius: '4px',
-                                                overflow: 'auto',
-                                                whiteSpace: 'pre-wrap',
-                                                wordBreak: 'break-all'
-                                            }}>
-                                                {JSON.stringify(log.params, null, 2)}
-                                            </pre>
-                                        </div>
-
-                                        {log.response && (
-                                            <div style={{ marginBottom: '8px' }}>
-                                                <strong style={{ color: '#81c784' }}>📥 Response:</strong>
-                                                <pre style={{
-                                                    margin: '4px 0',
-                                                    padding: '8px',
-                                                    background: '#1a1a1a',
-                                                    borderRadius: '4px',
-                                                    overflow: 'auto',
-                                                    whiteSpace: 'pre-wrap',
-                                                    wordBreak: 'break-all'
-                                                }}>
-                                                    {JSON.stringify(log.response, null, 2)}
-                                                </pre>
-                                            </div>
-                                        )}
-
-                                        {log.error && (
-                                            <div>
-                                                <strong style={{ color: '#ef5350' }}>⚠️ Error:</strong>
-                                                <pre style={{
-                                                    margin: '4px 0',
-                                                    padding: '8px',
-                                                    background: '#1a1a1a',
-                                                    borderRadius: '4px',
-                                                    color: '#ef5350',
-                                                    overflow: 'auto',
-                                                    whiteSpace: 'pre-wrap',
-                                                    wordBreak: 'break-all'
-                                                }}>
-                                                    {JSON.stringify(log.error, null, 2)}
-                                                </pre>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    )}
-
-                    {queryLogs.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => setQueryLogs([])}
-                            style={{
-                                marginTop: '10px',
-                                padding: '6px 12px',
-                                backgroundColor: '#f44336',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '11px'
-                            }}
-                        >
-                            🗑️ Clear Logs
-                        </button>
-                    )}
-                </div>
-            )}
         </div>
     );
 };

@@ -7,7 +7,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const day = date.getDate().toString().padStart(2, '0');
   const month = months[date.getMonth()];
@@ -20,7 +20,7 @@ const formatDate = (dateString) => {
 const formatDateTime = (dateString) => {
   const date = new Date(dateString);
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const day = date.getDate().toString().padStart(2, '0');
   const month = months[date.getMonth()];
@@ -142,11 +142,11 @@ const OrderDetail = () => {
         <p>Date: {formatDate(order.created_at || Date.now())}</p>
       </div>
 
-        <div className="card p-6 mb-6">
+      <div className="card p-6 mb-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold mb-1">Order #{order.id || 'N/A'}</h1>
-            <p className="text-gray-600">Placed on {formatDateTime(order.created_at || Date.now())}</p>
+            <h1 className="text-2xl font-bold text-white mb-1">Order #{order.id || 'N/A'}</h1>
+            <p className="text-gray-300">Placed on {formatDateTime(order.created_at || Date.now())}</p>
           </div>
           <div className="mt-2 md:mt-0">
             <span className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(order.status && typeof order.status === 'string' ? order.status : 'pending')}`}>
@@ -163,28 +163,28 @@ const OrderDetail = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 order-details-grid no-break">
           <div>
-            <h2 className="text-lg font-semibold mb-3">Shipping Information</h2>
-            <p className="text-gray-700">{order.shipping_address || 'No shipping address provided'}</p>
+            <h2 className="text-lg font-semibold text-white mb-3">Shipping Information</h2>
+            <p className="text-gray-300">{order.shipping_address || 'No shipping address provided'}</p>
           </div>
 
           <div>
-            <h2 className="text-lg font-semibold mb-3">Payment Information</h2>
-            <p className="text-gray-700">Method: {order.payment_method ? order.payment_method.replace('_', ' ') : 'Not specified'}</p>
-            <p className="text-gray-700">Total: ${parseFloat(order.total_amount || 0).toFixed(2)}</p>
+            <h2 className="text-lg font-semibold text-white mb-3">Payment Information</h2>
+            <p className="text-gray-300">Method: {order.payment_method ? order.payment_method.replace('_', ' ') : 'Not specified'}</p>
+            <p className="text-gray-300">Total: ${parseFloat(order.total_amount || 0).toFixed(2)}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 order-details-grid no-break">
           <div>
-            <h2 className="text-lg font-semibold mb-3">Billing Information</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">Billing Information</h2>
             {order.billing_info ? (
               <div className="space-y-1">
-                <p className="text-gray-700">{order.billing_info.name}</p>
-                <p className="text-gray-700">{order.billing_info.email}</p>
-                {order.billing_info.phone && <p className="text-gray-700">{order.billing_info.phone}</p>}
+                <p className="text-gray-300">{order.billing_info.name}</p>
+                <p className="text-gray-300">{order.billing_info.email}</p>
+                {order.billing_info.phone && <p className="text-gray-300">{order.billing_info.phone}</p>}
                 {order.billing_info.address && (
                   <div>
-                    <p className="text-gray-700">{order.billing_info.address}</p>
+                    <p className="text-gray-300">{order.billing_info.address}</p>
                     <p className="text-gray-700">
                       {[
                         order.billing_info.city,
@@ -196,7 +196,7 @@ const OrderDetail = () => {
                 )}
               </div>
             ) : (
-              <p className="text-gray-700">No billing information available</p>
+              <p className="text-gray-300">No billing information available</p>
             )}
           </div>
 
@@ -214,25 +214,25 @@ const OrderDetail = () => {
           </div>
         </div>
 
-        <h2 className="text-lg font-semibold mb-3">Order Items</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Order Items</h2>
         <div className="border rounded overflow-hidden no-break">
           <table className="w-full order-items">
             <thead className="bg-gray-100">
               <tr>
-                <th className="text-left p-3">Product</th>
-                <th className="text-center p-3">Price</th>
-                <th className="text-center p-3">Quantity</th>
-                <th className="text-right p-3">Total</th>
+                <th className="text-left p-3 text-white">Product</th>
+                <th className="text-center p-3 text-white">Price</th>
+                <th className="text-center p-3 text-white">Quantity</th>
+                <th className="text-right p-3 text-white">Total</th>
               </tr>
             </thead>
             <tbody>
               {order.items && order.items.length > 0 ? (
                 order.items.map(item => (
                   <tr key={item.id} className="border-t">
-                    <td className="p-3">{item.product_name || 'Unknown Product'}</td>
-                    <td className="p-3 text-center">${parseFloat(item.price || 0).toFixed(2)}</td>
-                    <td className="p-3 text-center">{item.quantity || 1}</td>
-                    <td className="p-3 text-right">${(parseFloat(item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
+                    <td className="p-3 text-white">{item.product_name || 'Unknown Product'}</td>
+                    <td className="p-3 text-center text-white">${parseFloat(item.price || 0).toFixed(2)}</td>
+                    <td className="p-3 text-center text-white">{item.quantity || 1}</td>
+                    <td className="p-3 text-right text-white">${(parseFloat(item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
                   </tr>
                 ))
               ) : (
@@ -243,8 +243,8 @@ const OrderDetail = () => {
             </tbody>
             <tfoot className="bg-gray-50">
               <tr className="border-t">
-                <td colSpan="3" className="p-3 text-right font-semibold">Total:</td>
-                <td className="p-3 text-right font-bold">${parseFloat(order.total_amount || 0).toFixed(2)}</td>
+                <td colSpan="3" className="p-3 text-right font-semibold text-white">Total:</td>
+                <td className="p-3 text-right font-bold text-white">${parseFloat(order.total_amount || 0).toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
@@ -252,7 +252,7 @@ const OrderDetail = () => {
       </div>
 
       <div className="card p-6 order-timeline">
-        <h2 className="text-lg font-semibold mb-3">Order Timeline</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Order Timeline</h2>
         <div className="space-y-4">
           {/* Always show Order Placed status */}
           <div className="flex">
@@ -264,8 +264,8 @@ const OrderDetail = () => {
               </div>
             </div>
             <div>
-              <p className="font-semibold">Order Placed</p>
-              <p className="text-sm text-gray-600">{formatDateTime(order.created_at || Date.now())}</p>
+              <p className="font-semibold text-white">Order Placed</p>
+              <p className="text-sm text-gray-300">{formatDateTime(order.created_at || Date.now())}</p>
             </div>
           </div>
 
@@ -319,8 +319,8 @@ const OrderDetail = () => {
                       </div>
                     </div>
                     <div>
-                      <p className="font-semibold">{statusText}</p>
-                      <p className="text-sm text-gray-600">{formatDateTime(statusItem.timestamp)}</p>
+                      <p className="font-semibold text-white">{statusText}</p>
+                      <p className="text-sm text-gray-300">{formatDateTime(statusItem.timestamp)}</p>
                     </div>
                   </div>
                 );
@@ -340,8 +340,8 @@ const OrderDetail = () => {
                     </div>
                   </div>
                   <div>
-                    <p className="font-semibold">Processing</p>
-                    <p className="text-sm text-gray-600">{formatDateTime(order.updated_at || order.created_at)}</p>
+                    <p className="font-semibold text-white">Processing</p>
+                    <p className="text-sm text-gray-300">{formatDateTime(order.updated_at || order.created_at)}</p>
                   </div>
                 </div>
               )}

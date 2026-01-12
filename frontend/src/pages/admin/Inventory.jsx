@@ -1145,6 +1145,24 @@ const Inventory = () => {
                                     </p>
                                     {w.phone && <p style={{ color: '#666', margin: '5px 0', fontSize: '14px' }}>📞 {w.phone}</p>}
 
+                                    {/* Display Assigned Admin */}
+                                    <div style={{
+                                        marginTop: '10px',
+                                        padding: '8px',
+                                        background: w.admin_email ? '#fff3e0' : '#ffebee',
+                                        borderRadius: '4px',
+                                        border: w.admin_email ? '1px solid #ff9800' : '1px solid #ef5350'
+                                    }}>
+                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold', color: w.admin_email ? '#e65100' : '#c62828' }}>
+                                            👤 {w.admin_email ? (
+                                                <>
+                                                    Admin: {w.admin_first_name || ''} {w.admin_last_name || ''}
+                                                    <span style={{ display: 'block', fontWeight: 'normal', color: '#666' }}>{w.admin_email}</span>
+                                                </>
+                                            ) : 'No admin assigned'}
+                                        </p>
+                                    </div>
+
                                     {/* Display Coordinates */}
                                     {(w.latitude && w.longitude) ? (
                                         <div style={{ marginTop: '10px', padding: '8px', background: '#e3f2fd', borderRadius: '4px' }}>

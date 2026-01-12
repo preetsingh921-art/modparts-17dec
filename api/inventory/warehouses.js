@@ -8,14 +8,18 @@ module.exports = async function handler(req, res) {
             const { id } = req.query;
 
             if (id) {
-                // Get single warehouse
+                // Get single warehouse with assigned admin
                 const result = await db.query(`
-          SELECT w.*, 
-            (SELECT COUNT(*) FROM bins WHERE warehouse_id = w.id) as bin_count,
-            (SELECT COUNT(*) FROM products WHERE warehouse_id = w.id) as product_count
-          FROM warehouses w
-          WHERE w.id = $1
-        `, [id]);
+                    SELECT w.*, 
+                        (SELECT COUNT(*) FROM bins WHERE warehouse_id = w.id) as bin_count,
+                        (SELECT COUNT(*) FROM products WHERE warehouse_id = w.id) as product_count,
+                        u.email as admin_email,
+                        u.first_name as admin_first_name,
+                        u.last_name as admin_last_name
+                    FROM warehouses w
+                    LEFT JOIN users u ON u.warehouse_id = w.id AND u.role = 'admin'
+                    WHERE w.id = $1
+                `, [id]);
 
                 if (result.rows.length === 0) {
                     return res.status(404).json({ message: 'Warehouse not found' });
@@ -23,15 +27,20 @@ module.exports = async function handler(req, res) {
 
                 return res.json({ warehouse: result.rows[0] });
             } else {
-                // Get all warehouses
+                // Get all warehouses with assigned admin
                 const result = await db.query(`
-          SELECT w.*, 
-            (SELECT COUNT(*) FROM bins WHERE warehouse_id = w.id) as bin_count,
-            (SELECT COUNT(*) FROM products WHERE warehouse_id = w.id) as product_count
-          FROM warehouses w
-          WHERE w.is_active = true
-          ORDER BY w.name
-        `);
+                    SELECT w.*, 
+                        (SELECT COUNT(*) FROM bins WHERE warehouse_id = w.id) as bin_count,
+                        (SELECT COUNT(*) FROM products WHERE warehouse_id = w.id) as product_count,
+                        u.id as admin_id,
+                        u.email as admin_email,
+                        u.first_name as admin_first_name,
+                        u.last_name as admin_last_name
+                    FROM warehouses w
+                    LEFT JOIN users u ON u.warehouse_id = w.id AND u.role = 'admin'
+                    WHERE w.is_active = true
+                    ORDER BY w.name
+                `);
 
                 console.log('Warehouses found:', result.rows.length);
                 return res.json({ warehouses: result.rows });

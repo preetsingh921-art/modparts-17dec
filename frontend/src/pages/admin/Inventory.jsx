@@ -31,7 +31,9 @@ const Inventory = () => {
         zip: '',
         phone: '',
         notes: '',
-        status: 'active'
+        status: 'active',
+        latitude: '',
+        longitude: ''
     });
 
     // Geolocation state
@@ -914,6 +916,86 @@ const Inventory = () => {
                                                     style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', resize: 'vertical', backgroundColor: 'white', color: '#333' }}
                                                 />
                                             </div>
+
+                                            {/* Location Coordinates */}
+                                            <div style={{ padding: '15px', background: '#f5f5f5', borderRadius: '8px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                    <label style={{ fontWeight: 'bold', color: '#333' }}>📍 GPS Coordinates</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (!navigator.geolocation) {
+                                                                setMessage({ type: 'error', text: 'Geolocation not supported' });
+                                                                return;
+                                                            }
+                                                            navigator.geolocation.getCurrentPosition(
+                                                                (pos) => {
+                                                                    setWarehouseForm(prev => ({
+                                                                        ...prev,
+                                                                        latitude: pos.coords.latitude.toFixed(6),
+                                                                        longitude: pos.coords.longitude.toFixed(6)
+                                                                    }));
+                                                                    setMessage({ type: 'success', text: 'Location detected!' });
+                                                                },
+                                                                () => setMessage({ type: 'error', text: 'Could not get location' }),
+                                                                { enableHighAccuracy: true }
+                                                            );
+                                                        }}
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            backgroundColor: '#9c27b0',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px'
+                                                        }}
+                                                    >
+                                                        📍 Auto-Detect
+                                                    </button>
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', color: '#666' }}>Latitude</label>
+                                                        <input
+                                                            type="text"
+                                                            value={warehouseForm.latitude}
+                                                            onChange={(e) => setWarehouseForm({ ...warehouseForm, latitude: e.target.value })}
+                                                            placeholder="e.g., 43.7615"
+                                                            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', color: '#333' }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', color: '#666' }}>Longitude</label>
+                                                        <input
+                                                            type="text"
+                                                            value={warehouseForm.longitude}
+                                                            onChange={(e) => setWarehouseForm({ ...warehouseForm, longitude: e.target.value })}
+                                                            placeholder="e.g., -79.2315"
+                                                            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', color: '#333' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {warehouseForm.latitude && warehouseForm.longitude && (
+                                                    <a
+                                                        href={`https://www.google.com/maps?q=${warehouseForm.latitude},${warehouseForm.longitude}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            display: 'inline-block',
+                                                            marginTop: '10px',
+                                                            padding: '6px 12px',
+                                                            backgroundColor: '#4285f4',
+                                                            color: 'white',
+                                                            borderRadius: '4px',
+                                                            textDecoration: 'none',
+                                                            fontSize: '12px'
+                                                        }}
+                                                    >
+                                                        🗺️ View on Google Maps
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
                                             <button
@@ -985,6 +1067,27 @@ const Inventory = () => {
                                         {w.city && w.state && `, ${w.city}, ${w.state}`}
                                     </p>
                                     {w.phone && <p style={{ color: '#666', margin: '5px 0', fontSize: '14px' }}>📞 {w.phone}</p>}
+
+                                    {/* Display Coordinates */}
+                                    {(w.latitude && w.longitude) ? (
+                                        <div style={{ marginTop: '10px', padding: '8px', background: '#e3f2fd', borderRadius: '4px' }}>
+                                            <p style={{ margin: 0, fontSize: '12px', color: '#1565c0' }}>
+                                                🌐 Lat: {parseFloat(w.latitude).toFixed(4)}, Lng: {parseFloat(w.longitude).toFixed(4)}
+                                            </p>
+                                            <a
+                                                href={`https://www.google.com/maps?q=${w.latitude},${w.longitude}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{ fontSize: '11px', color: '#1976d2' }}
+                                            >
+                                                🗺️ Open in Google Maps
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+                                            📍 No GPS coordinates set
+                                        </p>
+                                    )}
 
                                     <div style={{
                                         display: 'flex',

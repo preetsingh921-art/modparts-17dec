@@ -32,6 +32,7 @@ import AdminUsers from './pages/admin/Users'
 import UserApproval from './pages/admin/UserApproval'
 import AdminProductForm from './pages/admin/ProductForm'
 import AdminProductDetail from './pages/admin/AdminProductDetail'
+import BarcodeGeneratorPage from './pages/admin/BarcodeGeneratorPage'
 import AdminAnalytics from './pages/admin/Analytics'
 import AdminReviews from './pages/admin/Reviews'
 import LogoManagement from './pages/admin/LogoManagement'
@@ -121,6 +122,7 @@ function App() {
                         <Route path="products/add" element={<AdminProductForm />} />
                         <Route path="products/edit/:id" element={<AdminProductForm />} />
                         <Route path="products/view/:id" element={<AdminProductDetail />} />
+                        <Route path="barcode-generator" element={<BarcodeGeneratorPage />} />
                         <Route path="orders" element={<AdminOrders />} />
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="user-approval" element={<UserApproval />} />

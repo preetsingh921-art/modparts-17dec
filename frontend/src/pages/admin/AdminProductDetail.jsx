@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProductById, deleteProduct } from '../../api/products';
 import { useToast } from '../../context/ToastContext';
 import { processImageUrl } from '../../utils/imageHelper';
+import { copyBarcodeAsImage, downloadBarcodeAsPng, printBarcodeLabel } from '../../utils/barcodeUtils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import PlaceholderImage from '../../components/ui/PlaceholderImage';
 import InlineBarcode from '../../components/ui/InlineBarcode';
@@ -38,15 +39,62 @@ const AdminProductDetail = () => {
         fetchProduct();
     }, [id]);
 
-    // Copy barcode to clipboard
+    // Copy barcode text to clipboard
     const handleCopyBarcode = async () => {
         if (!product?.barcode) return;
 
         try {
             await navigator.clipboard.writeText(product.barcode);
-            success('Barcode copied to clipboard!');
+            success('Barcode number copied to clipboard!');
         } catch (err) {
             showError('Failed to copy barcode');
+        }
+    };
+
+    // Copy barcode as image to clipboard
+    const handleCopyBarcodeImage = async () => {
+        if (!barcodeRef.current) return;
+
+        try {
+            const svgElement = barcodeRef.current.getSvgElement();
+            if (svgElement) {
+                await copyBarcodeAsImage(svgElement);
+                success('Barcode image copied to clipboard!');
+            }
+        } catch (err) {
+            console.error('Copy image error:', err);
+            showError('Failed to copy barcode image. Right-click the barcode to copy manually.');
+        }
+    };
+
+    // Download barcode as PNG
+    const handleDownloadBarcode = async () => {
+        if (!barcodeRef.current) return;
+
+        try {
+            const svgElement = barcodeRef.current.getSvgElement();
+            if (svgElement) {
+                await downloadBarcodeAsPng(svgElement, `barcode-${product.barcode}`);
+                success('Barcode downloaded!');
+            }
+        } catch (err) {
+            showError('Failed to download barcode');
+        }
+    };
+
+    // Print barcode label
+    const handlePrintBarcode = () => {
+        if (!barcodeRef.current) return;
+
+        const svgElement = barcodeRef.current.getSvgElement();
+        if (svgElement) {
+            printBarcodeLabel({
+                svgElement,
+                productName: product.name,
+                partNumber: product.barcode,
+                price: product.price,
+                showPrice: true
+            });
         }
     };
 
@@ -304,23 +352,68 @@ const AdminProductDetail = () => {
                     <h3 className="text-lg font-semibold text-white mb-4">Barcode</h3>
 
                     {product.barcode ? (
-                        <div className="bg-white p-6 rounded-lg inline-block" ref={barcodeRef}>
-                            <div className="text-center">
-                                <InlineBarcode barcode={product.barcode} width={2} height={60} />
-                                <div className="mt-4 flex items-center justify-center gap-3">
-                                    <span className="font-mono text-lg text-gray-800">{product.barcode}</span>
-                                    <button
-                                        onClick={handleCopyBarcode}
-                                        className="flex items-center bg-gray-800 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm"
-                                        title="Copy barcode"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                                            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                                        </svg>
-                                        Copy
-                                    </button>
-                                </div>
+                        <div className="space-y-4">
+                            {/* Barcode Display */}
+                            <div className="bg-white p-6 rounded-lg inline-block">
+                                <InlineBarcode
+                                    ref={barcodeRef}
+                                    barcode={product.barcode}
+                                    size="large"
+                                    showPartNumber={true}
+                                    partNumber={product.barcode}
+                                />
+                            </div>
+
+                            {/* Barcode Action Buttons */}
+                            <div className="flex flex-wrap gap-2">
+                                {/* Copy Barcode Number */}
+                                <button
+                                    onClick={handleCopyBarcode}
+                                    className="flex items-center bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors"
+                                    title="Copy barcode number"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                                    </svg>
+                                    Copy Number
+                                </button>
+
+                                {/* Copy as Image */}
+                                <button
+                                    onClick={handleCopyBarcodeImage}
+                                    className="flex items-center bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition-colors"
+                                    title="Copy barcode as image"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                                    </svg>
+                                    Copy Image
+                                </button>
+
+                                {/* Download PNG */}
+                                <button
+                                    onClick={handleDownloadBarcode}
+                                    className="flex items-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                                    title="Download barcode as PNG"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                    Download PNG
+                                </button>
+
+                                {/* Print Label */}
+                                <button
+                                    onClick={handlePrintBarcode}
+                                    className="flex items-center bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                                    title="Print barcode label"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+                                    </svg>
+                                    Print Label
+                                </button>
                             </div>
                         </div>
                     ) : (

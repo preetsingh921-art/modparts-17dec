@@ -193,7 +193,7 @@ const Inventory = () => {
                 {/* SCAN & RECEIVE TAB */}
                 {activeTab === 'scan' && (
                     <div className="scan-receive-tab">
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }} className="md:grid-cols-2">
                             {/* Scanner Section */}
                             <div style={{
                                 padding: '20px',

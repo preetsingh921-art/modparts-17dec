@@ -274,6 +274,7 @@ const ProductForm = () => {
                 value={formData.name}
                 onChange={handleChange}
                 className="w-full p-2 border rounded"
+                style={{ backgroundColor: 'white', color: '#333' }}
                 required
               />
             </div>
@@ -285,6 +286,7 @@ const ProductForm = () => {
                 value={formData.category_id}
                 onChange={handleChange}
                 className="w-full p-2 border rounded"
+                style={{ backgroundColor: 'white', color: '#333' }}
                 required
               >
                 <option value="">Select Category</option>
@@ -307,6 +309,7 @@ const ProductForm = () => {
                 value={formData.part_number}
                 onChange={handleChange}
                 className="w-full p-2 border rounded"
+                style={{ backgroundColor: 'white', color: '#333' }}
                 placeholder="e.g., YAM-RD350-001"
               />
               <p className="text-xs text-gray-500 mt-1">Used to auto-generate barcode if not provided</p>
@@ -343,6 +346,7 @@ const ProductForm = () => {
               value={formData.description}
               onChange={handleChange}
               className="w-full p-2 border rounded"
+              style={{ backgroundColor: 'white', color: '#333' }}
               rows="4"
             ></textarea>
           </div>
@@ -356,6 +360,7 @@ const ProductForm = () => {
                 value={formData.price}
                 onChange={handleChange}
                 className="w-full p-2 border rounded"
+                style={{ backgroundColor: 'white', color: '#333' }}
                 step="0.01"
                 min="0"
                 required
@@ -370,6 +375,7 @@ const ProductForm = () => {
                 value={formData.quantity}
                 onChange={handleChange}
                 className="w-full p-2 border rounded"
+                style={{ backgroundColor: 'white', color: '#333' }}
                 min="0"
                 required
               />
@@ -382,6 +388,7 @@ const ProductForm = () => {
                 value={formData.condition_status}
                 onChange={handleChange}
                 className="w-full p-2 border rounded"
+                style={{ backgroundColor: 'white', color: '#333' }}
                 required
               >
                 <option value="New">New</option>

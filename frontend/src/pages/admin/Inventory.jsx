@@ -60,17 +60,26 @@ const Inventory = () => {
         }
     };
 
-    const handleScan = async (barcode) => {
+    const handleScan = async (barcode, product = null) => {
         setLoading(true);
         setMessage({ type: '', text: '' });
 
         try {
-            const result = await barcodeAPI.scan(barcode);
-            if (result.product) {
-                setScannedProduct(result.product);
-                setMessage({ type: 'success', text: `Found: ${result.product.name}` });
+            // If product is already provided by scanner, use it directly
+            if (product) {
+                setScannedProduct(product);
+                setMessage({ type: 'success', text: `Found: ${product.name}` });
             } else {
-                setMessage({ type: 'error', text: result.message || 'Product not found' });
+                // Fallback: search for product by barcode/part_number
+                const { products } = await import('../../api/products').then(m => m.getProducts({ search: barcode, limit: 1 }));
+                const foundProduct = products?.find(p => p.part_number === barcode || p.barcode === barcode) || products?.[0];
+
+                if (foundProduct) {
+                    setScannedProduct(foundProduct);
+                    setMessage({ type: 'success', text: `Found: ${foundProduct.name}` });
+                } else {
+                    setMessage({ type: 'error', text: `Product not found for: ${barcode}` });
+                }
             }
         } catch (error) {
             setMessage({ type: 'error', text: 'Error scanning barcode' });

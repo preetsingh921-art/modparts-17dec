@@ -346,19 +346,27 @@ const Inventory = () => {
                     setMessage({ type: 'success', text: `Found: ${product.name} (Qty: ${product.quantity})` });
                 }
             } else {
-                // Search for product by barcode/part_number
+                // Search for product by barcode/part_number - ONLY in admin's warehouse
                 const productsModule = await import('../../api/products');
-                const result = await productsModule.getProducts({ search: barcode, limit: 20 });
+
+                // First, search ONLY in admin's warehouse
+                const searchParams = { search: barcode, limit: 20 };
+                if (adminWarehouseId) {
+                    searchParams.warehouse_id = adminWarehouseId;
+                }
+                const result = await productsModule.getProducts(searchParams);
                 const products = result.products || result;
 
-                // Find matching product
-                const matchingProducts = products?.filter(p =>
-                    p.part_number === barcode || p.barcode === barcode
+                // Find matching product in admin's warehouse
+                let matchingProducts = products?.filter(p =>
+                    p.part_number === barcode || p.barcode === barcode ||
+                    p.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
+                    p.name?.toLowerCase().includes(barcode.toLowerCase())
                 ) || [];
 
                 if (matchingProducts.length === 0 && products?.length > 0) {
-                    // If no exact match, use first result
-                    matchingProducts.push(products[0]);
+                    // If no exact match, use first result from admin's warehouse
+                    matchingProducts = [products[0]];
                 }
 
                 if (matchingProducts.length > 0) {

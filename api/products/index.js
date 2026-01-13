@@ -15,9 +15,10 @@ module.exports = async function handler(req, res) {
       const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC';
       const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice) : null;
       const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
+      const warehouseId = req.query.warehouse_id || null; // Filter by warehouse
 
       console.log('🔍 Products API called with filters (Neon):', {
-        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice
+        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId
       });
 
       // Calculate offset
@@ -91,6 +92,15 @@ module.exports = async function handler(req, res) {
         queryText += maxClause;
         countQueryText += maxClause;
         queryParams.push(maxPrice);
+        paramCount++;
+      }
+
+      // Add Warehouse Filter
+      if (warehouseId) {
+        const warehouseClause = ` AND p.warehouse_id = $${paramCount}`;
+        queryText += warehouseClause;
+        countQueryText += warehouseClause;
+        queryParams.push(parseInt(warehouseId));
         paramCount++;
       }
 

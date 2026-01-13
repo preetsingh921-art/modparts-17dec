@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { barcodeAPI, warehouseAPI, binAPI, movementsAPI } from '../../api/inventory';
+import { barcodeAPI, warehouseAPI, binAPI, movementsAPI, binContentsAPI } from '../../api/inventory';
 import { useAuth } from '../../context/AuthContext';
 import BarcodeScanner from '../../components/inventory/BarcodeScanner';
 import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
@@ -43,6 +43,13 @@ const Inventory = () => {
     const [adminUsers, setAdminUsers] = useState([]);
     const [adminBins, setAdminBins] = useState([]);
     const [selectedBin, setSelectedBin] = useState('');
+
+    // Bin Inventory View State
+    const [binInventory, setBinInventory] = useState([]);
+    const [binInventorySearch, setBinInventorySearch] = useState('');
+    const [selectedBinRows, setSelectedBinRows] = useState([]);
+    const [binInventoryWarehouse, setBinInventoryWarehouse] = useState('');
+    const [binInventoryLoading, setBinInventoryLoading] = useState(false);
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -191,6 +198,125 @@ const Inventory = () => {
         } catch (error) {
             console.error('Error fetching movements:', error);
         }
+    };
+
+    // Fetch bin inventory for a warehouse
+    const fetchBinInventory = async (warehouseId, search = '') => {
+        if (!warehouseId) {
+            setBinInventory([]);
+            return;
+        }
+        setBinInventoryLoading(true);
+        try {
+            const data = await binContentsAPI.getByWarehouse(warehouseId, search);
+            setBinInventory(data.bins || []);
+            setSelectedBinRows([]); // Reset selection on new fetch
+        } catch (error) {
+            console.error('Error fetching bin inventory:', error);
+            setBinInventory([]);
+        }
+        setBinInventoryLoading(false);
+    };
+
+    // Export bin inventory to CSV/Excel
+    const exportToExcel = () => {
+        const selected = selectedBinRows.length > 0
+            ? binInventory.filter((_, i) => selectedBinRows.includes(i))
+            : binInventory;
+
+        if (selected.length === 0) {
+            setMessage({ type: 'error', text: 'No bins to export' });
+            return;
+        }
+
+        const warehouseName = warehouses.find(w => String(w.id) === binInventoryWarehouse)?.name || 'Warehouse';
+        const now = new Date().toLocaleString();
+
+        let csv = `Bin Inventory Report\n${warehouseName}\nGenerated: ${now}\n\n`;
+        csv += 'Bin Number,Part Numbers,Product Names,Unique Products,Total Quantity\n';
+
+        selected.forEach(bin => {
+            csv += `"${bin.bin_number}","${bin.part_numbers || ''}","${bin.product_names || ''}",${bin.unique_products},${bin.total_quantity}\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bin-inventory-${warehouseName.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setMessage({ type: 'success', text: `Exported ${selected.length} bins to Excel/CSV` });
+    };
+
+    // Export bin inventory to PDF
+    const exportToPDF = () => {
+        const selected = selectedBinRows.length > 0
+            ? binInventory.filter((_, i) => selectedBinRows.includes(i))
+            : binInventory;
+
+        if (selected.length === 0) {
+            setMessage({ type: 'error', text: 'No bins to export' });
+            return;
+        }
+
+        const warehouseName = warehouses.find(w => String(w.id) === binInventoryWarehouse)?.name || 'Warehouse';
+        const now = new Date().toLocaleString();
+
+        // Create printable HTML for PDF
+        const printContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Bin Inventory - ${warehouseName}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    h1 { color: #8B2332; border-bottom: 2px solid #B8860B; padding-bottom: 10px; }
+                    h2 { color: #666; font-size: 14px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th { background: #8B2332; color: white; padding: 10px; text-align: left; }
+                    td { padding: 8px; border-bottom: 1px solid #ddd; }
+                    tr:nth-child(even) { background: #f9f9f9; }
+                    .footer { margin-top: 30px; font-size: 12px; color: #666; }
+                </style>
+            </head>
+            <body>
+                <h1>📦 Bin Inventory Report</h1>
+                <h2>Warehouse: ${warehouseName}</h2>
+                <h2>Generated: ${now}</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Bin Number</th>
+                            <th>Part Numbers</th>
+                            <th>Unique Products</th>
+                            <th>Total Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${selected.map(bin => `
+                            <tr>
+                                <td><strong>${bin.bin_number}</strong></td>
+                                <td>${bin.part_numbers || '-'}</td>
+                                <td>${bin.unique_products}</td>
+                                <td>${bin.total_quantity}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div class="footer">
+                    <p>Total Bins: ${selected.length}</p>
+                    <p>Sardaarji Autoparts - Inventory Management System</p>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.print();
+        setMessage({ type: 'success', text: `Exported ${selected.length} bins to PDF` });
     };
 
     const handleScan = async (barcode, product = null) => {
@@ -1345,6 +1471,217 @@ const Inventory = () => {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+
+                        {/* BIN INVENTORY SECTION */}
+                        <div style={{
+                            marginTop: '40px',
+                            padding: '25px',
+                            background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+                            borderRadius: '12px',
+                            border: '1px solid #B8860B'
+                        }}>
+                            <h3 style={{
+                                color: '#F5F0E1',
+                                marginBottom: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                fontFamily: "'Oswald', sans-serif"
+                            }}>
+                                📦 Bin Inventory View
+                            </h3>
+
+                            {/* Warehouse Selector & Search */}
+                            <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                                <div style={{ flex: '1', minWidth: '200px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', color: '#B8860B', fontWeight: 'bold' }}>
+                                        Select Warehouse:
+                                    </label>
+                                    <select
+                                        value={binInventoryWarehouse}
+                                        onChange={(e) => {
+                                            setBinInventoryWarehouse(e.target.value);
+                                            fetchBinInventory(e.target.value, binInventorySearch);
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #B8860B',
+                                            backgroundColor: '#333',
+                                            color: '#F5F0E1',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        <option value="">-- Select Warehouse --</option>
+                                        {warehouses.map(w => (
+                                            <option key={w.id} value={w.id}>{w.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div style={{ flex: '1', minWidth: '200px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', color: '#B8860B', fontWeight: 'bold' }}>
+                                        Search (Part No / Bin No):
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={binInventorySearch}
+                                        onChange={(e) => setBinInventorySearch(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && binInventoryWarehouse) {
+                                                fetchBinInventory(binInventoryWarehouse, binInventorySearch);
+                                            }
+                                        }}
+                                        placeholder="Enter part number or bin number..."
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #666',
+                                            backgroundColor: '#333',
+                                            color: '#F5F0E1',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+                                    <button
+                                        onClick={() => fetchBinInventory(binInventoryWarehouse, binInventorySearch)}
+                                        disabled={!binInventoryWarehouse || binInventoryLoading}
+                                        style={{
+                                            padding: '12px 20px',
+                                            backgroundColor: '#B8860B',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: binInventoryWarehouse ? 'pointer' : 'not-allowed',
+                                            opacity: binInventoryWarehouse ? 1 : 0.5
+                                        }}
+                                    >
+                                        🔍 Search
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Export Buttons */}
+                            {binInventory.length > 0 && (
+                                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                                    <button
+                                        onClick={exportToExcel}
+                                        style={{
+                                            padding: '10px 20px',
+                                            backgroundColor: '#4caf50',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        📊 Export Excel/CSV
+                                    </button>
+                                    <button
+                                        onClick={exportToPDF}
+                                        style={{
+                                            padding: '10px 20px',
+                                            backgroundColor: '#8B2332',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        📄 Export PDF
+                                    </button>
+                                    {selectedBinRows.length > 0 && (
+                                        <span style={{ color: '#B8860B', alignSelf: 'center', marginLeft: '10px' }}>
+                                            {selectedBinRows.length} bin(s) selected
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Bin Inventory Table */}
+                            {binInventoryLoading ? (
+                                <div style={{ textAlign: 'center', padding: '40px', color: '#B8860B' }}>
+                                    Loading...
+                                </div>
+                            ) : binInventory.length > 0 ? (
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr style={{ background: '#8B2332' }}>
+                                                <th style={{ padding: '12px', color: 'white', textAlign: 'center', width: '50px' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedBinRows.length === binInventory.length}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setSelectedBinRows(binInventory.map((_, i) => i));
+                                                            } else {
+                                                                setSelectedBinRows([]);
+                                                            }
+                                                        }}
+                                                        style={{ width: '18px', height: '18px' }}
+                                                    />
+                                                </th>
+                                                <th style={{ padding: '12px', color: 'white', textAlign: 'left' }}>Bin Number</th>
+                                                <th style={{ padding: '12px', color: 'white', textAlign: 'left' }}>Part Numbers</th>
+                                                <th style={{ padding: '12px', color: 'white', textAlign: 'center' }}>Unique Products</th>
+                                                <th style={{ padding: '12px', color: 'white', textAlign: 'center' }}>Total Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {binInventory.map((bin, index) => (
+                                                <tr
+                                                    key={bin.bin_number}
+                                                    style={{
+                                                        background: selectedBinRows.includes(index) ? '#3d3d3d' : (index % 2 === 0 ? '#2a2a2a' : '#333'),
+                                                        borderBottom: '1px solid #444'
+                                                    }}
+                                                >
+                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedBinRows.includes(index)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedBinRows([...selectedBinRows, index]);
+                                                                } else {
+                                                                    setSelectedBinRows(selectedBinRows.filter(i => i !== index));
+                                                                }
+                                                            }}
+                                                            style={{ width: '18px', height: '18px' }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#B8860B', fontWeight: 'bold' }}>
+                                                        {bin.bin_number}
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#F5F0E1', maxWidth: '300px', wordBreak: 'break-word' }}>
+                                                        {bin.part_numbers || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#4caf50', textAlign: 'center', fontWeight: 'bold' }}>
+                                                        {bin.unique_products}
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#F5F0E1', textAlign: 'center', fontWeight: 'bold' }}>
+                                                        {bin.total_quantity}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : binInventoryWarehouse ? (
+                                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                                    No products found in bins for this warehouse.
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                                    Select a warehouse to view bin inventory.
+                                </div>
+                            )}
                         </div>
 
                         {warehouses.length === 0 && (

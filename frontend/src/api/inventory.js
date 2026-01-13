@@ -248,10 +248,28 @@ export const movementsAPI = {
   },
 };
 
+// ============================================
+// BIN CONTENTS API - Products grouped by bin
+// ============================================
+
+export const binContentsAPI = {
+  // Get products grouped by bin for a warehouse
+  getByWarehouse: async (warehouseId, search = '') => {
+    const params = new URLSearchParams({ warehouse_id: warehouseId });
+    if (search) params.append('search', search);
+
+    const response = await fetch(`${API_BASE_URL}/inventory/bin-contents?${params}`, {
+      headers: getHeaders(),
+    });
+    return response.json();
+  },
+};
+
 // Export all as default
 export default {
   barcode: barcodeAPI,
   warehouse: warehouseAPI,
   bin: binAPI,
   movements: movementsAPI,
+  binContents: binContentsAPI,
 };

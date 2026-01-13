@@ -238,6 +238,21 @@ export const movementsAPI = {
     return response.json();
   },
 
+  // Add unexpected inventory (product not expected, admin confirmed)
+  addUnexpected: async ({ partNumber, warehouseId, binNumber, quantity = 1 }) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=add-unexpected`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        part_number: partNumber,
+        warehouse_id: warehouseId,
+        bin_number: binNumber,
+        quantity,
+      }),
+    });
+    return response.json();
+  },
+
   // Update movement status
   updateStatus: async (id, status, notes = null) => {
     const response = await fetch(`${API_BASE_URL}/inventory/movements`, {

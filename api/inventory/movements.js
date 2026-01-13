@@ -201,6 +201,69 @@ module.exports = async function handler(req, res) {
                 return res.json({ message: 'Product assigned to bin successfully' });
             }
 
+            // Add unexpected inventory (when product wasn't expected/no movement)
+            if (action === 'add-unexpected') {
+                const { part_number, warehouse_id, bin_number, quantity = 1 } = req.body;
+
+                if (!part_number || !warehouse_id) {
+                    return res.status(400).json({ message: 'Part number and warehouse ID required' });
+                }
+
+                // Check if product with this part_number exists in this warehouse
+                const existingProduct = await db.query(`
+                    SELECT id, quantity FROM products 
+                    WHERE part_number = $1 AND warehouse_id = $2
+                `, [part_number, warehouse_id]);
+
+                let resultMessage;
+                if (existingProduct.rows.length > 0) {
+                    // Product exists - increase quantity
+                    await db.query(`
+                        UPDATE products 
+                        SET quantity = quantity + $1, bin_number = COALESCE($3, bin_number)
+                        WHERE id = $2
+                    `, [quantity, existingProduct.rows[0].id, bin_number]);
+
+                    const newQty = existingProduct.rows[0].quantity + quantity;
+                    resultMessage = `Added ${quantity} units to existing stock. Total now: ${newQty}`;
+                    console.log(`📦 Unexpected receive: Added ${quantity} of ${part_number} to existing stock`);
+                } else {
+                    // Need to get product details from any warehouse
+                    const productDetails = await db.query(`
+                        SELECT name, description, price, category, barcode, image_url 
+                        FROM products WHERE part_number = $1 LIMIT 1
+                    `, [part_number]);
+
+                    if (productDetails.rows.length === 0) {
+                        return res.status(404).json({ message: 'Product not found. Cannot add to inventory.' });
+                    }
+
+                    const details = productDetails.rows[0];
+
+                    // Create new entry in warehouse
+                    await db.query(`
+                        INSERT INTO products (part_number, name, description, price, category, barcode, image_url, warehouse_id, bin_number, quantity)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    `, [
+                        part_number,
+                        details.name,
+                        details.description,
+                        details.price,
+                        details.category,
+                        details.barcode,
+                        details.image_url,
+                        warehouse_id,
+                        bin_number,
+                        quantity
+                    ]);
+
+                    resultMessage = `Created new inventory entry with ${quantity} units.`;
+                    console.log(`📦 Unexpected receive: Created new entry for ${part_number} with ${quantity} units`);
+                }
+
+                return res.json({ message: resultMessage });
+            }
+
             return res.status(400).json({ message: 'Invalid action' });
         }
 

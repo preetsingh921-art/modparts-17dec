@@ -44,6 +44,9 @@ const Inventory = () => {
     const [adminBins, setAdminBins] = useState([]);
     const [selectedBin, setSelectedBin] = useState('');
     const [sendQuantity, setSendQuantity] = useState(1); // Quantity for sending products
+    const [pendingMovement, setPendingMovement] = useState(null); // Matched movement for receive
+    const [showUnexpectedConfirm, setShowUnexpectedConfirm] = useState(false); // Confirm unexpected receive
+    const [receiveQuantity, setReceiveQuantity] = useState(1); // Quantity for unexpected receive
 
     // Bin Inventory View State
     const [binInventory, setBinInventory] = useState([]);
@@ -376,10 +379,36 @@ const Inventory = () => {
                             setMessage({ type: 'warning', text: `Product not in your warehouse. Found in: ${otherLocations}. Switch to RECEIVE mode to add copies.` });
                         }
                     } else {
-                        // RECEIVE MODE: Any product can be received (adding copies)
+                        // RECEIVE MODE: Check for pending movements TO admin's warehouse
                         const foundProduct = matchingProducts[0];
                         setScannedProduct(foundProduct);
-                        setMessage({ type: 'success', text: `Found: ${foundProduct.name}. Click RECEIVE to add to your warehouse.` });
+                        setPendingMovement(null);
+                        setShowUnexpectedConfirm(false);
+
+                        // Check if there's a pending movement for this product to admin's warehouse
+                        const matchedMovement = movements.find(m =>
+                            (m.part_number === foundProduct.part_number || m.barcode === foundProduct.barcode) &&
+                            String(m.to_warehouse_id) === String(adminWarehouseId) &&
+                            m.status === 'in_transit'
+                        );
+
+                        if (matchedMovement) {
+                            // EXPECTED: Movement exists for this product to admin's warehouse
+                            setPendingMovement(matchedMovement);
+                            setReceiveQuantity(matchedMovement.quantity || 1);
+                            setMessage({
+                                type: 'success',
+                                text: `✅ EXPECTED: ${foundProduct.name} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
+                            });
+                        } else {
+                            // UNEXPECTED: No pending movement for this product
+                            setShowUnexpectedConfirm(true);
+                            setReceiveQuantity(1);
+                            setMessage({
+                                type: 'warning',
+                                text: `⚠️ UNEXPECTED: ${foundProduct.name} was not expected. Confirm to add to inventory.`
+                            });
+                        }
                     }
                 } else {
                     // No product found at all
@@ -874,18 +903,38 @@ const Inventory = () => {
                                                             });
                                                             setSendQuantity(1); // Reset quantity
                                                         } else {
-                                                            // Receive: increase quantity at admin's warehouse with optional bin
-                                                            await movementsAPI.receive({
-                                                                barcode: scannedProduct.barcode || scannedProduct.part_number,
-                                                                warehouse_id: adminWarehouseId,
-                                                                bin_number: selectedBin || null
-                                                            });
+                                                            // RECEIVE MODE: Handle expected vs unexpected
                                                             const myWarehouse = warehouses.find(w => String(w.id) === String(adminWarehouseId));
-                                                            setMessage({
-                                                                type: 'success',
-                                                                text: `✅ Product received at ${myWarehouse?.name || 'your warehouse'}${selectedBin ? ` (Bin: ${selectedBin})` : ''}! Quantity +1.`
-                                                            });
-                                                            setSelectedBin(''); // Reset bin selection
+
+                                                            if (pendingMovement) {
+                                                                // EXPECTED: Complete the movement
+                                                                await movementsAPI.receive({
+                                                                    movementId: pendingMovement.id,
+                                                                    binNumber: selectedBin || null,
+                                                                    warehouseId: adminWarehouseId
+                                                                });
+                                                                setMessage({
+                                                                    type: 'success',
+                                                                    text: `✅ Received ${receiveQuantity} unit(s) from ${pendingMovement.from_warehouse_name}${selectedBin ? ` (Bin: ${selectedBin})` : ''}!`
+                                                                });
+                                                                setPendingMovement(null);
+                                                            } else if (showUnexpectedConfirm) {
+                                                                // UNEXPECTED: Add to inventory anyway (admin confirmed)
+                                                                await movementsAPI.addUnexpected({
+                                                                    partNumber: scannedProduct.part_number,
+                                                                    warehouseId: adminWarehouseId,
+                                                                    binNumber: selectedBin || null,
+                                                                    quantity: receiveQuantity
+                                                                });
+                                                                setMessage({
+                                                                    type: 'success',
+                                                                    text: `✅ Added ${receiveQuantity} unexpected unit(s) to ${myWarehouse?.name || 'your warehouse'}${selectedBin ? ` (Bin: ${selectedBin})` : ''}!`
+                                                                });
+                                                                setShowUnexpectedConfirm(false);
+                                                            }
+                                                            setSelectedBin('');
+                                                            setReceiveQuantity(1);
+                                                            fetchMovements(); // Refresh movements list
                                                         }
                                                         // Refresh product data
                                                         setScannedProduct(null);
@@ -898,7 +947,7 @@ const Inventory = () => {
                                                 style={{
                                                     width: '100%',
                                                     padding: '15px',
-                                                    backgroundColor: transferAction === 'send' ? '#ff9800' : '#4caf50',
+                                                    backgroundColor: transferAction === 'send' ? '#ff9800' : (showUnexpectedConfirm ? '#f44336' : '#4caf50'),
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '6px',
@@ -908,7 +957,11 @@ const Inventory = () => {
                                                     fontSize: '16px'
                                                 }}
                                             >
-                                                {loading ? 'Processing...' : (transferAction === 'send' ? '📤 SEND TO WAREHOUSE' : '📥 RECEIVE HERE')}
+                                                {loading ? 'Processing...' : (
+                                                    transferAction === 'send' ? '📤 SEND TO WAREHOUSE' : (
+                                                        showUnexpectedConfirm ? '⚠️ CONFIRM & ADD UNEXPECTED' : '📥 RECEIVE EXPECTED SHIPMENT'
+                                                    )
+                                                )}
                                             </button>
                                         </div>
 

@@ -55,27 +55,27 @@ module.exports = async function handler(req, res) {
 
             // Ship products - decrease quantity at source
             if (action === 'ship') {
-                const { product_ids, from_warehouse_id, to_warehouse_id, notes } = req.body;
+                const { product_ids, from_warehouse_id, to_warehouse_id, notes, quantity = 1 } = req.body;
 
                 const movements = [];
                 for (const productId of product_ids) {
-                    // Create movement record with shipped_at timestamp
+                    // Create movement record with shipped_at timestamp and quantity
                     const result = await db.query(`
                         INSERT INTO inventory_movements 
-                        (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at)
-                        VALUES ($1, $2, $3, 'transfer', 'in_transit', $4, $5, NOW())
+                        (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at, quantity)
+                        VALUES ($1, $2, $3, 'transfer', 'in_transit', $4, $5, NOW(), $6)
                         RETURNING *
-                    `, [productId, from_warehouse_id, to_warehouse_id, notes, decoded.id]);
+                    `, [productId, from_warehouse_id, to_warehouse_id, notes, decoded.id, quantity]);
                     movements.push(result.rows[0]);
 
-                    // Decrease quantity at source (but don't go below 0)
+                    // Decrease quantity at source by specified amount (but don't go below 0)
                     await db.query(`
                         UPDATE products 
-                        SET quantity = GREATEST(0, quantity - 1)
+                        SET quantity = GREATEST(0, quantity - $2)
                         WHERE id = $1
-                    `, [productId]);
+                    `, [productId, quantity]);
 
-                    console.log(`📤 Shipped product ${productId}: decreased quantity at warehouse ${from_warehouse_id}`);
+                    console.log(`📤 Shipped ${quantity} of product ${productId}: decreased quantity at warehouse ${from_warehouse_id}`);
                 }
 
                 // TODO: Create notification for destination warehouse admin

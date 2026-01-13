@@ -43,6 +43,7 @@ const Inventory = () => {
     const [adminUsers, setAdminUsers] = useState([]);
     const [adminBins, setAdminBins] = useState([]);
     const [selectedBin, setSelectedBin] = useState('');
+    const [sendQuantity, setSendQuantity] = useState(1); // Quantity for sending products
 
     // Bin Inventory View State
     const [binInventory, setBinInventory] = useState([]);
@@ -331,19 +332,42 @@ const Inventory = () => {
                 setMessage({ type: 'success', text: `Found: ${product.name}` });
             } else {
                 // Fallback: search for product by barcode/part_number
+                // Filter by admin's warehouse when in send mode
                 const productsModule = await import('../../api/products');
-                const result = await productsModule.getProducts({ search: barcode, limit: 1 });
+                const searchParams = { search: barcode, limit: 10 };
+                if (adminWarehouseId) {
+                    searchParams.warehouse_id = adminWarehouseId;
+                }
+                const result = await productsModule.getProducts(searchParams);
                 const products = result.products || result;
-                const foundProduct = products?.find(p => p.part_number === barcode || p.barcode === barcode) || products?.[0];
+
+                // Find product matching barcode AND in admin's warehouse
+                let foundProduct = null;
+                if (adminWarehouseId) {
+                    foundProduct = products?.find(p =>
+                        (p.part_number === barcode || p.barcode === barcode) &&
+                        String(p.warehouse_id) === String(adminWarehouseId)
+                    );
+                }
+                if (!foundProduct) {
+                    foundProduct = products?.find(p => p.part_number === barcode || p.barcode === barcode) || products?.[0];
+                }
 
                 if (foundProduct) {
-                    setScannedProduct(foundProduct);
-                    setMessage({ type: 'success', text: `Found: ${foundProduct.name}` });
+                    // Check if product is in admin's warehouse
+                    if (adminWarehouseId && String(foundProduct.warehouse_id) !== String(adminWarehouseId)) {
+                        setScannedProduct(null);
+                        setMessage({ type: 'warning', text: `Product found but not in your warehouse. It's in ${foundProduct.warehouse_name || 'another warehouse'}.` });
+                    } else {
+                        setScannedProduct(foundProduct);
+                        setSendQuantity(1); // Reset quantity to 1 on new scan
+                        setMessage({ type: 'success', text: `Found: ${foundProduct.name} (Qty: ${foundProduct.quantity})` });
+                    }
                 } else {
                     // Track the not-found barcode for "Add to Inventory" flow
                     setNotFoundBarcode(barcode);
                     setScannedProduct(null);
-                    setMessage({ type: 'warning', text: `Product not found for barcode: ${barcode}` });
+                    setMessage({ type: 'warning', text: `Product not found in your warehouse for barcode: ${barcode}` });
                 }
             }
         } catch (error) {
@@ -682,6 +706,65 @@ const Inventory = () => {
                                                             ))
                                                         }
                                                     </select>
+
+                                                    {/* Quantity Input for Send Mode */}
+                                                    <div style={{ marginTop: '15px' }}>
+                                                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                                                            Quantity to Send:
+                                                        </label>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <button
+                                                                onClick={() => setSendQuantity(Math.max(1, sendQuantity - 1))}
+                                                                style={{
+                                                                    width: '40px',
+                                                                    height: '40px',
+                                                                    fontSize: '20px',
+                                                                    fontWeight: 'bold',
+                                                                    border: '1px solid #ddd',
+                                                                    borderRadius: '4px',
+                                                                    backgroundColor: '#f5f5f5',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                −
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                max={scannedProduct?.quantity || 999}
+                                                                value={sendQuantity}
+                                                                onChange={(e) => setSendQuantity(Math.max(1, Math.min(scannedProduct?.quantity || 999, parseInt(e.target.value) || 1)))}
+                                                                style={{
+                                                                    width: '80px',
+                                                                    padding: '10px',
+                                                                    fontSize: '18px',
+                                                                    fontWeight: 'bold',
+                                                                    textAlign: 'center',
+                                                                    borderRadius: '4px',
+                                                                    border: '1px solid #ff9800',
+                                                                    backgroundColor: '#fff8e1'
+                                                                }}
+                                                            />
+                                                            <button
+                                                                onClick={() => setSendQuantity(Math.min(scannedProduct?.quantity || 999, sendQuantity + 1))}
+                                                                style={{
+                                                                    width: '40px',
+                                                                    height: '40px',
+                                                                    fontSize: '20px',
+                                                                    fontWeight: 'bold',
+                                                                    border: '1px solid #ddd',
+                                                                    borderRadius: '4px',
+                                                                    backgroundColor: '#f5f5f5',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                +
+                                                            </button>
+                                                            <span style={{ color: '#666', fontSize: '14px' }}>
+                                                                of {scannedProduct?.quantity || 0} available
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <div style={{
@@ -752,18 +835,26 @@ const Inventory = () => {
                                                     setLoading(true);
                                                     try {
                                                         if (transferAction === 'send') {
+                                                            // Validate quantity
+                                                            if (sendQuantity > scannedProduct.quantity) {
+                                                                setMessage({ type: 'error', text: `Cannot send ${sendQuantity}. Only ${scannedProduct.quantity} available.` });
+                                                                setLoading(false);
+                                                                return;
+                                                            }
                                                             // Send: decrease quantity at source, create movement
                                                             await movementsAPI.ship(
                                                                 [scannedProduct.id],
                                                                 scannedProduct.warehouse_id,
                                                                 selectedWarehouse,
-                                                                'Shipped via barcode scan'
+                                                                `Shipped ${sendQuantity} via barcode scan`,
+                                                                sendQuantity
                                                             );
                                                             const destWarehouse = warehouses.find(w => String(w.id) === selectedWarehouse);
                                                             setMessage({
                                                                 type: 'success',
-                                                                text: `✅ Product shipped to ${destWarehouse?.name || 'destination'}! Quantity decreased at ${scannedProduct.warehouse_name}.`
+                                                                text: `✅ ${sendQuantity} unit(s) shipped to ${destWarehouse?.name || 'destination'}!`
                                                             });
+                                                            setSendQuantity(1); // Reset quantity
                                                         } else {
                                                             // Receive: increase quantity at admin's warehouse with optional bin
                                                             await movementsAPI.receive({

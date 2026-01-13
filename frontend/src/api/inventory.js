@@ -194,8 +194,8 @@ export const movementsAPI = {
     return response.json();
   },
 
-  // Ship products from Canada to India
-  ship: async (productIds, fromWarehouseId = 1, toWarehouseId = 2, notes = null) => {
+  // Ship products with optional quantity (default 1)
+  ship: async (productIds, fromWarehouseId = 1, toWarehouseId = 2, notes = null, quantity = 1) => {
     const response = await fetch(`${API_BASE_URL}/inventory/movements?action=ship`, {
       method: 'POST',
       headers: getHeaders(),
@@ -204,6 +204,7 @@ export const movementsAPI = {
         from_warehouse_id: fromWarehouseId,
         to_warehouse_id: toWarehouseId,
         notes,
+        quantity,
       }),
     });
     return response.json();

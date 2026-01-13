@@ -37,46 +37,165 @@ const LoadingSpinner = ({
     </svg>
   );
 
-  // Dual Gear Component - Two interlocking gears rotating in opposite directions
+  // Dual Gear Component - Three interlocking gears with gradient colors matching site theme
   const DualGearIcon = () => {
     const gearSizes = {
-      sm: { large: 32, small: 24, offset: 18 },
-      md: { large: 48, small: 36, offset: 28 },
-      lg: { large: 64, small: 48, offset: 38 },
-      xl: { large: 80, small: 60, offset: 48 }
+      sm: { container: 50, large: 32, small: 24, tiny: 18 },
+      md: { container: 80, large: 48, small: 36, tiny: 28 },
+      lg: { container: 100, large: 60, small: 45, tiny: 35 },
+      xl: { container: 130, large: 80, small: 60, tiny: 45 }
     };
     const sizes = gearSizes[size] || gearSizes.md;
 
+    // SVG Gear path generator
+    const createGearPath = (cx, cy, outerR, innerR, teeth) => {
+      const toothDepth = (outerR - innerR) * 0.5;
+      const toothWidth = (2 * Math.PI) / (teeth * 2);
+      let path = '';
+
+      for (let i = 0; i < teeth; i++) {
+        const angle1 = (i * 2 * Math.PI) / teeth;
+        const angle2 = angle1 + toothWidth * 0.3;
+        const angle3 = angle1 + toothWidth * 0.7;
+        const angle4 = angle1 + toothWidth;
+
+        const x1 = cx + outerR * Math.cos(angle1);
+        const y1 = cy + outerR * Math.sin(angle1);
+        const x2 = cx + (outerR + toothDepth) * Math.cos(angle2);
+        const y2 = cy + (outerR + toothDepth) * Math.sin(angle2);
+        const x3 = cx + (outerR + toothDepth) * Math.cos(angle3);
+        const y3 = cy + (outerR + toothDepth) * Math.sin(angle3);
+        const x4 = cx + outerR * Math.cos(angle4);
+        const y4 = cy + outerR * Math.sin(angle4);
+
+        path += `L${x1},${y1} L${x2},${y2} L${x3},${y3} L${x4},${y4} `;
+      }
+
+      return `M${cx + outerR},${cy} ${path}Z`;
+    };
+
     return (
-      <div className="relative" style={{ width: sizes.large + sizes.offset, height: sizes.large }}>
-        {/* Large gear - rotates clockwise */}
-        <img
-          src="/images/gear-large.png"
-          alt=""
-          className="absolute animate-spin"
-          style={{
-            width: sizes.large,
-            height: sizes.large,
-            left: 0,
-            top: 0,
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
-            animationDuration: '3s'
-          }}
-        />
-        {/* Small gear - rotates counter-clockwise */}
-        <img
-          src="/images/gear-small.png"
-          alt=""
-          className="absolute"
-          style={{
-            width: sizes.small,
-            height: sizes.small,
-            right: 0,
-            top: (sizes.large - sizes.small) / 2,
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
-            animation: 'spin 2s linear infinite reverse'
-          }}
-        />
+      <div className="relative" style={{ width: sizes.container, height: sizes.container }}>
+        <svg
+          width={sizes.container}
+          height={sizes.container}
+          viewBox={`0 0 ${sizes.container} ${sizes.container}`}
+        >
+          {/* Gradient definitions */}
+          <defs>
+            <linearGradient id="gearGradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#8B2332" />
+              <stop offset="100%" stopColor="#6B1A26" />
+            </linearGradient>
+            <linearGradient id="gearGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#D4A84B" />
+              <stop offset="100%" stopColor="#B8860B" />
+            </linearGradient>
+            <linearGradient id="gearGradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#A83244" />
+              <stop offset="100%" stopColor="#8B2332" />
+            </linearGradient>
+            <filter id="gearShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="1" dy="2" stdDeviation="2" floodOpacity="0.3" />
+            </filter>
+          </defs>
+
+          {/* Large gear - rotates clockwise */}
+          <g
+            style={{
+              transformOrigin: `${sizes.container * 0.35}px ${sizes.container * 0.4}px`,
+              animation: 'spin 3s linear infinite'
+            }}
+            filter="url(#gearShadow)"
+          >
+            <circle
+              cx={sizes.container * 0.35}
+              cy={sizes.container * 0.4}
+              r={sizes.large * 0.5}
+              fill="url(#gearGradient1)"
+            />
+            <path
+              d={createGearPath(sizes.container * 0.35, sizes.container * 0.4, sizes.large * 0.42, sizes.large * 0.3, 12)}
+              fill="url(#gearGradient1)"
+            />
+            <circle
+              cx={sizes.container * 0.35}
+              cy={sizes.container * 0.4}
+              r={sizes.large * 0.15}
+              fill="#1a1a1a"
+            />
+            {/* Gear detail circles */}
+            <circle
+              cx={sizes.container * 0.35}
+              cy={sizes.container * 0.4}
+              r={sizes.large * 0.25}
+              fill="none"
+              stroke="#1a1a1a"
+              strokeWidth="1"
+              opacity="0.3"
+            />
+          </g>
+
+          {/* Medium gear - rotates counter-clockwise */}
+          <g
+            style={{
+              transformOrigin: `${sizes.container * 0.7}px ${sizes.container * 0.35}px`,
+              animation: 'spin 2.2s linear infinite reverse'
+            }}
+            filter="url(#gearShadow)"
+          >
+            <circle
+              cx={sizes.container * 0.7}
+              cy={sizes.container * 0.35}
+              r={sizes.small * 0.5}
+              fill="url(#gearGradient2)"
+            />
+            <path
+              d={createGearPath(sizes.container * 0.7, sizes.container * 0.35, sizes.small * 0.42, sizes.small * 0.3, 10)}
+              fill="url(#gearGradient2)"
+            />
+            <circle
+              cx={sizes.container * 0.7}
+              cy={sizes.container * 0.35}
+              r={sizes.small * 0.12}
+              fill="#1a1a1a"
+            />
+          </g>
+
+          {/* Small gear - rotates clockwise */}
+          <g
+            style={{
+              transformOrigin: `${sizes.container * 0.55}px ${sizes.container * 0.72}px`,
+              animation: 'spin 1.8s linear infinite'
+            }}
+            filter="url(#gearShadow)"
+          >
+            <circle
+              cx={sizes.container * 0.55}
+              cy={sizes.container * 0.72}
+              r={sizes.tiny * 0.5}
+              fill="url(#gearGradient3)"
+            />
+            <path
+              d={createGearPath(sizes.container * 0.55, sizes.container * 0.72, sizes.tiny * 0.42, sizes.tiny * 0.3, 8)}
+              fill="url(#gearGradient3)"
+            />
+            <circle
+              cx={sizes.container * 0.55}
+              cy={sizes.container * 0.72}
+              r={sizes.tiny * 0.1}
+              fill="#1a1a1a"
+            />
+          </g>
+        </svg>
+
+        {/* CSS for spin animation */}
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   };

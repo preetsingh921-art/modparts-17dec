@@ -194,7 +194,12 @@ const Inventory = () => {
 
     const fetchMovements = async () => {
         try {
-            const data = await movementsAPI.getAll({ status: 'in_transit' });
+            // Filter by admin's warehouse - show only movements where admin is sender or receiver
+            const params = { status: 'in_transit' };
+            if (adminWarehouseId) {
+                params.warehouse_id = adminWarehouseId;
+            }
+            const data = await movementsAPI.getAll(params);
             setMovements(data.movements || []);
         } catch (error) {
             console.error('Error fetching movements:', error);

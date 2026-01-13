@@ -210,15 +210,15 @@ export const movementsAPI = {
     return response.json();
   },
 
-  // Receive product at destination (by barcode or movement ID)
-  receive: async ({ barcode, movementId, binNumber }) => {
+  // Receive product at destination (requires movement_id and warehouse_id for validation)
+  receive: async ({ movementId, binNumber, warehouseId }) => {
     const response = await fetch(`${API_BASE_URL}/inventory/movements?action=receive`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({
-        barcode,
         movement_id: movementId,
         bin_number: binNumber,
+        warehouse_id: warehouseId,
       }),
     });
     return response.json();

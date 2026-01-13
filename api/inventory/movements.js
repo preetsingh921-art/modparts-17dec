@@ -3,15 +3,16 @@ const { verifyAdminToken } = require('../../lib/auth');
 
 module.exports = async function handler(req, res) {
     try {
-        // GET - List movements
+        // GET - List movements (filtered by warehouse if provided)
         if (req.method === 'GET') {
-            const { status, product_id, limit = 50 } = req.query;
+            const { status, product_id, warehouse_id, limit = 50 } = req.query;
 
             let queryText = `
         SELECT 
           m.*,
           p.name as product_name,
           p.barcode,
+          p.part_number,
           fw.name as from_warehouse_name,
           tw.name as to_warehouse_name
         FROM inventory_movements m
@@ -23,6 +24,13 @@ module.exports = async function handler(req, res) {
 
             const params = [];
             let paramCount = 1;
+
+            // Filter by warehouse - show only movements where warehouse is sender OR receiver
+            if (warehouse_id) {
+                queryText += ` AND (m.from_warehouse_id = $${paramCount} OR m.to_warehouse_id = $${paramCount})`;
+                params.push(warehouse_id);
+                paramCount++;
+            }
 
             if (status) {
                 queryText += ` AND m.status = $${paramCount}`;
@@ -87,62 +95,96 @@ module.exports = async function handler(req, res) {
                 });
             }
 
-            // Receive product - increase quantity
+            // Receive product - only allow receiving shipments destined for admin's warehouse
             if (action === 'receive') {
-                const { barcode, movement_id, bin_number, warehouse_id } = req.body;
+                const { movement_id, bin_number, warehouse_id } = req.body;
 
-                let movement;
-                let productId;
-
-                if (movement_id) {
-                    // Complete existing movement with received_at timestamp
-                    const result = await db.query(`
-                        UPDATE inventory_movements 
-                        SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2
-                        WHERE id = $1
-                        RETURNING *
-                    `, [movement_id, bin_number]);
-                    movement = result.rows[0];
-                    productId = movement?.product_id;
-                } else if (barcode) {
-                    // Find product by barcode
-                    const productResult = await db.query(`
-                        SELECT id FROM products WHERE barcode = $1 OR part_number = $1
-                    `, [barcode]);
-
-                    if (productResult.rows.length > 0) {
-                        productId = productResult.rows[0].id;
-
-                        // Update product bin if provided
-                        if (bin_number) {
-                            await db.query(`
-                                UPDATE products SET bin_number = $1 WHERE id = $2
-                            `, [bin_number, productId]);
-                        }
-
-                        // Update product warehouse if provided
-                        if (warehouse_id) {
-                            await db.query(`
-                                UPDATE products SET warehouse_id = $1 WHERE id = $2
-                            `, [warehouse_id, productId]);
-                        }
-                    }
+                if (!movement_id) {
+                    return res.status(400).json({ message: 'Movement ID required to receive a shipment' });
                 }
 
-                // Increase quantity for received products
-                if (productId) {
+                if (!warehouse_id) {
+                    return res.status(400).json({ message: 'Warehouse ID required' });
+                }
+
+                // Get the movement and validate destination
+                const movementResult = await db.query(`
+                    SELECT m.*, p.part_number, p.name, p.description, p.price, p.category, p.barcode, p.image_url
+                    FROM inventory_movements m
+                    JOIN products p ON m.product_id = p.id
+                    WHERE m.id = $1
+                `, [movement_id]);
+
+                if (movementResult.rows.length === 0) {
+                    return res.status(404).json({ message: 'Movement not found' });
+                }
+
+                const movement = movementResult.rows[0];
+
+                // Validate: only destination warehouse can receive
+                if (String(movement.to_warehouse_id) !== String(warehouse_id)) {
+                    return res.status(403).json({
+                        message: 'You can only receive shipments destined for your warehouse'
+                    });
+                }
+
+                // Check if movement is already completed
+                if (movement.status === 'completed') {
+                    return res.status(400).json({ message: 'This shipment has already been received' });
+                }
+
+                const quantity = movement.quantity || 1;
+
+                // Check if product with same part_number exists in destination warehouse
+                const existingProduct = await db.query(`
+                    SELECT id, quantity FROM products 
+                    WHERE part_number = $1 AND warehouse_id = $2
+                `, [movement.part_number, warehouse_id]);
+
+                let resultMessage;
+                if (existingProduct.rows.length > 0) {
+                    // Product exists - increase quantity
                     await db.query(`
                         UPDATE products 
-                        SET quantity = quantity + 1
-                        WHERE id = $1
-                    `, [productId]);
+                        SET quantity = quantity + $1, bin_number = COALESCE($3, bin_number)
+                        WHERE id = $2
+                    `, [quantity, existingProduct.rows[0].id, bin_number]);
 
-                    console.log(`📥 Received product ${productId}: increased quantity`);
+                    const newQty = existingProduct.rows[0].quantity + quantity;
+                    resultMessage = `Received ${quantity} units. Product already exists in warehouse - total now: ${newQty}`;
+                    console.log(`📥 Received ${quantity} of ${movement.part_number} - increased existing stock`);
+                } else {
+                    // Product doesn't exist - create new entry
+                    await db.query(`
+                        INSERT INTO products (part_number, name, description, price, category, barcode, image_url, warehouse_id, bin_number, quantity)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    `, [
+                        movement.part_number,
+                        movement.name,
+                        movement.description,
+                        movement.price,
+                        movement.category,
+                        movement.barcode,
+                        movement.image_url,
+                        warehouse_id,
+                        bin_number,
+                        quantity
+                    ]);
+
+                    resultMessage = `Received ${quantity} units. New product entry created in warehouse.`;
+                    console.log(`📥 Received ${quantity} of ${movement.part_number} - created new product entry`);
                 }
 
+                // Mark movement as completed
+                await db.query(`
+                    UPDATE inventory_movements 
+                    SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2
+                    WHERE id = $1
+                `, [movement_id, bin_number]);
+
                 return res.json({
-                    message: 'Product received successfully. Quantity increased.',
-                    movement
+                    message: resultMessage,
+                    movement: { ...movement, status: 'completed' }
                 });
             }
 

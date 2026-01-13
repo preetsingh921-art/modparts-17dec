@@ -31,7 +31,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       // Get user profile
       const query = `
-        SELECT id, email, first_name, last_name, address, city, state, zip_code, phone, role, created_at
+        SELECT id, email, first_name, last_name, address, city, state, zip_code, phone, role, warehouse_id, created_at
         FROM users
         WHERE id = $1
       `;
@@ -121,7 +121,7 @@ module.exports = async function handler(req, res) {
           UPDATE users
           SET ${updates.join(', ')}
           WHERE id = $${idx}
-          RETURNING id, email, first_name, last_name, address, city, state, zip_code, phone, role
+          RETURNING id, email, first_name, last_name, address, city, state, zip_code, phone, role, warehouse_id
         `;
 
         const { rows } = await db.query(updateQuery, values);
@@ -135,7 +135,7 @@ module.exports = async function handler(req, res) {
         // No changes provided
         res.status(200).json({
           message: 'No changes provided',
-          data: await db.query('SELECT id, email, first_name, last_name, address, city, state, zip_code, phone, role FROM users WHERE id = $1', [userId]).then(r => r.rows[0])
+          data: await db.query('SELECT id, email, first_name, last_name, address, city, state, zip_code, phone, role, warehouse_id FROM users WHERE id = $1', [userId]).then(r => r.rows[0])
         });
       }
 

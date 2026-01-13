@@ -4,16 +4,44 @@ import AdminTabs from '../admin/AdminTabs';
 import { useAuth } from '../../context/AuthContext';
 
 const AdminLayout = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [warehouseName, setWarehouseName] = useState(null);
+  const [loadingWarehouse, setLoadingWarehouse] = useState(true);
 
-  // Fetch warehouse name if admin has one assigned
+  // Fetch warehouse name - also fetch profile if warehouse_id missing from user
   useEffect(() => {
-    const fetchWarehouse = async () => {
-      if (user?.warehouse_id) {
+    const fetchWarehouseInfo = async () => {
+      setLoadingWarehouse(true);
+      const token = localStorage.getItem('token');
+
+      let warehouseId = user?.warehouse_id;
+
+      // If warehouse_id is missing from user context, fetch profile to get it
+      if (!warehouseId && token) {
         try {
-          const token = localStorage.getItem('token');
-          const response = await fetch(`/api/inventory/warehouses?id=${user.warehouse_id}`, {
+          const profileResponse = await fetch('/api/users/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            warehouseId = profileData.data?.warehouse_id;
+
+            // Update user context and localStorage with warehouse_id
+            if (warehouseId && user) {
+              const updatedUser = { ...user, warehouse_id: warehouseId };
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              if (setUser) setUser(updatedUser);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching profile:', err);
+        }
+      }
+
+      // Now fetch warehouse name if we have an ID
+      if (warehouseId) {
+        try {
+          const response = await fetch(`/api/inventory/warehouses?id=${warehouseId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (response.ok) {
@@ -24,9 +52,10 @@ const AdminLayout = () => {
           console.error('Error fetching warehouse:', error);
         }
       }
+      setLoadingWarehouse(false);
     };
-    fetchWarehouse();
-  }, [user?.warehouse_id]);
+    fetchWarehouseInfo();
+  }, [user?.warehouse_id, user, setUser]);
 
   return (
     <div className="min-h-screen" style={{ background: '#D4C5A9' }}>

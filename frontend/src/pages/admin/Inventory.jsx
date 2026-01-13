@@ -41,6 +41,8 @@ const Inventory = () => {
         assigned_admin_id: ''
     });
     const [adminUsers, setAdminUsers] = useState([]);
+    const [adminBins, setAdminBins] = useState([]);
+    const [selectedBin, setSelectedBin] = useState('');
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -129,6 +131,21 @@ const Inventory = () => {
             fetchBins(selectedWarehouse);
         }
     }, [selectedWarehouse]);
+
+    // Fetch bins for admin's assigned warehouse (for receive mode)
+    useEffect(() => {
+        const fetchAdminBins = async () => {
+            if (adminWarehouseId) {
+                try {
+                    const data = await binAPI.getAll(adminWarehouseId);
+                    setAdminBins(data.bins || []);
+                } catch (error) {
+                    console.error('Error fetching admin bins:', error);
+                }
+            }
+        };
+        fetchAdminBins();
+    }, [adminWarehouseId]);
 
     const fetchWarehouses = async () => {
         try {
@@ -560,6 +577,38 @@ const Inventory = () => {
                                                             ⚠️ No warehouse assigned to your account. Contact administrator.
                                                         </p>
                                                     )}
+
+                                                    {/* Bin Selector for Receive Mode */}
+                                                    {adminWarehouseId && adminBins.length > 0 && (
+                                                        <div style={{ marginTop: '15px' }}>
+                                                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#2e7d32' }}>
+                                                                📦 Assign to Bin:
+                                                            </label>
+                                                            <select
+                                                                value={selectedBin}
+                                                                onChange={(e) => setSelectedBin(e.target.value)}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    padding: '10px',
+                                                                    borderRadius: '4px',
+                                                                    border: '1px solid #4caf50',
+                                                                    backgroundColor: 'white'
+                                                                }}
+                                                            >
+                                                                <option value="">-- Select Bin (Optional) --</option>
+                                                                {adminBins.map(bin => (
+                                                                    <option key={bin.id} value={bin.bin_number}>
+                                                                        {bin.bin_number} {bin.description ? `(${bin.description})` : ''}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )}
+                                                    {adminWarehouseId && adminBins.length === 0 && (
+                                                        <p style={{ marginTop: '10px', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>
+                                                            No bins configured for this warehouse. Product will be received without bin assignment.
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )}
 
@@ -590,16 +639,18 @@ const Inventory = () => {
                                                                 text: `✅ Product shipped to ${destWarehouse?.name || 'destination'}! Quantity decreased at ${scannedProduct.warehouse_name}.`
                                                             });
                                                         } else {
-                                                            // Receive: increase quantity at admin's warehouse
+                                                            // Receive: increase quantity at admin's warehouse with optional bin
                                                             await movementsAPI.receive({
                                                                 barcode: scannedProduct.barcode || scannedProduct.part_number,
-                                                                warehouse_id: adminWarehouseId
+                                                                warehouse_id: adminWarehouseId,
+                                                                bin_number: selectedBin || null
                                                             });
                                                             const myWarehouse = warehouses.find(w => String(w.id) === String(adminWarehouseId));
                                                             setMessage({
                                                                 type: 'success',
-                                                                text: `✅ Product received at ${myWarehouse?.name || 'your warehouse'}! Quantity +1.`
+                                                                text: `✅ Product received at ${myWarehouse?.name || 'your warehouse'}${selectedBin ? ` (Bin: ${selectedBin})` : ''}! Quantity +1.`
                                                             });
+                                                            setSelectedBin(''); // Reset bin selection
                                                         }
                                                         // Refresh product data
                                                         setScannedProduct(null);

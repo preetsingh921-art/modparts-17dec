@@ -35,6 +35,23 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(response.user));
         setUser(response.user);
 
+        // Fetch complete profile to get warehouse_id and other data
+        try {
+          const profileResponse = await fetch('/api/users/profile', {
+            headers: { 'Authorization': `Bearer ${response.token}` }
+          });
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            const completeUser = { ...response.user, ...profileData.data };
+            localStorage.setItem('user', JSON.stringify(completeUser));
+            setUser(completeUser);
+            console.log('Profile fetched with warehouse_id:', completeUser.warehouse_id);
+          }
+        } catch (profileErr) {
+          console.error('Failed to fetch profile:', profileErr);
+          // Don't throw - login was still successful
+        }
+
         // Check if there's a cart in localStorage that needs to be migrated
         const localCart = localStorage.getItem('cart');
         if (localCart) {

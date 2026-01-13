@@ -40,12 +40,12 @@ const LoadingSpinner = ({
   // Dual Gear Component - Three interlocking gears with vintage gradient colors
   const DualGearIcon = () => {
     const gearSizes = {
-      sm: { container: 60 },
-      md: { container: 96 },
-      lg: { container: 120 },
-      xl: { container: 160 }
+      sm: { container: 36 },
+      md: { container: 56 },
+      lg: { container: 72 },
+      xl: { container: 96 }
     };
-    const containerSize = gearSizes[size]?.container || 96;
+    const containerSize = gearSizes[size]?.container || 56;
 
     return (
       <div className="relative" style={{ width: containerSize, height: containerSize }}>

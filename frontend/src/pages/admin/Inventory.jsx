@@ -328,46 +328,59 @@ const Inventory = () => {
         try {
             // If product is already provided by scanner, use it directly
             if (product) {
-                setScannedProduct(product);
-                setMessage({ type: 'success', text: `Found: ${product.name}` });
-            } else {
-                // Fallback: search for product by barcode/part_number
-                // Filter by admin's warehouse when in send mode
-                const productsModule = await import('../../api/products');
-                const searchParams = { search: barcode, limit: 10 };
-                if (adminWarehouseId) {
-                    searchParams.warehouse_id = adminWarehouseId;
+                // For SEND mode, verify product is in admin's warehouse
+                if (transferAction === 'send' && adminWarehouseId && String(product.warehouse_id) !== String(adminWarehouseId)) {
+                    setScannedProduct(null);
+                    setMessage({ type: 'warning', text: `Cannot send: Product is in ${product.warehouse_name || 'another warehouse'}, not your warehouse.` });
+                } else {
+                    setScannedProduct(product);
+                    setSendQuantity(1);
+                    setMessage({ type: 'success', text: `Found: ${product.name} (Qty: ${product.quantity})` });
                 }
-                const result = await productsModule.getProducts(searchParams);
+            } else {
+                // Search for product by barcode/part_number
+                const productsModule = await import('../../api/products');
+                const result = await productsModule.getProducts({ search: barcode, limit: 20 });
                 const products = result.products || result;
 
-                // Find product matching barcode AND in admin's warehouse
-                let foundProduct = null;
-                if (adminWarehouseId) {
-                    foundProduct = products?.find(p =>
-                        (p.part_number === barcode || p.barcode === barcode) &&
-                        String(p.warehouse_id) === String(adminWarehouseId)
-                    );
-                }
-                if (!foundProduct) {
-                    foundProduct = products?.find(p => p.part_number === barcode || p.barcode === barcode) || products?.[0];
+                // Find matching product
+                const matchingProducts = products?.filter(p =>
+                    p.part_number === barcode || p.barcode === barcode
+                ) || [];
+
+                if (matchingProducts.length === 0 && products?.length > 0) {
+                    // If no exact match, use first result
+                    matchingProducts.push(products[0]);
                 }
 
-                if (foundProduct) {
-                    // Check if product is in admin's warehouse
-                    if (adminWarehouseId && String(foundProduct.warehouse_id) !== String(adminWarehouseId)) {
-                        setScannedProduct(null);
-                        setMessage({ type: 'warning', text: `Product found but not in your warehouse. It's in ${foundProduct.warehouse_name || 'another warehouse'}.` });
+                if (matchingProducts.length > 0) {
+                    if (transferAction === 'send') {
+                        // SEND MODE: Find product specifically in admin's warehouse
+                        const productInMyWarehouse = matchingProducts.find(p =>
+                            String(p.warehouse_id) === String(adminWarehouseId)
+                        );
+
+                        if (productInMyWarehouse) {
+                            setScannedProduct(productInMyWarehouse);
+                            setSendQuantity(1);
+                            setMessage({ type: 'success', text: `Found: ${productInMyWarehouse.name} (Qty: ${productInMyWarehouse.quantity} in your warehouse)` });
+                        } else {
+                            // Product exists but not in admin's warehouse
+                            const otherLocations = matchingProducts.map(p => p.warehouse_name || `Warehouse ${p.warehouse_id}`).join(', ');
+                            setScannedProduct(null);
+                            setMessage({ type: 'warning', text: `Product not in your warehouse. Found in: ${otherLocations}. Switch to RECEIVE mode to add copies.` });
+                        }
                     } else {
+                        // RECEIVE MODE: Any product can be received (adding copies)
+                        const foundProduct = matchingProducts[0];
                         setScannedProduct(foundProduct);
-                        setSendQuantity(1); // Reset quantity to 1 on new scan
-                        setMessage({ type: 'success', text: `Found: ${foundProduct.name} (Qty: ${foundProduct.quantity})` });
+                        setMessage({ type: 'success', text: `Found: ${foundProduct.name}. Click RECEIVE to add to your warehouse.` });
                     }
                 } else {
-                    // Track the not-found barcode for "Add to Inventory" flow
+                    // No product found at all
                     setNotFoundBarcode(barcode);
                     setScannedProduct(null);
-                    setMessage({ type: 'warning', text: `Product not found in your warehouse for barcode: ${barcode}` });
+                    setMessage({ type: 'warning', text: `Product not found for barcode: ${barcode}` });
                 }
             }
         } catch (error) {

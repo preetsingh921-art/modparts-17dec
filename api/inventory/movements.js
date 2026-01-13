@@ -59,11 +59,11 @@ module.exports = async function handler(req, res) {
 
                 const movements = [];
                 for (const productId of product_ids) {
-                    // Create movement record
+                    // Create movement record with shipped_at timestamp
                     const result = await db.query(`
                         INSERT INTO inventory_movements 
-                        (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by)
-                        VALUES ($1, $2, $3, 'transfer', 'in_transit', $4, $5)
+                        (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at)
+                        VALUES ($1, $2, $3, 'transfer', 'in_transit', $4, $5, NOW())
                         RETURNING *
                     `, [productId, from_warehouse_id, to_warehouse_id, notes, decoded.id]);
                     movements.push(result.rows[0]);
@@ -95,10 +95,10 @@ module.exports = async function handler(req, res) {
                 let productId;
 
                 if (movement_id) {
-                    // Complete existing movement
+                    // Complete existing movement with received_at timestamp
                     const result = await db.query(`
                         UPDATE inventory_movements 
-                        SET status = 'completed', scanned_at = NOW(), to_bin = $2
+                        SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2
                         WHERE id = $1
                         RETURNING *
                     `, [movement_id, bin_number]);

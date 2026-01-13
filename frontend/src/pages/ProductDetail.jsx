@@ -164,7 +164,7 @@ const ProductDetail = () => {
                   {product.condition_status}
                 </span>
                 <span className={`text-sm font-semibold ${product.quantity > 0 ? 'text-[#B8860B]' : 'text-red-400'}`}>
-                  {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+                  {product.quantity > 0 ? '✅ Available' : '❌ Out of stock'}
                 </span>
               </div>
 
@@ -215,8 +215,8 @@ const ProductDetail = () => {
               <button
                 onClick={handleAddToCart}
                 className={`btn-vintage-red flex items-center justify-center ${product.quantity <= 0 || addingToCart
-                    ? 'opacity-50 cursor-not-allowed'
-                    : ''
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
                   }`}
                 disabled={product.quantity <= 0 || addingToCart}
               >
@@ -252,8 +252,8 @@ const ProductDetail = () => {
               <button
                 onClick={handleBuyNow}
                 className={`btn-vintage-gray flex items-center justify-center ${product.quantity <= 0 || buyingNow
-                    ? 'opacity-50 cursor-not-allowed'
-                    : ''
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
                   }`}
                 disabled={product.quantity <= 0 || buyingNow}
               >

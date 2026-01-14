@@ -354,8 +354,10 @@ const Inventory = () => {
                 if (adminWarehouseId) {
                     searchParams.warehouse_id = adminWarehouseId;
                 }
+                console.log('🔍 SEARCH DEBUG:', { adminWarehouseId, searchParams, userWarehouseId: user?.warehouse_id });
                 const result = await productsModule.getProducts(searchParams);
                 const products = result.products || result;
+                console.log('🔍 SEARCH RESULTS:', products?.length, 'products found, first:', products?.[0]?.warehouse_id);
 
                 // Find matching product in admin's warehouse
                 let matchingProducts = products?.filter(p =>

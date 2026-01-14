@@ -665,90 +665,64 @@ const Inventory = () => {
                                             <p><strong>Bin:</strong> {scannedProduct.bin_number || 'Not assigned'}</p>
                                         </div>
 
-                                        {/* Send/Receive Warehouse Actions */}
-                                        <div style={{ marginTop: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px' }}>
-                                            <h4 style={{ marginBottom: '15px', color: '#1976d2' }}>📦 Warehouse Actions</h4>
+                                        {/* Mode-specific Actions Section */}
+                                        <div style={{ marginTop: '20px', padding: '15px', background: activeTab === 'scan-send' ? '#fff3e0' : '#e8f5e9', borderRadius: '8px', border: `1px solid ${activeTab === 'scan-send' ? '#ff9800' : '#4caf50'}` }}>
+                                            <h4 style={{ marginBottom: '15px', color: activeTab === 'scan-send' ? '#e65100' : '#2e7d32' }}>
+                                                {activeTab === 'scan-send' ? '📤 Send to Warehouse' : '📥 Receive at Your Warehouse'}
+                                            </h4>
 
-                                            {/* Detect Location Button */}
-                                            <div style={{ marginBottom: '15px' }}>
-                                                <button
-                                                    onClick={detectUserLocation}
-                                                    style={{
-                                                        padding: '10px 15px',
-                                                        backgroundColor: '#9c27b0',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '6px',
-                                                        cursor: 'pointer',
-                                                        fontWeight: 'bold',
-                                                        width: '100%',
-                                                        marginBottom: '10px'
-                                                    }}
-                                                >
-                                                    📍 Detect My Location & Find Nearest Warehouse
-                                                </button>
+                                            {/* Only show detect location for SEND mode */}
+                                            {activeTab === 'scan-send' && (
+                                                <div style={{ marginBottom: '15px' }}>
+                                                    <button
+                                                        onClick={detectUserLocation}
+                                                        style={{
+                                                            padding: '10px 15px',
+                                                            backgroundColor: '#9c27b0',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 'bold',
+                                                            width: '100%',
+                                                            marginBottom: '10px'
+                                                        }}
+                                                    >
+                                                        📍 Detect My Location & Find Nearest Warehouse
+                                                    </button>
 
-                                                {/* Show nearest warehouse info */}
-                                                {nearestWarehouse && (
-                                                    <div style={{
-                                                        padding: '10px',
-                                                        background: '#e8f5e9',
-                                                        borderRadius: '4px',
-                                                        marginBottom: '10px',
-                                                        border: '1px solid #4caf50'
-                                                    }}>
-                                                        <strong style={{ color: '#2e7d32' }}>✅ Nearest: {nearestWarehouse.name}</strong>
-                                                        <span style={{ marginLeft: '10px', color: '#666' }}>
-                                                            ({nearestWarehouse.distance} km away)
-                                                        </span>
-                                                    </div>
-                                                )}
+                                                    {/* Show nearest warehouse info */}
+                                                    {nearestWarehouse && (
+                                                        <div style={{
+                                                            padding: '10px',
+                                                            background: '#e8f5e9',
+                                                            borderRadius: '4px',
+                                                            marginBottom: '10px',
+                                                            border: '1px solid #4caf50'
+                                                        }}>
+                                                            <strong style={{ color: '#2e7d32' }}>✅ Nearest: {nearestWarehouse.name}</strong>
+                                                            <span style={{ marginLeft: '10px', color: '#666' }}>
+                                                                ({nearestWarehouse.distance} km away)
+                                                            </span>
+                                                        </div>
+                                                    )}
 
-                                                {locationError && (
-                                                    <div style={{
-                                                        padding: '10px',
-                                                        background: '#ffebee',
-                                                        borderRadius: '4px',
-                                                        color: '#c62828',
-                                                        fontSize: '13px'
-                                                    }}>
-                                                        ⚠️ {locationError}
-                                                    </div>
-                                                )}
-                                            </div>
+                                                    {locationError && (
+                                                        <div style={{
+                                                            padding: '10px',
+                                                            background: '#ffebee',
+                                                            borderRadius: '4px',
+                                                            color: '#c62828',
+                                                            fontSize: '13px'
+                                                        }}>
+                                                            ⚠️ {locationError}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
 
-                                            {/* Radio Button Toggle for Send/Receive */}
-                                            <div style={{ marginBottom: '15px' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '10px' }}>
-                                                    <input
-                                                        type="radio"
-                                                        name="transferAction"
-                                                        value="send"
-                                                        checked={transferAction === 'send'}
-                                                        onChange={() => setTransferAction('send')}
-                                                        style={{ width: '18px', height: '18px' }}
-                                                    />
-                                                    <span style={{ fontWeight: transferAction === 'send' ? 'bold' : 'normal', color: transferAction === 'send' ? '#ff9800' : '#666' }}>
-                                                        📤 Send to Another Warehouse
-                                                    </span>
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                                    <input
-                                                        type="radio"
-                                                        name="transferAction"
-                                                        value="receive"
-                                                        checked={transferAction === 'receive'}
-                                                        onChange={() => setTransferAction('receive')}
-                                                        style={{ width: '18px', height: '18px' }}
-                                                    />
-                                                    <span style={{ fontWeight: transferAction === 'receive' ? 'bold' : 'normal', color: transferAction === 'receive' ? '#4caf50' : '#666' }}>
-                                                        📥 Receive at This Warehouse
-                                                    </span>
-                                                </label>
-                                            </div>
-
-                                            {/* Warehouse Selection - Only show dropdown for Send, auto-use admin warehouse for Receive */}
-                                            {transferAction === 'send' ? (
+                                            {/* Warehouse Selection - Only show dropdown for SEND tab */}
+                                            {activeTab === 'scan-send' ? (
                                                 <div style={{ marginBottom: '15px' }}>
                                                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
                                                         Destination Warehouse:
@@ -893,17 +867,17 @@ const Inventory = () => {
                                             {/* Action Button */}
                                             <button
                                                 onClick={async () => {
-                                                    if (transferAction === 'send' && !selectedWarehouse) {
+                                                    if (activeTab === 'scan-send' && !selectedWarehouse) {
                                                         setMessage({ type: 'error', text: 'Please select a destination warehouse' });
                                                         return;
                                                     }
-                                                    if (transferAction === 'receive' && !adminWarehouseId) {
+                                                    if (activeTab === 'scan-receive' && !adminWarehouseId) {
                                                         setMessage({ type: 'error', text: 'No warehouse assigned to your account. Contact administrator.' });
                                                         return;
                                                     }
                                                     setLoading(true);
                                                     try {
-                                                        if (transferAction === 'send') {
+                                                        if (activeTab === 'scan-send') {
                                                             // Validate quantity
                                                             if (sendQuantity > scannedProduct.quantity) {
                                                                 setMessage({ type: 'error', text: `Cannot send ${sendQuantity}. Only ${scannedProduct.quantity} available.` });
@@ -965,48 +939,26 @@ const Inventory = () => {
                                                     }
                                                     setLoading(false);
                                                 }}
-                                                disabled={loading || (transferAction === 'send' && !selectedWarehouse) || (transferAction === 'receive' && !adminWarehouseId)}
+                                                disabled={loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !adminWarehouseId)}
                                                 style={{
                                                     width: '100%',
                                                     padding: '15px',
-                                                    backgroundColor: transferAction === 'send' ? '#ff9800' : (showUnexpectedConfirm ? '#f44336' : '#4caf50'),
+                                                    backgroundColor: activeTab === 'scan-send' ? '#ff9800' : (showUnexpectedConfirm ? '#f44336' : '#4caf50'),
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '6px',
                                                     cursor: loading ? 'not-allowed' : 'pointer',
-                                                    opacity: loading || (transferAction === 'send' && !selectedWarehouse) || (transferAction === 'receive' && !adminWarehouseId) ? 0.6 : 1,
+                                                    opacity: loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !adminWarehouseId) ? 0.6 : 1,
                                                     fontWeight: 'bold',
                                                     fontSize: '16px'
                                                 }}
                                             >
                                                 {loading ? 'Processing...' : (
-                                                    transferAction === 'send' ? '📤 SEND TO WAREHOUSE' : (
+                                                    activeTab === 'scan-send' ? '📤 SEND TO WAREHOUSE' : (
                                                         showUnexpectedConfirm ? '⚠️ CONFIRM & ADD UNEXPECTED' : '📥 RECEIVE EXPECTED SHIPMENT'
                                                     )
                                                 )}
                                             </button>
-                                        </div>
-
-                                        {/* Assign to Bin */}
-                                        <div style={{ marginTop: '15px' }}>
-                                            <h4>Assign to Bin:</h4>
-                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
-                                                {bins.map(bin => (
-                                                    <button
-                                                        key={bin.id}
-                                                        onClick={() => handleReceive(bin.bin_number)}
-                                                        style={{
-                                                            padding: '10px 15px',
-                                                            border: '1px solid #1976d2',
-                                                            borderRadius: '4px',
-                                                            cursor: 'pointer',
-                                                            background: 'white'
-                                                        }}
-                                                    >
-                                                        {bin.bin_number}
-                                                    </button>
-                                                ))}
-                                            </div>
                                         </div>
                                     </div>
                                 ) : notFoundBarcode ? (
@@ -1132,18 +1084,22 @@ const Inventory = () => {
                         <div style={{ marginBottom: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px' }}>
                             <strong>📦 Your Warehouse:</strong> {warehouses.find(w => String(w.id) === String(adminWarehouseId))?.name || 'Not assigned'}
                         </div>
-                        <div style={{ marginBottom: '20px' }}>
-                            <label style={{ marginRight: '10px' }}>View Warehouse:</label>
-                            <select
-                                value={selectedWarehouse || adminWarehouseId || ''}
-                                onChange={(e) => setSelectedWarehouse(e.target.value)}
-                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', color: '#333' }}
-                            >
-                                {warehouses.map(w => (
-                                    <option key={w.id} value={w.id}>{w.name}</option>
-                                ))}
-                            </select>
-                        </div>
+
+                        {/* Warehouse selector only for Superadmin */}
+                        {user?.role === 'superadmin' && (
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ marginRight: '10px' }}>View Other Warehouse:</label>
+                                <select
+                                    value={selectedWarehouse || adminWarehouseId || ''}
+                                    onChange={(e) => setSelectedWarehouse(e.target.value)}
+                                    style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', color: '#333' }}
+                                >
+                                    {warehouses.map(w => (
+                                        <option key={w.id} value={w.id}>{w.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         {/* Create Bin Form - Responsive */}
                         <form onSubmit={handleCreateBin} style={{

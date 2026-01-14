@@ -547,9 +547,9 @@ const Inventory = () => {
     };
 
     const tabs = [
-        { id: 'scan', label: '📱 Scan & Receive', icon: '📱' },
-        { id: 'movements', label: '📦 Movements', icon: '📦' },
-        { id: 'bins', label: '🗃️ Bins', icon: '🗃️' },
+        { id: 'scan', label: '📱 Scan & Transfer', icon: '📱' },
+        { id: 'movements', label: '🚚 Movements', icon: '🚚' },
+        { id: 'bins', label: '📦 Bin Inventory', icon: '📦' },
         { id: 'warehouses', label: '🏭 Warehouses', icon: '🏭' },
     ];
 

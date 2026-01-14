@@ -11,7 +11,7 @@ import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
 const Inventory = () => {
     const { user } = useAuth();
     const adminWarehouseId = user?.warehouse_id;
-    const [activeTab, setActiveTab] = useState('scan');
+    const [activeTab, setActiveTab] = useState('scan-send');
     const [warehouses, setWarehouses] = useState([]);
     const [bins, setBins] = useState([]);
     const [movements, setMovements] = useState([]);
@@ -547,10 +547,11 @@ const Inventory = () => {
     };
 
     const tabs = [
-        { id: 'scan', label: '📱 Scan & Transfer', icon: '📱' },
+        { id: 'scan-send', label: '📤 Scan & Send', icon: '📤' },
+        { id: 'scan-receive', label: '📥 Scan & Receive', icon: '📥' },
         { id: 'movements', label: '🚚 Movements', icon: '🚚' },
-        { id: 'bins', label: '📦 Bin Inventory', icon: '📦' },
-        { id: 'warehouses', label: '🏭 Warehouses', icon: '🏭' },
+        { id: 'warehouse-inventory', label: '📦 Warehouse Inventory', icon: '📦' },
+        ...(user?.role === 'superadmin' ? [{ id: 'warehouses', label: '🏭 Warehouses', icon: '🏭' }] : []),
     ];
 
     return (
@@ -608,18 +609,29 @@ const Inventory = () => {
 
             {/* Tab Content */}
             <div className="tab-content">
-                {/* SCAN & RECEIVE TAB */}
-                {activeTab === 'scan' && (
-                    <div className="scan-receive-tab">
+                {/* SCAN & SEND / SCAN & RECEIVE TAB - Shows for both, behavior based on activeTab */}
+                {(activeTab === 'scan-send' || activeTab === 'scan-receive') && (
+                    <div className={activeTab === 'scan-send' ? 'scan-send-tab' : 'scan-receive-tab'}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }} className="md:grid-cols-2">
-                            {/* Scanner Section */}
+                            {/* Scanner Section - Mode-specific styling */}
                             <div style={{
                                 padding: '20px',
-                                background: '#f5f5f5',
-                                borderRadius: '8px'
+                                background: activeTab === 'scan-send' ? '#fff3e0' : '#e8f5e9',
+                                borderRadius: '8px',
+                                border: `2px solid ${activeTab === 'scan-send' ? '#ff9800' : '#4caf50'}`
                             }}>
-                                <h3 style={{ marginBottom: '15px' }}>Scan Barcode</h3>
-                                <BarcodeScanner onScan={handleScan} autoStart={false} />
+                                <h3 style={{ marginBottom: '15px', color: activeTab === 'scan-send' ? '#e65100' : '#2e7d32' }}>
+                                    {activeTab === 'scan-send' ? '📤 Scan Product to SEND' : '📥 Scan Product to RECEIVE'}
+                                </h3>
+                                <p style={{ marginBottom: '15px', color: '#666', fontSize: '14px' }}>
+                                    {activeTab === 'scan-send'
+                                        ? 'Scan a product from YOUR warehouse to send to another warehouse.'
+                                        : 'Scan a product to receive. Expected items will auto-match pending shipments.'}
+                                </p>
+                                <BarcodeScanner onScan={(barcode, product) => {
+                                    setTransferAction(activeTab === 'scan-send' ? 'send' : 'receive');
+                                    handleScan(barcode, product);
+                                }} autoStart={false} />
                             </div>
 
                             {/* Scanned Product Details */}
@@ -1112,13 +1124,16 @@ const Inventory = () => {
                     </div>
                 )}
 
-                {/* BINS TAB */}
-                {activeTab === 'bins' && (
-                    <div className="bins-tab">
+                {/* WAREHOUSE INVENTORY TAB - Shows products in current warehouse binwise */}
+                {activeTab === 'warehouse-inventory' && (
+                    <div className="warehouse-inventory-tab">
+                        <div style={{ marginBottom: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px' }}>
+                            <strong>📦 Your Warehouse:</strong> {warehouses.find(w => String(w.id) === String(adminWarehouseId))?.name || 'Not assigned'}
+                        </div>
                         <div style={{ marginBottom: '20px' }}>
-                            <label style={{ marginRight: '10px' }}>Warehouse:</label>
+                            <label style={{ marginRight: '10px' }}>View Warehouse:</label>
                             <select
-                                value={selectedWarehouse}
+                                value={selectedWarehouse || adminWarehouseId || ''}
                                 onChange={(e) => setSelectedWarehouse(e.target.value)}
                                 style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', color: '#333' }}
                             >

@@ -88,7 +88,8 @@ export const getProducts = async (params = {}) => {
       category = '',
       categories = '',
       sortBy = 'created_at',
-      sortOrder = 'desc'
+      sortOrder = 'desc',
+      warehouse_id = ''
     } = params;
 
     const queryParams = new URLSearchParams({
@@ -101,6 +102,7 @@ export const getProducts = async (params = {}) => {
     if (search) queryParams.append('search', search);
     if (category) queryParams.append('category', category);
     if (categories) queryParams.append('categories', categories);
+    if (warehouse_id) queryParams.append('warehouse_id', warehouse_id);
 
     const url = `/products?${queryParams}`;
     console.log('🔍 getProducts: Making request to:', url);

@@ -630,10 +630,14 @@ const Inventory = () => {
                                         ? 'Scan a product from YOUR warehouse to send to another warehouse.'
                                         : 'Scan a product to receive. Expected items will auto-match pending shipments.'}
                                 </p>
-                                <BarcodeScanner onScan={(barcode, product) => {
-                                    setTransferAction(activeTab === 'scan-send' ? 'send' : 'receive');
-                                    handleScan(barcode, product);
-                                }} autoStart={false} />
+                                <BarcodeScanner
+                                    warehouseId={adminWarehouseId}
+                                    onScan={(barcode, product) => {
+                                        setTransferAction(activeTab === 'scan-send' ? 'send' : 'receive');
+                                        handleScan(barcode, product);
+                                    }}
+                                    autoStart={false}
+                                />
                             </div>
 
                             {/* Scanned Product Details */}

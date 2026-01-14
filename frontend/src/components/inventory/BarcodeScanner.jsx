@@ -12,7 +12,8 @@ const BarcodeScanner = ({
     onError,
     showPreview = true,
     width = 320,
-    height = 280
+    height = 280,
+    warehouseId = null  // Optional: filter products by warehouse
 }) => {
     const [scanning, setScanning] = useState(false);
     const [error, setError] = useState(null);
@@ -174,8 +175,10 @@ const BarcodeScanner = ({
         setScanStatus(`🔍 Searching for: ${barcodeValue}...`);
 
         try {
-            console.log('🔍 Looking up:', barcodeValue);
-            const result = await getProducts({ search: barcodeValue, limit: 10 });
+            console.log('🔍 Looking up:', barcodeValue, 'in warehouse:', warehouseId);
+            const searchParams = { search: barcodeValue, limit: 10 };
+            if (warehouseId) searchParams.warehouse_id = warehouseId;
+            const result = await getProducts(searchParams);
 
             console.log('📦 API returned:', result.products?.length || 0, 'products');
 
@@ -221,7 +224,9 @@ const BarcodeScanner = ({
 
         setIsSearching(true);
         try {
-            const result = await getProducts({ search: query, limit: 10 });
+            const searchParams = { search: query, limit: 10 };
+            if (warehouseId) searchParams.warehouse_id = warehouseId;
+            const result = await getProducts(searchParams);
             const products = result.products || [];
             console.log('🔍 Search found:', products.length, 'products for', query);
             setSearchResults(products);

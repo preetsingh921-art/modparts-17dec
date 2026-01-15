@@ -138,10 +138,12 @@ const Inventory = () => {
     }, []);
 
     useEffect(() => {
-        if (selectedWarehouse) {
-            fetchBins(selectedWarehouse);
+        // Use selectedWarehouse if set, otherwise use adminWarehouseId
+        const warehouseToFetch = selectedWarehouse || adminWarehouseId;
+        if (warehouseToFetch) {
+            fetchBins(warehouseToFetch);
         }
-    }, [selectedWarehouse]);
+    }, [selectedWarehouse, adminWarehouseId]);
 
     // Fetch bins for admin's assigned warehouse (for receive mode)
     useEffect(() => {
@@ -1176,6 +1178,72 @@ const Inventory = () => {
                                     )}
                                 </div>
                             ))}
+                        </div>
+
+                        {/* Bin Inventory Table */}
+                        <div style={{ marginTop: '30px', padding: '20px', background: '#f5f5f5', borderRadius: '8px' }}>
+                            <h4 style={{ marginBottom: '15px', color: '#1976d2' }}>📋 Products by Bin</h4>
+
+                            {/* Search */}
+                            <div style={{ marginBottom: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search by part number, name, or bin..."
+                                    value={binInventorySearch}
+                                    onChange={(e) => setBinInventorySearch(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && adminWarehouseId) {
+                                            fetchBinInventory(adminWarehouseId, binInventorySearch);
+                                        }
+                                    }}
+                                    style={{ flex: 1, minWidth: '200px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
+                                />
+                                <button
+                                    onClick={() => fetchBinInventory(adminWarehouseId, binInventorySearch)}
+                                    disabled={!adminWarehouseId || binInventoryLoading}
+                                    style={{ padding: '10px 20px', background: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                >
+                                    {binInventoryLoading ? 'Loading...' : '🔍 Search'}
+                                </button>
+                            </div>
+
+                            {/* Auto-fetch on mount */}
+                            {binInventory.length === 0 && !binInventoryLoading && adminWarehouseId && (
+                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                    <button
+                                        onClick={() => fetchBinInventory(adminWarehouseId, '')}
+                                        style={{ padding: '12px 24px', background: '#4caf50', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                    >
+                                        📦 Load Inventory
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Table */}
+                            {binInventoryLoading ? (
+                                <p style={{ textAlign: 'center', padding: '20px' }}>Loading inventory...</p>
+                            ) : binInventory.length > 0 ? (
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                                        <thead>
+                                            <tr style={{ background: '#1976d2', color: 'white' }}>
+                                                <th style={{ padding: '12px', textAlign: 'left' }}>Bin</th>
+                                                <th style={{ padding: '12px', textAlign: 'left' }}>Part Numbers</th>
+                                                <th style={{ padding: '12px', textAlign: 'right' }}>Total Items</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {binInventory.map((item, idx) => (
+                                                <tr key={idx} style={{ borderBottom: '1px solid #ddd', background: idx % 2 === 0 ? '#fff' : '#f9f9f9' }}>
+                                                    <td style={{ padding: '12px', fontWeight: 'bold', color: '#1976d2' }}>{item.bin_number || 'No Bin'}</td>
+                                                    <td style={{ padding: '12px', maxWidth: '400px', wordBreak: 'break-word' }}>{item.part_numbers}</td>
+                                                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold' }}>{item.total_count}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 )}

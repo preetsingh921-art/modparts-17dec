@@ -1087,8 +1087,9 @@ const Inventory = () => {
                 {/* WAREHOUSE INVENTORY TAB - Shows products in current warehouse binwise */}
                 {activeTab === 'warehouse-inventory' && (
                     <div className="warehouse-inventory-tab">
-                        <div style={{ marginBottom: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px' }}>
-                            <strong>📦 Your Warehouse:</strong> {warehouses.find(w => String(w.id) === String(adminWarehouseId))?.name || 'Not assigned'}
+                        <div style={{ marginBottom: '20px', padding: '20px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '12px', border: '1px solid #B8860B' }}>
+                            <strong style={{ color: '#B8860B', fontFamily: "'Oswald', sans-serif", fontSize: '18px' }}>📦 Your Warehouse:</strong>
+                            <span style={{ marginLeft: '10px', color: '#F5F0E1', fontSize: '18px' }}>{warehouses.find(w => String(w.id) === String(adminWarehouseId))?.name || 'Not assigned'}</span>
                         </div>
 
                         {/* Warehouse selector only for Superadmin */}
@@ -1107,22 +1108,23 @@ const Inventory = () => {
                             </div>
                         )}
 
-                        {/* Create Bin Form - Responsive */}
+                        {/* Create Bin Form - Gold Theme */}
                         <form onSubmit={handleCreateBin} style={{
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '10px',
                             marginBottom: '20px',
-                            padding: '15px',
-                            background: '#f5f5f5',
-                            borderRadius: '4px'
+                            padding: '20px',
+                            background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+                            borderRadius: '12px',
+                            border: '1px solid #B8860B'
                         }} className="md:flex-row">
                             <input
                                 type="text"
                                 placeholder="Bin # (e.g., A-01)"
                                 value={newBin.bin_number}
                                 onChange={(e) => setNewBin({ ...newBin, bin_number: e.target.value })}
-                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', color: '#333' }}
+                                style={{ padding: '12px', borderRadius: '6px', border: '1px solid #B8860B', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
                                 required
                             />
                             <input
@@ -1130,25 +1132,27 @@ const Inventory = () => {
                                 placeholder="Description"
                                 value={newBin.description}
                                 onChange={(e) => setNewBin({ ...newBin, description: e.target.value })}
-                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', flex: 1, backgroundColor: 'white', color: '#333' }}
+                                style={{ padding: '12px', borderRadius: '6px', border: '1px solid #B8860B', flex: 1, backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
                             />
                             <button
                                 type="submit"
                                 disabled={loading}
                                 style={{
-                                    padding: '8px 16px',
-                                    backgroundColor: '#4caf50',
-                                    color: 'white',
+                                    padding: '12px 24px',
+                                    background: 'linear-gradient(135deg, #B8860B, #8B6914)',
+                                    color: '#1a1a1a',
                                     border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer'
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    fontFamily: "'Oswald', sans-serif"
                                 }}
                             >
                                 + Add Bin
                             </button>
                         </form>
 
-                        {/* Bins Grid */}
+                        {/* Bins Grid - Gold Theme */}
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
@@ -1158,21 +1162,21 @@ const Inventory = () => {
                                 <div
                                     key={bin.id}
                                     style={{
-                                        padding: '15px',
-                                        background: 'white',
-                                        border: '2px solid #1976d2',
-                                        borderRadius: '8px',
+                                        padding: '20px',
+                                        background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+                                        border: '2px solid #B8860B',
+                                        borderRadius: '12px',
                                         textAlign: 'center'
                                     }}
                                 >
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1976d2' }}>
+                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#B8860B', fontFamily: "'Oswald', sans-serif" }}>
                                         {bin.bin_number}
                                     </div>
-                                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                                    <div style={{ fontSize: '14px', color: '#4caf50', marginTop: '8px', fontWeight: 'bold' }}>
                                         {bin.product_count || 0} items
                                     </div>
                                     {bin.description && (
-                                        <div style={{ fontSize: '11px', color: '#999', marginTop: '5px' }}>
+                                        <div style={{ fontSize: '11px', color: '#888', marginTop: '5px' }}>
                                             {bin.description}
                                         </div>
                                     )}
@@ -1180,64 +1184,82 @@ const Inventory = () => {
                             ))}
                         </div>
 
-                        {/* Bin Inventory Table */}
-                        <div style={{ marginTop: '30px', padding: '20px', background: '#f5f5f5', borderRadius: '8px' }}>
-                            <h4 style={{ marginBottom: '15px', color: '#1976d2' }}>📋 Products by Bin</h4>
+                        {/* Bin Inventory Table - Gold/Mustard Theme */}
+                        <div style={{ marginTop: '30px', padding: '25px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '12px', border: '1px solid #B8860B' }}>
+                            <h4 style={{ marginBottom: '20px', color: '#B8860B', fontFamily: "'Oswald', sans-serif", fontSize: '18px' }}>📋 Products by Bin</h4>
 
-                            {/* Search */}
-                            <div style={{ marginBottom: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            {/* Live Search */}
+                            <div style={{ marginBottom: '15px' }}>
                                 <input
                                     type="text"
-                                    placeholder="Search by part number, name, or bin..."
+                                    placeholder="🔍 Search by part number, name, or bin (live search)..."
                                     value={binInventorySearch}
-                                    onChange={(e) => setBinInventorySearch(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && adminWarehouseId) {
-                                            fetchBinInventory(adminWarehouseId, binInventorySearch);
+                                    onChange={(e) => {
+                                        setBinInventorySearch(e.target.value);
+                                        // Live search - trigger on every change
+                                        if (adminWarehouseId) {
+                                            fetchBinInventory(adminWarehouseId, e.target.value);
                                         }
                                     }}
-                                    style={{ flex: 1, minWidth: '200px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 15px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #B8860B',
+                                        background: '#1a1a1a',
+                                        color: '#F5F0E1',
+                                        fontSize: '14px'
+                                    }}
                                 />
-                                <button
-                                    onClick={() => fetchBinInventory(adminWarehouseId, binInventorySearch)}
-                                    disabled={!adminWarehouseId || binInventoryLoading}
-                                    style={{ padding: '10px 20px', background: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                                >
-                                    {binInventoryLoading ? 'Loading...' : '🔍 Search'}
-                                </button>
                             </div>
 
                             {/* Auto-fetch on mount */}
                             {binInventory.length === 0 && !binInventoryLoading && adminWarehouseId && (
-                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                <div style={{ textAlign: 'center', padding: '30px' }}>
                                     <button
                                         onClick={() => fetchBinInventory(adminWarehouseId, '')}
-                                        style={{ padding: '12px 24px', background: '#4caf50', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                        style={{ padding: '15px 30px', background: 'linear-gradient(135deg, #B8860B, #8B6914)', color: '#1a1a1a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', fontFamily: "'Oswald', sans-serif" }}
                                     >
                                         📦 Load Inventory
                                     </button>
                                 </div>
                             )}
 
+                            {/* Gross Total Summary */}
+                            {binInventory.length > 0 && (
+                                <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(184, 134, 11, 0.15)', borderRadius: '8px', border: '1px solid #B8860B', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                                    <div style={{ color: '#F5F0E1' }}>
+                                        <span style={{ fontSize: '14px' }}>Total Bins:</span>
+                                        <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#B8860B', fontSize: '18px' }}>{binInventory.length}</span>
+                                    </div>
+                                    <div style={{ color: '#F5F0E1' }}>
+                                        <span style={{ fontSize: '14px' }}>Gross Total Items:</span>
+                                        <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#4caf50', fontSize: '20px' }}>
+                                            {binInventory.reduce((sum, item) => sum + (parseInt(item.total_count) || 0), 0)}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Table */}
                             {binInventoryLoading ? (
-                                <p style={{ textAlign: 'center', padding: '20px' }}>Loading inventory...</p>
+                                <p style={{ textAlign: 'center', padding: '30px', color: '#B8860B' }}>Loading inventory...</p>
                             ) : binInventory.length > 0 ? (
                                 <div style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                                         <thead>
-                                            <tr style={{ background: '#1976d2', color: 'white' }}>
-                                                <th style={{ padding: '12px', textAlign: 'left' }}>Bin</th>
-                                                <th style={{ padding: '12px', textAlign: 'left' }}>Part Numbers</th>
-                                                <th style={{ padding: '12px', textAlign: 'right' }}>Total Items</th>
+                                            <tr style={{ background: 'rgba(184, 134, 11, 0.3)' }}>
+                                                <th style={{ padding: '14px', textAlign: 'left', color: '#B8860B', fontFamily: "'Oswald', sans-serif", borderBottom: '2px solid #B8860B' }}>Bin</th>
+                                                <th style={{ padding: '14px', textAlign: 'left', color: '#B8860B', fontFamily: "'Oswald', sans-serif", borderBottom: '2px solid #B8860B' }}>Part Numbers</th>
+                                                <th style={{ padding: '14px', textAlign: 'right', color: '#B8860B', fontFamily: "'Oswald', sans-serif", borderBottom: '2px solid #B8860B' }}>Total Items</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {binInventory.map((item, idx) => (
-                                                <tr key={idx} style={{ borderBottom: '1px solid #ddd', background: idx % 2 === 0 ? '#fff' : '#f9f9f9' }}>
-                                                    <td style={{ padding: '12px', fontWeight: 'bold', color: '#1976d2' }}>{item.bin_number || 'No Bin'}</td>
-                                                    <td style={{ padding: '12px', maxWidth: '400px', wordBreak: 'break-word' }}>{item.part_numbers}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold' }}>{item.total_count}</td>
+                                                <tr key={idx} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
+                                                    <td style={{ padding: '14px', fontWeight: 'bold', color: '#B8860B' }}>{item.bin_number || 'No Bin'}</td>
+                                                    <td style={{ padding: '14px', maxWidth: '400px', wordBreak: 'break-word', color: '#F5F0E1' }}>{item.part_numbers}</td>
+                                                    <td style={{ padding: '14px', textAlign: 'right', fontWeight: 'bold', color: '#4caf50', fontSize: '16px' }}>{item.total_count}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

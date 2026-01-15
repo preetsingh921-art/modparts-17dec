@@ -160,6 +160,13 @@ const Inventory = () => {
         fetchAdminBins();
     }, [adminWarehouseId]);
 
+    // Auto-load bin inventory when warehouse-inventory tab is active
+    useEffect(() => {
+        if (activeTab === 'warehouse-inventory' && adminWarehouseId && binInventory.length === 0 && !binInventoryLoading) {
+            fetchBinInventory(adminWarehouseId, '');
+        }
+    }, [activeTab, adminWarehouseId]);
+
     const fetchWarehouses = async () => {
         try {
             const data = await warehouseAPI.getAll();
@@ -756,62 +763,21 @@ const Inventory = () => {
                                                         }
                                                     </select>
 
-                                                    {/* Quantity Input for Send Mode */}
-                                                    <div style={{ marginTop: '15px' }}>
-                                                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                                                            Quantity to Send:
-                                                        </label>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                            <button
-                                                                onClick={() => setSendQuantity(Math.max(1, sendQuantity - 1))}
-                                                                style={{
-                                                                    width: '40px',
-                                                                    height: '40px',
-                                                                    fontSize: '20px',
-                                                                    fontWeight: 'bold',
-                                                                    border: '1px solid #ddd',
-                                                                    borderRadius: '4px',
-                                                                    backgroundColor: '#f5f5f5',
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                −
-                                                            </button>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                max={scannedProduct?.quantity || 999}
-                                                                value={sendQuantity}
-                                                                onChange={(e) => setSendQuantity(Math.max(1, Math.min(scannedProduct?.quantity || 999, parseInt(e.target.value) || 1)))}
-                                                                style={{
-                                                                    width: '80px',
-                                                                    padding: '10px',
-                                                                    fontSize: '18px',
-                                                                    fontWeight: 'bold',
-                                                                    textAlign: 'center',
-                                                                    borderRadius: '4px',
-                                                                    border: '1px solid #ff9800',
-                                                                    backgroundColor: '#fff8e1'
-                                                                }}
-                                                            />
-                                                            <button
-                                                                onClick={() => setSendQuantity(Math.min(scannedProduct?.quantity || 999, sendQuantity + 1))}
-                                                                style={{
-                                                                    width: '40px',
-                                                                    height: '40px',
-                                                                    fontSize: '20px',
-                                                                    fontWeight: 'bold',
-                                                                    border: '1px solid #ddd',
-                                                                    borderRadius: '4px',
-                                                                    backgroundColor: '#f5f5f5',
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                +
-                                                            </button>
-                                                            <span style={{ color: '#666', fontSize: '14px' }}>
-                                                                of {scannedProduct?.quantity || 0} available
-                                                            </span>
+                                                    {/* Remaining Stock Display (qty input removed - each scan = 1 item) */}
+                                                    <div style={{ marginTop: '15px', padding: '15px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '8px', border: '1px solid #B8860B' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                                            <div>
+                                                                <span style={{ color: '#B8860B', fontWeight: 'bold', fontSize: '14px' }}>📦 Stock in Warehouse:</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                                <span style={{ color: '#4caf50', fontWeight: 'bold', fontSize: '24px' }}>
+                                                                    {scannedProduct?.quantity || 0}
+                                                                </span>
+                                                                <span style={{ color: '#F5F0E1', fontSize: '12px' }}>remaining</span>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#888' }}>
+                                                            💡 Each scan sends 1 item. Scan same product again to send more.
                                                         </div>
                                                     </div>
                                                 </div>
@@ -884,26 +850,25 @@ const Inventory = () => {
                                                     setLoading(true);
                                                     try {
                                                         if (activeTab === 'scan-send') {
-                                                            // Validate quantity
-                                                            if (sendQuantity > scannedProduct.quantity) {
-                                                                setMessage({ type: 'error', text: `Cannot send ${sendQuantity}. Only ${scannedProduct.quantity} available.` });
+                                                            // Validate stock (at least 1 available)
+                                                            if (scannedProduct.quantity < 1) {
+                                                                setMessage({ type: 'error', text: `Cannot send - no stock available (0 remaining).` });
                                                                 setLoading(false);
                                                                 return;
                                                             }
-                                                            // Send: decrease quantity at source, create movement
+                                                            // Send: each scan sends exactly 1 item
                                                             await movementsAPI.ship(
                                                                 [scannedProduct.id],
                                                                 scannedProduct.warehouse_id,
                                                                 selectedWarehouse,
-                                                                `Shipped ${sendQuantity} via barcode scan`,
-                                                                sendQuantity
+                                                                `Shipped 1 via barcode scan`,
+                                                                1  // Always send 1 per scan
                                                             );
                                                             const destWarehouse = warehouses.find(w => String(w.id) === selectedWarehouse);
                                                             setMessage({
                                                                 type: 'success',
-                                                                text: `✅ ${sendQuantity} unit(s) shipped to ${destWarehouse?.name || 'destination'}!`
+                                                                text: `✅ 1 unit shipped to ${destWarehouse?.name || 'destination'}! (${scannedProduct.quantity - 1} remaining)`
                                                             });
-                                                            setSendQuantity(1); // Reset quantity
                                                         } else {
                                                             // RECEIVE MODE: Handle expected vs unexpected
                                                             const myWarehouse = warehouses.find(w => String(w.id) === String(adminWarehouseId));
@@ -1213,15 +1178,10 @@ const Inventory = () => {
                                 />
                             </div>
 
-                            {/* Auto-fetch on mount */}
+                            {/* Loading state while auto-fetching */}
                             {binInventory.length === 0 && !binInventoryLoading && adminWarehouseId && (
-                                <div style={{ textAlign: 'center', padding: '30px' }}>
-                                    <button
-                                        onClick={() => fetchBinInventory(adminWarehouseId, '')}
-                                        style={{ padding: '15px 30px', background: 'linear-gradient(135deg, #B8860B, #8B6914)', color: '#1a1a1a', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', fontFamily: "'Oswald', sans-serif" }}
-                                    >
-                                        📦 Load Inventory
-                                    </button>
+                                <div style={{ textAlign: 'center', padding: '30px', color: '#B8860B' }}>
+                                    Loading inventory...
                                 </div>
                             )}
 
@@ -1235,7 +1195,7 @@ const Inventory = () => {
                                     <div style={{ color: '#F5F0E1' }}>
                                         <span style={{ fontSize: '14px' }}>Gross Total Items:</span>
                                         <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#4caf50', fontSize: '20px' }}>
-                                            {binInventory.reduce((sum, item) => sum + (parseInt(item.total_count) || 0), 0)}
+                                            {binInventory.reduce((sum, item) => sum + (parseInt(item.total_quantity) || 0), 0)}
                                         </span>
                                     </div>
                                 </div>
@@ -1259,7 +1219,7 @@ const Inventory = () => {
                                                 <tr key={idx} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
                                                     <td style={{ padding: '14px', fontWeight: 'bold', color: '#B8860B' }}>{item.bin_number || 'No Bin'}</td>
                                                     <td style={{ padding: '14px', maxWidth: '400px', wordBreak: 'break-word', color: '#F5F0E1' }}>{item.part_numbers}</td>
-                                                    <td style={{ padding: '14px', textAlign: 'right', fontWeight: 'bold', color: '#4caf50', fontSize: '16px' }}>{item.total_count}</td>
+                                                    <td style={{ padding: '14px', textAlign: 'right', fontWeight: 'bold', color: '#4caf50', fontSize: '16px' }}>{item.total_quantity}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

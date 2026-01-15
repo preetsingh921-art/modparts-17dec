@@ -218,6 +218,30 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Inventory Summary Card */}
+        <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow p-6" style={{ borderColor: '#B8860B' }}>
+          <div className="flex items-center">
+            <div className="p-3 rounded-full mr-4" style={{ background: 'linear-gradient(135deg, #B8860B, #8B6914)' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="#1a1a1a">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm" style={{ color: '#B8860B' }}>Inventory Summary</p>
+              <div className="flex flex-col mt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 text-xs">Full Stock:</span>
+                  <span className="text-xl font-bold" style={{ color: '#4caf50' }}>{dashboardData.full_stock || 0}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 text-xs">Distinct Parts:</span>
+                  <span className="text-lg font-bold" style={{ color: '#B8860B' }}>{dashboardData.distinct_parts || 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -251,11 +275,11 @@ const Dashboard = () => {
                         <td className="p-2 text-white">{order.first_name} {order.last_name}</td>
                         <td className="p-2">
                           <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${!order.status || typeof order.status !== 'string' ? 'bg-gray-600 text-gray-100' :
-                              order.status === 'pending' ? 'bg-yellow-600 text-yellow-100' :
-                                order.status === 'processing' ? 'bg-blue-600 text-blue-100' :
-                                  order.status === 'shipped' ? 'bg-emerald-600 text-emerald-100' :
-                                    order.status === 'delivered' ? 'bg-green-600 text-green-100' :
-                                      'bg-red-600 text-red-100'
+                            order.status === 'pending' ? 'bg-yellow-600 text-yellow-100' :
+                              order.status === 'processing' ? 'bg-blue-600 text-blue-100' :
+                                order.status === 'shipped' ? 'bg-emerald-600 text-emerald-100' :
+                                  order.status === 'delivered' ? 'bg-green-600 text-green-100' :
+                                    'bg-red-600 text-red-100'
                             }`}>
                             {order.status && typeof order.status === 'string' && order.status.length > 0
                               ? (order.status.charAt(0).toUpperCase() + order.status.slice(1))

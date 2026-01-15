@@ -62,9 +62,11 @@ module.exports = async (req, res) => {
       revenueResult,
       recentOrdersResult,
       ordersByStatusResult,
-      lowStockResult
+      lowStockResult,
+      inventoryStockResult,
+      distinctPartsResult
     ] = await Promise.all([
-      // Total products
+      // Total products (distinct count)
       db.query('SELECT COUNT(*) FROM products'),
       // Total orders
       db.query('SELECT COUNT(*) FROM orders'),
@@ -91,7 +93,11 @@ module.exports = async (req, res) => {
         WHERE quantity <= 5 
         ORDER BY quantity ASC 
         LIMIT 5
-      `)
+      `),
+      // Full stock - total quantity of all items (including duplicates)
+      db.query('SELECT COALESCE(SUM(quantity), 0) as full_stock FROM products'),
+      // Distinct parts count
+      db.query('SELECT COUNT(DISTINCT part_number) as distinct_parts FROM products')
     ]);
 
     // Process results
@@ -99,6 +105,8 @@ module.exports = async (req, res) => {
     const totalOrders = parseInt(ordersResult.rows[0].count) || 0;
     const totalCustomers = parseInt(customersResult.rows[0].count) || 0;
     const totalRevenue = parseFloat(revenueResult.rows[0].total) || 0;
+    const fullStock = parseInt(inventoryStockResult.rows[0].full_stock) || 0;
+    const distinctParts = parseInt(distinctPartsResult.rows[0].distinct_parts) || 0;
 
     // Format recent orders for frontend
     const recentOrders = recentOrdersResult.rows.map(order => ({
@@ -126,7 +134,9 @@ module.exports = async (req, res) => {
       total_revenue: totalRevenue,
       orders_by_status: ordersStatusCounts,
       recent_orders: recentOrders,
-      low_stock: lowStockResult.rows
+      low_stock: lowStockResult.rows,
+      full_stock: fullStock,
+      distinct_parts: distinctParts
     };
 
     console.log('✅ Dashboard data fetched successfully from Neon');

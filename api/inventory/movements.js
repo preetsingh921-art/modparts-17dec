@@ -14,11 +14,15 @@ module.exports = async function handler(req, res) {
           p.barcode,
           p.part_number,
           fw.name as from_warehouse_name,
-          tw.name as to_warehouse_name
+          tw.name as to_warehouse_name,
+          cu.first_name || ' ' || cu.last_name as created_by_name,
+          ru.first_name || ' ' || ru.last_name as received_by_name
         FROM inventory_movements m
         LEFT JOIN products p ON m.product_id = p.id
         LEFT JOIN warehouses fw ON m.from_warehouse_id = fw.id
         LEFT JOIN warehouses tw ON m.to_warehouse_id = tw.id
+        LEFT JOIN users cu ON m.created_by = cu.id
+        LEFT JOIN users ru ON m.received_by = ru.id
         WHERE 1=1
       `;
 
@@ -175,12 +179,12 @@ module.exports = async function handler(req, res) {
                     console.log(`📥 Received ${quantity} of ${movement.part_number} - created new product entry`);
                 }
 
-                // Mark movement as completed
+                // Mark movement as completed with receiver user
                 await db.query(`
                     UPDATE inventory_movements 
-                    SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2
+                    SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2, received_by = $3
                     WHERE id = $1
-                `, [movement_id, bin_number]);
+                `, [movement_id, bin_number, decoded.id]);
 
                 return res.json({
                     message: resultMessage,

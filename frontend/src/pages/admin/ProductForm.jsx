@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { getProductById, createProduct, updateProduct, uploadProductImage } from '../../api/products';
 import { getCategories } from '../../api/categories';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { processImageUrl, handleImageError } from '../../utils/imageHelper';
 import { InlineLoader } from '../../components/ui/LoadingSpinner';
 import PlaceholderImage from '../../components/ui/PlaceholderImage';
@@ -14,6 +15,7 @@ const ProductForm = () => {
   const [searchParams] = useSearchParams();
   const isEditMode = !!id;
   const { success, error: showError } = useToast();
+  const { user } = useAuth();
 
   // Get prefilled part_number from URL (from barcode scan)
   const prefilledPartNumber = searchParams.get('part_number') || '';
@@ -27,7 +29,8 @@ const ProductForm = () => {
     quantity: '',
     image_url: '',
     part_number: prefilledPartNumber,
-    barcode: prefilledPartNumber // Also use as barcode
+    barcode: prefilledPartNumber, // Also use as barcode
+    warehouse_id: user?.warehouse_id || '' // Auto-select admin's warehouse
   });
 
   const [categories, setCategories] = useState([]);

@@ -3,6 +3,7 @@ import { barcodeAPI, warehouseAPI, binAPI, movementsAPI, binContentsAPI } from '
 import { useAuth } from '../../context/AuthContext';
 import BarcodeScanner from '../../components/inventory/BarcodeScanner';
 import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
+import FloatingNotification from '../../components/ui/FloatingNotification';
 
 /**
  * Inventory Management Page
@@ -623,19 +624,12 @@ const Inventory = () => {
         <div className="inventory-page" style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
             <h1 style={{ marginBottom: '20px' }}>📦 Inventory Management</h1>
 
-            {/* Message Display */}
-            {message.text && (
-                <div style={{
-                    padding: '10px 20px',
-                    marginBottom: '20px',
-                    borderRadius: '4px',
-                    backgroundColor: message.type === 'success' ? '#e8f5e9' : message.type === 'warning' ? '#fff3e0' : '#ffebee',
-                    color: message.type === 'success' ? '#2e7d32' : message.type === 'warning' ? '#e65100' : '#c62828',
-                    border: `1px solid ${message.type === 'success' ? '#4caf50' : message.type === 'warning' ? '#ffb74d' : '#ef5350'}`
-                }}>
-                    {message.text}
-                </div>
-            )}
+            {/* Floating Notification (Mobile-Friendly) */}
+            <FloatingNotification
+                message={message.text}
+                type={message.type}
+                onDismiss={() => setMessage({ type: '', text: '' })}
+            />
 
             {/* Tab Navigation - Responsive */}
             <div style={{

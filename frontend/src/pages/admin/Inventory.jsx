@@ -346,7 +346,7 @@ const Inventory = () => {
             // If product is already provided by scanner, use it directly
             if (product) {
                 // For SEND mode, verify product is in admin's warehouse
-                if (transferAction === 'send' && adminWarehouseId && String(product.warehouse_id) !== String(adminWarehouseId)) {
+                if (activeTab === 'scan-send' && adminWarehouseId && String(product.warehouse_id) !== String(adminWarehouseId)) {
                     setScannedProduct(null);
                     setMessage({ type: 'warning', text: `Cannot send: Product is in ${product.warehouse_name || 'another warehouse'}, not your warehouse.` });
                 } else {
@@ -381,7 +381,7 @@ const Inventory = () => {
                 }
 
                 if (matchingProducts.length > 0) {
-                    if (transferAction === 'send') {
+                    if (activeTab === 'scan-send') {
                         // SEND MODE: Find product specifically in admin's warehouse
                         const productInMyWarehouse = matchingProducts.find(p =>
                             String(p.warehouse_id) === String(adminWarehouseId)
@@ -398,42 +398,96 @@ const Inventory = () => {
                             setMessage({ type: 'warning', text: `Product not in your warehouse. Found in: ${otherLocations}. Switch to RECEIVE mode to add copies.` });
                         }
                     } else {
-                        // RECEIVE MODE: Check for pending movements TO admin's warehouse
-                        const foundProduct = matchingProducts[0];
-                        setScannedProduct(foundProduct);
-                        setPendingMovement(null);
-                        setShowUnexpectedConfirm(false);
+                        // RECEIVE MODE: Check pending movements FIRST, then look for products
 
-                        // Check if there's a pending movement for this product to admin's warehouse
+                        // Search for pending movement by barcode/part_number destined to admin's warehouse
                         const matchedMovement = movements.find(m =>
-                            (m.part_number === foundProduct.part_number || m.barcode === foundProduct.barcode) &&
+                            (m.part_number === barcode || m.barcode === barcode ||
+                                m.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
+                                m.barcode?.toLowerCase().includes(barcode.toLowerCase())) &&
                             String(m.to_warehouse_id) === String(adminWarehouseId) &&
                             m.status === 'in_transit'
                         );
 
                         if (matchedMovement) {
-                            // EXPECTED: Movement exists for this product to admin's warehouse
+                            // EXPECTED SHIPMENT FOUND - even if product doesn't exist in receiving warehouse
                             setPendingMovement(matchedMovement);
                             setReceiveQuantity(matchedMovement.quantity || 1);
+                            setScannedProduct({
+                                id: matchedMovement.product_id,
+                                name: matchedMovement.product_name || barcode,
+                                part_number: matchedMovement.part_number,
+                                barcode: matchedMovement.barcode,
+                                quantity: matchedMovement.quantity
+                            });
+                            setShowUnexpectedConfirm(false);
+                            setNotFoundBarcode(null);
                             setMessage({
                                 type: 'success',
-                                text: `✅ EXPECTED: ${foundProduct.name} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
+                                text: `✅ EXPECTED: ${matchedMovement.product_name || barcode} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
                             });
-                        } else {
-                            // UNEXPECTED: No pending movement for this product
+                        } else if (matchingProducts.length > 0) {
+                            // Product exists but no pending movement - UNEXPECTED
+                            const foundProduct = matchingProducts[0];
+                            setScannedProduct(foundProduct);
+                            setPendingMovement(null);
                             setShowUnexpectedConfirm(true);
                             setReceiveQuantity(1);
                             setMessage({
                                 type: 'warning',
                                 text: `⚠️ UNEXPECTED: ${foundProduct.name} was not expected. Confirm to add to inventory.`
                             });
+                        } else {
+                            // No product found AND no pending movement
+                            setNotFoundBarcode(barcode);
+                            setScannedProduct(null);
+                            setPendingMovement(null);
+                            setShowUnexpectedConfirm(true);
+                            setMessage({ type: 'warning', text: `⚠️ No pending shipment or product found for: ${barcode}. Confirm to add as new.` });
                         }
                     }
                 } else {
-                    // No product found at all
-                    setNotFoundBarcode(barcode);
-                    setScannedProduct(null);
-                    setMessage({ type: 'warning', text: `Product not found for barcode: ${barcode}` });
+                    // No product found at all - still check pending movements for RECEIVE mode
+                    if (activeTab === 'scan-receive') {
+                        const matchedMovement = movements.find(m =>
+                            (m.part_number === barcode || m.barcode === barcode ||
+                                m.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
+                                m.barcode?.toLowerCase().includes(barcode.toLowerCase())) &&
+                            String(m.to_warehouse_id) === String(adminWarehouseId) &&
+                            m.status === 'in_transit'
+                        );
+
+                        if (matchedMovement) {
+                            // EXPECTED SHIPMENT FOUND
+                            setPendingMovement(matchedMovement);
+                            setReceiveQuantity(matchedMovement.quantity || 1);
+                            setScannedProduct({
+                                id: matchedMovement.product_id,
+                                name: matchedMovement.product_name || barcode,
+                                part_number: matchedMovement.part_number,
+                                barcode: matchedMovement.barcode,
+                                quantity: matchedMovement.quantity
+                            });
+                            setShowUnexpectedConfirm(false);
+                            setNotFoundBarcode(null);
+                            setMessage({
+                                type: 'success',
+                                text: `✅ EXPECTED: ${matchedMovement.product_name || barcode} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
+                            });
+                        } else {
+                            // No product and no pending movement - show add as new
+                            setNotFoundBarcode(barcode);
+                            setScannedProduct(null);
+                            setPendingMovement(null);
+                            setShowUnexpectedConfirm(true);
+                            setMessage({ type: 'warning', text: `⚠️ No pending shipment for: ${barcode}. Confirm to add as new product.` });
+                        }
+                    } else {
+                        // SEND mode - product not found
+                        setNotFoundBarcode(barcode);
+                        setScannedProduct(null);
+                        setMessage({ type: 'warning', text: `Product not found for barcode: ${barcode}` });
+                    }
                 }
             }
         } catch (error) {

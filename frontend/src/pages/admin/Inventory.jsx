@@ -55,6 +55,7 @@ const Inventory = () => {
     const [selectedBinRows, setSelectedBinRows] = useState([]);
     const [binInventoryWarehouse, setBinInventoryWarehouse] = useState('');
     const [binInventoryLoading, setBinInventoryLoading] = useState(false);
+    const [inventoryViewMode, setInventoryViewMode] = useState('bin'); // 'bin' or 'product'
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -1058,36 +1059,47 @@ const Inventory = () => {
                             <p style={{ color: '#666', padding: '20px' }}>No shipments in transit</p>
                         ) : (
                             <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', minWidth: '600px' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', minWidth: '800px' }}>
                                     <thead>
-                                        <tr style={{ background: '#f5f5f5' }}>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Product</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Barcode</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>From</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>To</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Status</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Shipped</th>
+                                        <tr style={{ background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)' }}>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Product</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Part#</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>From</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>To</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Status</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Shipped</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Dispatcher</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Receiver</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {movements.map(m => (
-                                            <tr key={m.id} style={{ borderBottom: '1px solid #eee' }}>
-                                                <td style={{ padding: '12px' }}>{m.product_name}</td>
-                                                <td style={{ padding: '12px', fontFamily: 'monospace' }}>{m.barcode}</td>
-                                                <td style={{ padding: '12px' }}>{m.from_warehouse_name}</td>
-                                                <td style={{ padding: '12px' }}>{m.to_warehouse_name}</td>
+                                            <tr key={m.id} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: '#1a1a1a' }}>
+                                                <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.product_name}</td>
+                                                <td style={{ padding: '12px', fontFamily: 'monospace', color: '#B8860B' }}>{m.part_number || m.barcode}</td>
+                                                <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.from_warehouse_name}</td>
+                                                <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.to_warehouse_name}</td>
                                                 <td style={{ padding: '12px' }}>
                                                     <span style={{
                                                         padding: '4px 8px',
                                                         borderRadius: '4px',
                                                         fontSize: '12px',
-                                                        background: m.status === 'in_transit' ? '#fff3e0' : '#e8f5e9',
-                                                        color: m.status === 'in_transit' ? '#e65100' : '#2e7d32'
+                                                        background: m.status === 'in_transit' ? 'rgba(184, 134, 11, 0.3)' : 'rgba(76, 175, 80, 0.3)',
+                                                        color: m.status === 'in_transit' ? '#B8860B' : '#4caf50',
+                                                        border: `1px solid ${m.status === 'in_transit' ? '#B8860B' : '#4caf50'}`
                                                     }}>
                                                         {m.status}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '12px' }}>{new Date(m.created_at).toLocaleDateString()}</td>
+                                                <td style={{ padding: '12px', color: '#888', fontSize: '12px' }}>
+                                                    {m.shipped_at ? new Date(m.shipped_at).toLocaleString() : new Date(m.created_at).toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: '12px', color: '#4caf50', fontSize: '12px' }}>
+                                                    {m.created_by_name || '-'}
+                                                </td>
+                                                <td style={{ padding: '12px', color: '#4caf50', fontSize: '12px' }}>
+                                                    {m.received_by_name || (m.status === 'completed' ? 'Unknown' : '-')}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -1108,11 +1120,11 @@ const Inventory = () => {
                         {/* Warehouse selector only for Superadmin */}
                         {user?.role === 'superadmin' && (
                             <div style={{ marginBottom: '20px' }}>
-                                <label style={{ marginRight: '10px' }}>View Other Warehouse:</label>
+                                <label style={{ marginRight: '10px', color: '#F5F0E1' }}>View Other Warehouse:</label>
                                 <select
                                     value={selectedWarehouse || adminWarehouseId || ''}
                                     onChange={(e) => setSelectedWarehouse(e.target.value)}
-                                    style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', color: '#333' }}
+                                    style={{ padding: '8px', borderRadius: '4px', border: '1px solid #B8860B', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
                                 >
                                     {warehouses.map(w => (
                                         <option key={w.id} value={w.id}>{w.name}</option>
@@ -1120,6 +1132,41 @@ const Inventory = () => {
                                 </select>
                             </div>
                         )}
+
+                        {/* Bin/Product View Toggle */}
+                        <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <span style={{ color: '#B8860B', fontWeight: 'bold' }}>View:</span>
+                            <button
+                                onClick={() => setInventoryViewMode('bin')}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '6px',
+                                    border: inventoryViewMode === 'bin' ? '2px solid #B8860B' : '1px solid #555',
+                                    background: inventoryViewMode === 'bin' ? 'linear-gradient(135deg, #B8860B, #8B6914)' : '#1a1a1a',
+                                    color: inventoryViewMode === 'bin' ? '#1a1a1a' : '#888',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    fontFamily: "'Oswald', sans-serif"
+                                }}
+                            >
+                                📦 By Bin
+                            </button>
+                            <button
+                                onClick={() => setInventoryViewMode('product')}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '6px',
+                                    border: inventoryViewMode === 'product' ? '2px solid #B8860B' : '1px solid #555',
+                                    background: inventoryViewMode === 'product' ? 'linear-gradient(135deg, #B8860B, #8B6914)' : '#1a1a1a',
+                                    color: inventoryViewMode === 'product' ? '#1a1a1a' : '#888',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    fontFamily: "'Oswald', sans-serif"
+                                }}
+                            >
+                                🔧 By Product
+                            </button>
+                        </div>
 
                         {/* Create Bin Form - Gold Theme */}
                         <form onSubmit={handleCreateBin} style={{

@@ -89,7 +89,8 @@ export const getProducts = async (params = {}) => {
       categories = '',
       sortBy = 'created_at',
       sortOrder = 'desc',
-      warehouse_id = ''
+      warehouse_id = '',
+      bin_number = ''  // Add bin_number support
     } = params;
 
     const queryParams = new URLSearchParams({
@@ -103,6 +104,7 @@ export const getProducts = async (params = {}) => {
     if (category) queryParams.append('category', category);
     if (categories) queryParams.append('categories', categories);
     if (warehouse_id) queryParams.append('warehouse_id', warehouse_id);
+    if (bin_number) queryParams.append('bin_number', bin_number);  // Pass bin_number to API
 
     const url = `/products?${queryParams}`;
     console.log('🔍 getProducts: Making request to:', url);

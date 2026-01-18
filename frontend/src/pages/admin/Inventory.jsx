@@ -568,11 +568,16 @@ const Inventory = () => {
                 ...newBin
             });
 
-            setMessage({ type: 'success', text: 'Bin created successfully' });
-            setNewBin({ bin_number: '', description: '', capacity: 100 });
-            // Refresh bins list with the same warehouse
-            fetchBins(warehouseToUse);
+            if (result.bin) {
+                setMessage({ type: 'success', text: `Bin "${result.bin.bin_number}" created successfully` });
+                setNewBin({ bin_number: '', description: '', capacity: 100 });
+                // Await the bins refresh to ensure list is updated before hiding loading
+                await fetchBins(warehouseToUse);
+            } else {
+                setMessage({ type: 'error', text: result.message || 'Failed to create bin' });
+            }
         } catch (error) {
+            console.error('Error creating bin:', error);
             setMessage({ type: 'error', text: 'Error creating bin: ' + (error.message || 'Unknown error') });
         }
         setLoading(false);

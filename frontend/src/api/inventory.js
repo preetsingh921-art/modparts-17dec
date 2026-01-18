@@ -160,8 +160,8 @@ export const binAPI = {
   },
 
   // Update bin
-  update: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/inventory/bins`, {
+  update: async (id, data) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/bins?id=${id}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(data),

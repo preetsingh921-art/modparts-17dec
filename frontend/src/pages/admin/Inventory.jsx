@@ -63,6 +63,9 @@ const Inventory = () => {
     const [binManagementSearch, setBinManagementSearch] = useState(''); // Search in bin management
     const [showShiftModal, setShowShiftModal] = useState(false); // Shift product modal
     const [shiftData, setShiftData] = useState({ product: null, fromBin: '', toBin: '', quantity: 1 });
+    const [showEditBinModal, setShowEditBinModal] = useState(false); // Edit bin modal
+    const [editBinData, setEditBinData] = useState({ id: null, bin_number: '', description: '' });
+    const [binScannerActive, setBinScannerActive] = useState(false); // Scanner mode for bin search
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -602,6 +605,101 @@ const Inventory = () => {
             console.error('Error fetching bin products:', error);
             setBinProducts([]);
         }
+    };
+
+    // Open edit bin modal
+    const handleEditBin = (bin) => {
+        setEditBinData({
+            id: bin.id,
+            bin_number: bin.bin_number,
+            description: bin.description || ''
+        });
+        setShowEditBinModal(true);
+    };
+
+    // Update bin (rename)
+    const handleUpdateBin = async () => {
+        if (!editBinData.id || !editBinData.bin_number) return;
+        setLoading(true);
+        try {
+            const result = await binAPI.update(editBinData.id, {
+                bin_number: editBinData.bin_number,
+                description: editBinData.description
+            });
+            if (result.bin) {
+                setMessage({ type: 'success', text: `Bin renamed to "${result.bin.bin_number}"` });
+                setShowEditBinModal(false);
+                await fetchBins(adminWarehouseId);
+            } else {
+                setMessage({ type: 'error', text: result.message || 'Failed to update bin' });
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Error updating bin: ' + error.message });
+        }
+        setLoading(false);
+    };
+
+    // Delete bin
+    const handleDeleteBin = async (binId) => {
+        if (!window.confirm('Are you sure you want to delete this bin?')) return;
+        setLoading(true);
+        try {
+            const result = await binAPI.delete(binId);
+            setMessage({ type: 'success', text: 'Bin deleted successfully' });
+            setShowEditBinModal(false);
+            setSelectedBinOverlay(null);
+            await fetchBins(adminWarehouseId);
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Error deleting bin: ' + error.message });
+        }
+        setLoading(false);
+    };
+
+    // Open shift modal for a product
+    const handleOpenShiftModal = (product, fromBin) => {
+        setShiftData({
+            product: product,
+            fromBin: fromBin,
+            toBin: '',
+            quantity: 1
+        });
+        setShowShiftModal(true);
+    };
+
+    // Shift product to another bin
+    const handleShiftProduct = async () => {
+        if (!shiftData.product || !shiftData.toBin || shiftData.quantity < 1) {
+            setMessage({ type: 'error', text: 'Please select target bin and quantity' });
+            return;
+        }
+        setLoading(true);
+        try {
+            const productsModule = await import('../../api/products');
+            // Update product's bin_number
+            const result = await productsModule.updateProduct(shiftData.product.id, {
+                bin_number: shiftData.toBin
+            });
+            if (result.product || result.id) {
+                setMessage({ type: 'success', text: `Moved to bin ${shiftData.toBin}` });
+                setShowShiftModal(false);
+                // Refresh bin products
+                if (selectedBinOverlay) {
+                    handleBinClick(selectedBinOverlay);
+                }
+                await fetchBins(adminWarehouseId);
+            } else {
+                setMessage({ type: 'error', text: result.message || 'Failed to shift product' });
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Error shifting product: ' + error.message });
+        }
+        setLoading(false);
+    };
+
+    // Handle barcode scan for bin search
+    const handleBinScanResult = (barcode) => {
+        setBinManagementSearch(barcode);
+        setBinScannerActive(false);
     };
 
     // Warehouse CRUD handlers
@@ -1541,7 +1639,37 @@ const Inventory = () => {
                                         fontSize: '14px'
                                     }}
                                 />
+                                <button
+                                    onClick={() => setBinScannerActive(true)}
+                                    style={{
+                                        padding: '12px 20px',
+                                        background: 'linear-gradient(135deg, #B8860B, #8B6914)',
+                                        color: '#1a1a1a',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold',
+                                        fontSize: '14px'
+                                    }}
+                                >📷 Scan</button>
                             </div>
+
+                            {/* Scanner Modal */}
+                            {binScannerActive && (
+                                <div style={{ marginBottom: '15px', padding: '15px', background: 'rgba(184, 134, 11, 0.1)', borderRadius: '8px', border: '1px solid #B8860B' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                        <span style={{ color: '#B8860B', fontWeight: 'bold' }}>📷 Scanner Active</span>
+                                        <button
+                                            onClick={() => setBinScannerActive(false)}
+                                            style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }}
+                                        >✕</button>
+                                    </div>
+                                    <BarcodeScanner
+                                        onScan={(barcode) => handleBinScanResult(barcode)}
+                                        onError={(error) => console.error('Scanner error:', error)}
+                                    />
+                                </div>
+                            )}
 
                             <p style={{ color: '#888', fontSize: '12px', marginBottom: '15px' }}>Click on a bin to view its contents</p>
                             <div style={{
@@ -1596,7 +1724,7 @@ const Inventory = () => {
                             border: '2px solid #B8860B',
                             borderRadius: '12px',
                             padding: '25px',
-                            maxWidth: '600px',
+                            maxWidth: '650px',
                             width: '100%',
                             maxHeight: '80vh',
                             overflow: 'auto'
@@ -1605,10 +1733,20 @@ const Inventory = () => {
                                 <h3 style={{ color: '#B8860B', fontFamily: "'Oswald', sans-serif", margin: 0 }}>
                                     📦 Bin {selectedBinOverlay.bin_number}
                                 </h3>
-                                <button
-                                    onClick={() => setSelectedBinOverlay(null)}
-                                    style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer' }}
-                                >×</button>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                        onClick={() => handleEditBin(selectedBinOverlay)}
+                                        style={{ padding: '6px 12px', background: '#B8860B', color: '#1a1a1a', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                                    >✏️ Edit</button>
+                                    <button
+                                        onClick={() => handleDeleteBin(selectedBinOverlay.id)}
+                                        style={{ padding: '6px 12px', background: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                                    >🗑️ Delete</button>
+                                    <button
+                                        onClick={() => setSelectedBinOverlay(null)}
+                                        style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer' }}
+                                    >×</button>
+                                </div>
                             </div>
                             {selectedBinOverlay.description && (
                                 <p style={{ color: '#888', fontSize: '14px', marginBottom: '15px' }}>{selectedBinOverlay.description}</p>
@@ -1628,18 +1766,139 @@ const Inventory = () => {
                                                 justifyContent: 'space-between',
                                                 alignItems: 'center'
                                             }}>
-                                                <div>
+                                                <div style={{ flex: 1 }}>
                                                     <div style={{ fontWeight: 'bold', color: '#F5F0E1' }}>{p.name || p.part_number}</div>
                                                     <div style={{ fontSize: '12px', color: '#B8860B' }}>{p.part_number}</div>
                                                 </div>
-                                                <div style={{ textAlign: 'right' }}>
+                                                <div style={{ textAlign: 'center', marginRight: '15px' }}>
                                                     <div style={{ fontWeight: 'bold', color: '#4caf50', fontSize: '18px' }}>{p.quantity}</div>
                                                     <div style={{ fontSize: '10px', color: '#888' }}>in stock</div>
                                                 </div>
+                                                <button
+                                                    onClick={() => handleOpenShiftModal(p, selectedBinOverlay.bin_number)}
+                                                    style={{ padding: '8px 12px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+                                                >📦→ Shift</button>
                                             </div>
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Bin Modal */}
+                {showEditBinModal && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.8)',
+                        zIndex: 10001,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px'
+                    }} onClick={() => setShowEditBinModal(false)}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+                            border: '2px solid #B8860B',
+                            borderRadius: '12px',
+                            padding: '25px',
+                            maxWidth: '400px',
+                            width: '100%'
+                        }} onClick={(e) => e.stopPropagation()}>
+                            <h3 style={{ color: '#B8860B', fontFamily: "'Oswald', sans-serif", marginBottom: '20px' }}>✏️ Edit Bin</h3>
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', color: '#F5F0E1', marginBottom: '5px', fontSize: '12px' }}>Bin Number</label>
+                                <input
+                                    type="text"
+                                    value={editBinData.bin_number}
+                                    onChange={(e) => setEditBinData({ ...editBinData, bin_number: e.target.value })}
+                                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #B8860B', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
+                                />
+                            </div>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', color: '#F5F0E1', marginBottom: '5px', fontSize: '12px' }}>Description</label>
+                                <input
+                                    type="text"
+                                    value={editBinData.description}
+                                    onChange={(e) => setEditBinData({ ...editBinData, description: e.target.value })}
+                                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #B8860B', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => setShowEditBinModal(false)}
+                                    style={{ padding: '10px 20px', background: '#555', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                >Cancel</button>
+                                <button
+                                    onClick={handleUpdateBin}
+                                    disabled={loading}
+                                    style={{ padding: '10px 20px', background: '#B8860B', color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                >{loading ? 'Saving...' : 'Save Changes'}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Shift Product Modal */}
+                {showShiftModal && shiftData.product && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.8)',
+                        zIndex: 10001,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px'
+                    }} onClick={() => setShowShiftModal(false)}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+                            border: '2px solid #2196F3',
+                            borderRadius: '12px',
+                            padding: '25px',
+                            maxWidth: '450px',
+                            width: '100%'
+                        }} onClick={(e) => e.stopPropagation()}>
+                            <h3 style={{ color: '#2196F3', fontFamily: "'Oswald', sans-serif", marginBottom: '20px' }}>📦→ Shift Product</h3>
+                            <div style={{ padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', marginBottom: '20px' }}>
+                                <div style={{ fontWeight: 'bold', color: '#F5F0E1' }}>{shiftData.product.name || shiftData.product.part_number}</div>
+                                <div style={{ fontSize: '12px', color: '#B8860B' }}>{shiftData.product.part_number}</div>
+                                <div style={{ fontSize: '12px', color: '#888', marginTop: '5px' }}>Current stock: {shiftData.product.quantity}</div>
+                            </div>
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', color: '#F5F0E1', marginBottom: '5px', fontSize: '12px' }}>From Bin</label>
+                                <input
+                                    type="text"
+                                    value={shiftData.fromBin}
+                                    disabled
+                                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #555', backgroundColor: '#333', color: '#888' }}
+                                />
+                            </div>
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', color: '#F5F0E1', marginBottom: '5px', fontSize: '12px' }}>To Bin *</label>
+                                <select
+                                    value={shiftData.toBin}
+                                    onChange={(e) => setShiftData({ ...shiftData, toBin: e.target.value })}
+                                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #2196F3', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
+                                >
+                                    <option value="">Select target bin...</option>
+                                    {bins.filter(b => b.bin_number !== shiftData.fromBin).map(b => (
+                                        <option key={b.id} value={b.bin_number}>{b.bin_number}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => setShowShiftModal(false)}
+                                    style={{ padding: '10px 20px', background: '#555', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                >Cancel</button>
+                                <button
+                                    onClick={handleShiftProduct}
+                                    disabled={loading || !shiftData.toBin}
+                                    style={{ padding: '10px 20px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                >{loading ? 'Moving...' : 'Move to Bin'}</button>
                             </div>
                         </div>
                     </div>

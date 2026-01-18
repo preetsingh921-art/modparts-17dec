@@ -69,6 +69,40 @@ module.exports = async function handler(req, res) {
             });
         }
 
+        // PUT - Update bin
+        if (req.method === 'PUT') {
+            const decoded = verifyAdminToken(req);
+            if (!decoded) {
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { id } = req.query;
+            const { bin_number, description, capacity } = req.body;
+
+            if (!id) {
+                return res.status(400).json({ message: 'Bin ID is required' });
+            }
+
+            const result = await db.query(`
+                UPDATE bins 
+                SET bin_number = COALESCE($2, bin_number),
+                    description = COALESCE($3, description),
+                    capacity = COALESCE($4, capacity),
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING *
+            `, [id, bin_number, description, capacity]);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ message: 'Bin not found' });
+            }
+
+            return res.json({
+                message: 'Bin updated successfully',
+                bin: result.rows[0]
+            });
+        }
+
         // DELETE - Delete bin
         if (req.method === 'DELETE') {
             const decoded = verifyAdminToken(req);

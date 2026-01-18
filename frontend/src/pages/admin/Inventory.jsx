@@ -173,6 +173,13 @@ const Inventory = () => {
         }
     }, [activeTab, adminWarehouseId]);
 
+    // Auto-load bins when bin-management tab is active
+    useEffect(() => {
+        if (activeTab === 'bin-management' && adminWarehouseId) {
+            fetchBins(adminWarehouseId);
+        }
+    }, [activeTab, adminWarehouseId]);
+
     const fetchWarehouses = async () => {
         try {
             const data = await warehouseAPI.getAll();

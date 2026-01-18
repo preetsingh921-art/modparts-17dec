@@ -56,6 +56,8 @@ const Inventory = () => {
     const [binInventoryWarehouse, setBinInventoryWarehouse] = useState('');
     const [binInventoryLoading, setBinInventoryLoading] = useState(false);
     const [inventoryViewMode, setInventoryViewMode] = useState('bin'); // 'bin' or 'product'
+    const [selectedBinOverlay, setSelectedBinOverlay] = useState(null); // For bin parts overlay
+    const [binProducts, setBinProducts] = useState([]); // Products in selected bin
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -539,6 +541,24 @@ const Inventory = () => {
         setLoading(false);
     };
 
+    // Handle clicking on a bin to view its products
+    const handleBinClick = async (bin) => {
+        setSelectedBinOverlay(bin);
+        setBinProducts([]);
+        try {
+            const productsModule = await import('../../api/products');
+            const result = await productsModule.getProducts({
+                warehouse_id: adminWarehouseId,
+                bin_number: bin.bin_number,
+                limit: 100
+            });
+            setBinProducts(result.products || result || []);
+        } catch (error) {
+            console.error('Error fetching bin products:', error);
+            setBinProducts([]);
+        }
+    };
+
     // Warehouse CRUD handlers
     const resetWarehouseForm = () => {
         setWarehouseForm({
@@ -618,6 +638,7 @@ const Inventory = () => {
         { id: 'scan-receive', label: '📥 Scan & Receive', icon: '📥' },
         { id: 'movements', label: '🚚 Movements', icon: '🚚' },
         { id: 'warehouse-inventory', label: '📦 Warehouse Inventory', icon: '📦' },
+        { id: 'bin-management', label: '🗄️ Bin Management', icon: '🗄️' },
         ...(user?.role === 'superadmin' ? [{ id: 'warehouses', label: '🏭 Warehouses', icon: '🏭' }] : []),
     ];
 
@@ -1068,40 +1089,64 @@ const Inventory = () => {
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>To</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Status</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Shipped</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Duration</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Dispatcher</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Receiver</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {movements.map(m => (
-                                            <tr key={m.id} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: '#1a1a1a' }}>
-                                                <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.product_name}</td>
-                                                <td style={{ padding: '12px', fontFamily: 'monospace', color: '#B8860B' }}>{m.part_number || m.barcode}</td>
-                                                <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.from_warehouse_name}</td>
-                                                <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.to_warehouse_name}</td>
-                                                <td style={{ padding: '12px' }}>
-                                                    <span style={{
-                                                        padding: '4px 8px',
-                                                        borderRadius: '4px',
-                                                        fontSize: '12px',
-                                                        background: m.status === 'in_transit' ? 'rgba(184, 134, 11, 0.3)' : 'rgba(76, 175, 80, 0.3)',
-                                                        color: m.status === 'in_transit' ? '#B8860B' : '#4caf50',
-                                                        border: `1px solid ${m.status === 'in_transit' ? '#B8860B' : '#4caf50'}`
-                                                    }}>
-                                                        {m.status}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '12px', color: '#888', fontSize: '12px' }}>
-                                                    {m.shipped_at ? new Date(m.shipped_at).toLocaleString() : new Date(m.created_at).toLocaleString()}
-                                                </td>
-                                                <td style={{ padding: '12px', color: '#4caf50', fontSize: '12px' }}>
-                                                    {m.created_by_name || '-'}
-                                                </td>
-                                                <td style={{ padding: '12px', color: '#4caf50', fontSize: '12px' }}>
-                                                    {m.received_by_name || (m.status === 'completed' ? 'Unknown' : '-')}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {movements.map(m => {
+                                            // Calculate transit duration
+                                            const shippedDate = m.shipped_at ? new Date(m.shipped_at) : new Date(m.created_at);
+                                            const now = new Date();
+                                            const endDate = m.status === 'completed' && m.received_at ? new Date(m.received_at) : now;
+                                            const diffMs = endDate - shippedDate;
+                                            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                                            const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                            const durationText = diffDays > 0 ? `${diffDays}d ${diffHours}h` : `${diffHours}h`;
+
+                                            return (
+                                                <tr key={m.id} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: '#1a1a1a' }}>
+                                                    <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.product_name}</td>
+                                                    <td style={{ padding: '12px', fontFamily: 'monospace', color: '#B8860B' }}>{m.part_number || m.barcode}</td>
+                                                    <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.from_warehouse_name}</td>
+                                                    <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.to_warehouse_name}</td>
+                                                    <td style={{ padding: '12px' }}>
+                                                        <span style={{
+                                                            padding: '4px 8px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px',
+                                                            background: m.status === 'in_transit' ? 'rgba(184, 134, 11, 0.3)' : 'rgba(76, 175, 80, 0.3)',
+                                                            color: m.status === 'in_transit' ? '#B8860B' : '#4caf50',
+                                                            border: `1px solid ${m.status === 'in_transit' ? '#B8860B' : '#4caf50'}`
+                                                        }}>
+                                                            {m.status}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#888', fontSize: '12px' }}>
+                                                        {shippedDate.toLocaleString(undefined, {
+                                                            dateStyle: 'short',
+                                                            timeStyle: 'short',
+                                                            timeZoneName: 'short'
+                                                        })}
+                                                    </td>
+                                                    <td style={{ padding: '12px', fontSize: '12px' }}>
+                                                        <span style={{
+                                                            color: m.status === 'in_transit' ? (diffDays > 3 ? '#f44336' : '#B8860B') : '#4caf50',
+                                                            fontWeight: 'bold'
+                                                        }}>
+                                                            {durationText}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#4caf50', fontSize: '12px' }}>
+                                                        {m.created_by_name || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#4caf50', fontSize: '12px' }}>
+                                                        {m.received_by_name || (m.status === 'completed' ? 'Unknown' : '-')}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -1168,51 +1213,19 @@ const Inventory = () => {
                             </button>
                         </div>
 
-                        {/* Create Bin Form - Gold Theme */}
-                        <form onSubmit={handleCreateBin} style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '10px',
-                            marginBottom: '20px',
-                            padding: '20px',
-                            background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
-                            borderRadius: '12px',
-                            border: '1px solid #B8860B'
-                        }} className="md:flex-row">
-                            <input
-                                type="text"
-                                placeholder="Bin # (e.g., A-01)"
-                                value={newBin.bin_number}
-                                onChange={(e) => setNewBin({ ...newBin, bin_number: e.target.value })}
-                                style={{ padding: '12px', borderRadius: '6px', border: '1px solid #B8860B', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
-                                required
-                            />
-                            <input
-                                type="text"
-                                placeholder="Description"
-                                value={newBin.description}
-                                onChange={(e) => setNewBin({ ...newBin, description: e.target.value })}
-                                style={{ padding: '12px', borderRadius: '6px', border: '1px solid #B8860B', flex: 1, backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
-                            />
+                        {/* Note about bin creation */}
+                        <div style={{ marginBottom: '15px', padding: '12px', background: 'rgba(184, 134, 11, 0.1)', borderRadius: '8px', border: '1px dashed #B8860B' }}>
+                            <span style={{ color: '#888', fontSize: '12px' }}>💡 To create or manage bins, go to the </span>
                             <button
-                                type="submit"
-                                disabled={loading}
-                                style={{
-                                    padding: '12px 24px',
-                                    background: 'linear-gradient(135deg, #B8860B, #8B6914)',
-                                    color: '#1a1a1a',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold',
-                                    fontFamily: "'Oswald', sans-serif"
-                                }}
+                                onClick={() => setActiveTab('bin-management')}
+                                style={{ background: 'none', border: 'none', color: '#B8860B', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px' }}
                             >
-                                + Add Bin
+                                Bin Management
                             </button>
-                        </form>
+                            <span style={{ color: '#888', fontSize: '12px' }}> tab</span>
+                        </div>
 
-                        {/* Bins Grid - Gold Theme */}
+                        {/* Bins Grid - Clickable to view products */}
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
@@ -1221,13 +1234,18 @@ const Inventory = () => {
                             {bins.map(bin => (
                                 <div
                                     key={bin.id}
+                                    onClick={() => handleBinClick(bin)}
                                     style={{
                                         padding: '20px',
                                         background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
                                         border: '2px solid #B8860B',
                                         borderRadius: '12px',
-                                        textAlign: 'center'
+                                        textAlign: 'center',
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.2s, box-shadow 0.2s'
                                     }}
+                                    onMouseOver={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(184, 134, 11, 0.4)'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
                                 >
                                     <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#B8860B', fontFamily: "'Oswald', sans-serif" }}>
                                         {bin.bin_number}
@@ -1240,6 +1258,9 @@ const Inventory = () => {
                                             {bin.description}
                                         </div>
                                     )}
+                                    <div style={{ fontSize: '10px', color: '#555', marginTop: '8px' }}>
+                                        Click to view products
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -1321,6 +1342,154 @@ const Inventory = () => {
                                     </table>
                                 </div>
                             ) : null}
+                        </div>
+                    </div>
+                )}
+
+                {/* BIN MANAGEMENT TAB - Create and arrange bins */}
+                {activeTab === 'bin-management' && (
+                    <div className="bin-management-tab">
+                        <div style={{ marginBottom: '20px', padding: '20px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '12px', border: '1px solid #B8860B' }}>
+                            <h3 style={{ color: '#B8860B', fontFamily: "'Oswald', sans-serif", marginBottom: '15px' }}>🗄️ Create New Bin</h3>
+                            <form onSubmit={handleCreateBin} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end' }}>
+                                <div style={{ flex: '1', minWidth: '150px' }}>
+                                    <label style={{ display: 'block', color: '#F5F0E1', marginBottom: '5px', fontSize: '12px' }}>Bin Number *</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g., A-01"
+                                        value={newBin.bin_number}
+                                        onChange={(e) => setNewBin({ ...newBin, bin_number: e.target.value })}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #B8860B', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
+                                        required
+                                    />
+                                </div>
+                                <div style={{ flex: '2', minWidth: '200px' }}>
+                                    <label style={{ display: 'block', color: '#F5F0E1', marginBottom: '5px', fontSize: '12px' }}>Description</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Description (optional)"
+                                        value={newBin.description}
+                                        onChange={(e) => setNewBin({ ...newBin, description: e.target.value })}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #B8860B', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    style={{
+                                        padding: '12px 24px',
+                                        background: 'linear-gradient(135deg, #B8860B, #8B6914)',
+                                        color: '#1a1a1a',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold',
+                                        fontFamily: "'Oswald', sans-serif"
+                                    }}
+                                >
+                                    + Create Bin
+                                </button>
+                            </form>
+                        </div>
+
+                        <div style={{ padding: '20px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '12px', border: '1px solid #B8860B' }}>
+                            <h3 style={{ color: '#B8860B', fontFamily: "'Oswald', sans-serif", marginBottom: '15px' }}>📦 Bin Rack Layout ({bins.length} bins)</h3>
+                            <p style={{ color: '#888', fontSize: '12px', marginBottom: '15px' }}>Click on a bin to view its contents</p>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                                gap: '12px'
+                            }}>
+                                {bins.map(bin => (
+                                    <div
+                                        key={bin.id}
+                                        onClick={() => handleBinClick(bin)}
+                                        style={{
+                                            padding: '15px',
+                                            background: 'rgba(184, 134, 11, 0.1)',
+                                            border: '2px solid #B8860B',
+                                            borderRadius: '8px',
+                                            textAlign: 'center',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(184, 134, 11, 0.3)'; e.currentTarget.style.transform = 'scale(1.02)'; }}
+                                        onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(184, 134, 11, 0.1)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                                    >
+                                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#B8860B' }}>{bin.bin_number}</div>
+                                        <div style={{ fontSize: '12px', color: '#4caf50', marginTop: '5px' }}>{bin.product_count || 0} items</div>
+                                    </div>
+                                ))}
+                                {bins.length === 0 && (
+                                    <p style={{ color: '#888', gridColumn: '1 / -1', textAlign: 'center', padding: '30px' }}>No bins created yet. Create your first bin above.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Bin Products Overlay Modal */}
+                {selectedBinOverlay && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.8)',
+                        zIndex: 10000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px'
+                    }} onClick={() => setSelectedBinOverlay(null)}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+                            border: '2px solid #B8860B',
+                            borderRadius: '12px',
+                            padding: '25px',
+                            maxWidth: '600px',
+                            width: '100%',
+                            maxHeight: '80vh',
+                            overflow: 'auto'
+                        }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h3 style={{ color: '#B8860B', fontFamily: "'Oswald', sans-serif", margin: 0 }}>
+                                    📦 Bin {selectedBinOverlay.bin_number}
+                                </h3>
+                                <button
+                                    onClick={() => setSelectedBinOverlay(null)}
+                                    style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer' }}
+                                >×</button>
+                            </div>
+                            {selectedBinOverlay.description && (
+                                <p style={{ color: '#888', fontSize: '14px', marginBottom: '15px' }}>{selectedBinOverlay.description}</p>
+                            )}
+                            <div style={{ color: '#F5F0E1' }}>
+                                {binProducts.length === 0 ? (
+                                    <p style={{ textAlign: 'center', padding: '30px', color: '#888' }}>Loading products... or this bin is empty</p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {binProducts.map(p => (
+                                            <div key={p.id} style={{
+                                                padding: '12px',
+                                                background: 'rgba(0,0,0,0.3)',
+                                                borderRadius: '8px',
+                                                border: '1px solid rgba(184, 134, 11, 0.3)',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', color: '#F5F0E1' }}>{p.name || p.part_number}</div>
+                                                    <div style={{ fontSize: '12px', color: '#B8860B' }}>{p.part_number}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontWeight: 'bold', color: '#4caf50', fontSize: '18px' }}>{p.quantity}</div>
+                                                    <div style={{ fontSize: '10px', color: '#888' }}>in stock</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}

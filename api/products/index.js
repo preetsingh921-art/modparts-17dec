@@ -104,6 +104,16 @@ module.exports = async function handler(req, res) {
         paramCount++;
       }
 
+      // Add Bin Number Filter
+      const binNumber = req.query.bin_number || null;
+      if (binNumber) {
+        const binClause = ` AND p.bin_number = $${paramCount}`;
+        queryText += binClause;
+        countQueryText += binClause;
+        queryParams.push(binNumber);
+        paramCount++;
+      }
+
       // Add Sorting
       // Validate sortBy to prevent SQL injection
       const allowedSortColumns = ['name', 'price', 'created_at', 'updated_at', 'quantity'];

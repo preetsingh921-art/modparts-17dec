@@ -554,20 +554,26 @@ const Inventory = () => {
 
     const handleCreateBin = async (e) => {
         e.preventDefault();
-        if (!selectedWarehouse || !newBin.bin_number) return;
+        // Use adminWarehouseId for bin creation (user's assigned warehouse)
+        const warehouseToUse = adminWarehouseId || selectedWarehouse;
+        if (!warehouseToUse || !newBin.bin_number) {
+            setMessage({ type: 'error', text: 'Warehouse not assigned or bin number missing' });
+            return;
+        }
 
         setLoading(true);
         try {
             const result = await binAPI.create({
-                warehouse_id: selectedWarehouse,
+                warehouse_id: warehouseToUse,
                 ...newBin
             });
 
             setMessage({ type: 'success', text: 'Bin created successfully' });
             setNewBin({ bin_number: '', description: '', capacity: 100 });
-            fetchBins(selectedWarehouse);
+            // Refresh bins list with the same warehouse
+            fetchBins(warehouseToUse);
         } catch (error) {
-            setMessage({ type: 'error', text: 'Error creating bin' });
+            setMessage({ type: 'error', text: 'Error creating bin: ' + (error.message || 'Unknown error') });
         }
         setLoading(false);
     };

@@ -60,6 +60,9 @@ const Inventory = () => {
     const [binProducts, setBinProducts] = useState([]); // Products in selected bin
     const [productInventory, setProductInventory] = useState([]); // Products view data
     const [productInventoryLoading, setProductInventoryLoading] = useState(false);
+    const [binManagementSearch, setBinManagementSearch] = useState(''); // Search in bin management
+    const [showShiftModal, setShowShiftModal] = useState(false); // Shift product modal
+    const [shiftData, setShiftData] = useState({ product: null, fromBin: '', toBin: '', quantity: 1 });
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -1166,11 +1169,7 @@ const Inventory = () => {
                                                         </span>
                                                     </td>
                                                     <td style={{ padding: '12px', color: '#888', fontSize: '12px' }}>
-                                                        {shippedDate.toLocaleString(undefined, {
-                                                            dateStyle: 'short',
-                                                            timeStyle: 'short',
-                                                            timeZoneName: 'short'
-                                                        })}
+                                                        {shippedDate.toLocaleString()}
                                                     </td>
                                                     <td style={{ padding: '12px', fontSize: '12px' }}>
                                                         <span style={{
@@ -1524,32 +1523,54 @@ const Inventory = () => {
 
                         <div style={{ padding: '20px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '12px', border: '1px solid #B8860B' }}>
                             <h3 style={{ color: '#B8860B', fontFamily: "'Oswald', sans-serif", marginBottom: '15px' }}>📦 Bin Rack Layout ({bins.length} bins)</h3>
+
+                            {/* Search Input */}
+                            <div style={{ marginBottom: '15px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Search by bin number..."
+                                    value={binManagementSearch}
+                                    onChange={(e) => setBinManagementSearch(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 15px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #B8860B',
+                                        background: '#1a1a1a',
+                                        color: '#F5F0E1',
+                                        fontSize: '14px'
+                                    }}
+                                />
+                            </div>
+
                             <p style={{ color: '#888', fontSize: '12px', marginBottom: '15px' }}>Click on a bin to view its contents</p>
                             <div style={{
                                 display: 'grid',
                                 gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
                                 gap: '12px'
                             }}>
-                                {bins.map(bin => (
-                                    <div
-                                        key={bin.id}
-                                        onClick={() => handleBinClick(bin)}
-                                        style={{
-                                            padding: '15px',
-                                            background: 'rgba(184, 134, 11, 0.1)',
-                                            border: '2px solid #B8860B',
-                                            borderRadius: '8px',
-                                            textAlign: 'center',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(184, 134, 11, 0.3)'; e.currentTarget.style.transform = 'scale(1.02)'; }}
-                                        onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(184, 134, 11, 0.1)'; e.currentTarget.style.transform = 'scale(1)'; }}
-                                    >
-                                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#B8860B' }}>{bin.bin_number}</div>
-                                        <div style={{ fontSize: '12px', color: '#4caf50', marginTop: '5px' }}>{bin.product_count || 0} items</div>
-                                    </div>
-                                ))}
+                                {bins
+                                    .filter(bin => !binManagementSearch || bin.bin_number.toLowerCase().includes(binManagementSearch.toLowerCase()))
+                                    .map(bin => (
+                                        <div
+                                            key={bin.id}
+                                            onClick={() => handleBinClick(bin)}
+                                            style={{
+                                                padding: '15px',
+                                                background: 'rgba(184, 134, 11, 0.1)',
+                                                border: '2px solid #B8860B',
+                                                borderRadius: '8px',
+                                                textAlign: 'center',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(184, 134, 11, 0.3)'; e.currentTarget.style.transform = 'scale(1.02)'; }}
+                                            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(184, 134, 11, 0.1)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                                        >
+                                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#B8860B' }}>{bin.bin_number}</div>
+                                            <div style={{ fontSize: '12px', color: '#4caf50', marginTop: '5px' }}>{bin.product_count || 0} items</div>
+                                        </div>
+                                    ))}
                                 {bins.length === 0 && (
                                     <p style={{ color: '#888', gridColumn: '1 / -1', textAlign: 'center', padding: '30px' }}>No bins created yet. Create your first bin above.</p>
                                 )}

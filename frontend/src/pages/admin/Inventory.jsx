@@ -66,6 +66,11 @@ const Inventory = () => {
     const [showEditBinModal, setShowEditBinModal] = useState(false); // Edit bin modal
     const [editBinData, setEditBinData] = useState({ id: null, bin_number: '', description: '' });
     const [binScannerActive, setBinScannerActive] = useState(false); // Scanner mode for bin search
+    // Movements filters
+    const [movementsSearch, setMovementsSearch] = useState('');
+    const [movementsSourceFilter, setMovementsSourceFilter] = useState('');
+    const [movementsDestFilter, setMovementsDestFilter] = useState('');
+    const [movementsDateFilter, setMovementsDateFilter] = useState('');
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -675,12 +680,13 @@ const Inventory = () => {
         setLoading(true);
         try {
             const productsModule = await import('../../api/products');
-            // Update product's bin_number
-            const result = await productsModule.updateProduct(shiftData.product.id, {
+            // Update product's bin_number - pass id inside productData
+            const result = await productsModule.updateProduct({
+                id: shiftData.product.id,
                 bin_number: shiftData.toBin
             });
-            if (result.product || result.id) {
-                setMessage({ type: 'success', text: `Moved to bin ${shiftData.toBin}` });
+            if (result.product || result.id || result.name) {
+                setMessage({ type: 'success', text: `Moved ${shiftData.quantity} items to bin ${shiftData.toBin}` });
                 setShowShiftModal(false);
                 // Refresh bin products
                 if (selectedBinOverlay) {
@@ -691,7 +697,8 @@ const Inventory = () => {
                 setMessage({ type: 'error', text: result.message || 'Failed to shift product' });
             }
         } catch (error) {
-            setMessage({ type: 'error', text: 'Error shifting product: ' + error.message });
+            console.error('Shift error:', error);
+            setMessage({ type: 'error', text: 'Error shifting product: ' + (error.message || 'Unknown error') });
         }
         setLoading(false);
     };
@@ -1219,11 +1226,61 @@ const Inventory = () => {
                     <div className="movements-tab">
                         <h3>In-Transit Shipments ({movements.length})</h3>
 
-                        {movements.length === 0 ? (
-                            <p style={{ color: '#666', padding: '20px' }}>No shipments in transit</p>
+                        {/* Filters */}
+                        <div style={{ marginBottom: '20px', padding: '15px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '8px', border: '1px solid #B8860B' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Search product/part#..."
+                                    value={movementsSearch}
+                                    onChange={(e) => setMovementsSearch(e.target.value)}
+                                    style={{ flex: '1', minWidth: '180px', padding: '10px', borderRadius: '6px', border: '1px solid #B8860B', background: '#1a1a1a', color: '#F5F0E1', fontSize: '14px' }}
+                                />
+                                <select
+                                    value={movementsSourceFilter}
+                                    onChange={(e) => setMovementsSourceFilter(e.target.value)}
+                                    style={{ padding: '10px', borderRadius: '6px', border: '1px solid #B8860B', background: '#1a1a1a', color: '#F5F0E1', minWidth: '140px' }}
+                                >
+                                    <option value="">All Sources</option>
+                                    {warehouses.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
+                                </select>
+                                <select
+                                    value={movementsDestFilter}
+                                    onChange={(e) => setMovementsDestFilter(e.target.value)}
+                                    style={{ padding: '10px', borderRadius: '6px', border: '1px solid #B8860B', background: '#1a1a1a', color: '#F5F0E1', minWidth: '140px' }}
+                                >
+                                    <option value="">All Destinations</option>
+                                    {warehouses.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
+                                </select>
+                                <input
+                                    type="date"
+                                    value={movementsDateFilter}
+                                    onChange={(e) => setMovementsDateFilter(e.target.value)}
+                                    style={{ padding: '10px', borderRadius: '6px', border: '1px solid #B8860B', background: '#1a1a1a', color: '#F5F0E1' }}
+                                />
+                                {(movementsSearch || movementsSourceFilter || movementsDestFilter || movementsDateFilter) && (
+                                    <button
+                                        onClick={() => { setMovementsSearch(''); setMovementsSourceFilter(''); setMovementsDestFilter(''); setMovementsDateFilter(''); }}
+                                        style={{ padding: '10px 15px', background: '#555', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+                                    >Clear Filters</button>
+                                )}
+                            </div>
+                        </div>
+
+                        {movements.filter(m => {
+                            const matchSearch = !movementsSearch ||
+                                (m.product_name || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
+                                (m.part_number || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
+                                (m.barcode || '').toLowerCase().includes(movementsSearch.toLowerCase());
+                            const matchSource = !movementsSourceFilter || m.from_warehouse_name === movementsSourceFilter;
+                            const matchDest = !movementsDestFilter || m.to_warehouse_name === movementsDestFilter;
+                            const matchDate = !movementsDateFilter || (m.shipped_at || m.created_at).startsWith(movementsDateFilter);
+                            return matchSearch && matchSource && matchDest && matchDate;
+                        }).length === 0 ? (
+                            <p style={{ color: '#666', padding: '20px' }}>No shipments found matching filters</p>
                         ) : (
                             <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', minWidth: '800px' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', minWidth: '900px' }}>
                                     <thead>
                                         <tr style={{ background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)' }}>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Product</th>
@@ -1232,17 +1289,28 @@ const Inventory = () => {
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>To</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Status</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Shipped</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Received</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Duration</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Dispatcher</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Receiver</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {movements.map(m => {
+                                        {movements.filter(m => {
+                                            const matchSearch = !movementsSearch ||
+                                                (m.product_name || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
+                                                (m.part_number || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
+                                                (m.barcode || '').toLowerCase().includes(movementsSearch.toLowerCase());
+                                            const matchSource = !movementsSourceFilter || m.from_warehouse_name === movementsSourceFilter;
+                                            const matchDest = !movementsDestFilter || m.to_warehouse_name === movementsDestFilter;
+                                            const matchDate = !movementsDateFilter || (m.shipped_at || m.created_at || '').startsWith(movementsDateFilter);
+                                            return matchSearch && matchSource && matchDest && matchDate;
+                                        }).map(m => {
                                             // Calculate transit duration
                                             const shippedDate = m.shipped_at ? new Date(m.shipped_at) : new Date(m.created_at);
+                                            const receivedDate = m.received_at ? new Date(m.received_at) : null;
                                             const now = new Date();
-                                            const endDate = m.status === 'completed' && m.received_at ? new Date(m.received_at) : now;
+                                            const endDate = m.status === 'completed' && m.received_at ? receivedDate : now;
                                             const diffMs = endDate - shippedDate;
                                             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                                             const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -1268,6 +1336,11 @@ const Inventory = () => {
                                                     </td>
                                                     <td style={{ padding: '12px', color: '#888', fontSize: '12px' }}>
                                                         {shippedDate.toLocaleString()}
+                                                        {m.created_by_name && <div style={{ fontSize: '10px', color: '#4caf50' }}>by {m.created_by_name}</div>}
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#888', fontSize: '12px' }}>
+                                                        {receivedDate ? receivedDate.toLocaleString() : '-'}
+                                                        {m.received_by_name && <div style={{ fontSize: '10px', color: '#4caf50' }}>by {m.received_by_name}</div>}
                                                     </td>
                                                     <td style={{ padding: '12px', fontSize: '12px' }}>
                                                         <span style={{
@@ -1888,6 +1961,18 @@ const Inventory = () => {
                                         <option key={b.id} value={b.bin_number}>{b.bin_number}</option>
                                     ))}
                                 </select>
+                            </div>
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', color: '#F5F0E1', marginBottom: '5px', fontSize: '12px' }}>Quantity to Move *</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={shiftData.product?.quantity || 1}
+                                    value={shiftData.quantity}
+                                    onChange={(e) => setShiftData({ ...shiftData, quantity: Math.min(parseInt(e.target.value) || 1, shiftData.product?.quantity || 1) })}
+                                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #2196F3', backgroundColor: '#1a1a1a', color: '#F5F0E1', fontSize: '16px', fontWeight: 'bold' }}
+                                />
+                                <div style={{ fontSize: '11px', color: '#888', marginTop: '5px' }}>Max: {shiftData.product?.quantity || 0}</div>
                             </div>
                             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                                 <button

@@ -198,27 +198,14 @@ const BarcodeScanner = ({
             }
 
             try {
-                // Initialize scanner with explicit 1D barcode formats for better accuracy
-                const tempScanner = new Html5Qrcode("file-scanner-region", {
-                    formatsToSupport: [
-                        Html5QrcodeSupportedFormats.CODE_128,
-                        Html5QrcodeSupportedFormats.CODE_39,
-                        Html5QrcodeSupportedFormats.CODE_93,
-                        Html5QrcodeSupportedFormats.EAN_13,
-                        Html5QrcodeSupportedFormats.EAN_8,
-                        Html5QrcodeSupportedFormats.UPC_A,
-                        Html5QrcodeSupportedFormats.UPC_E,
-                        Html5QrcodeSupportedFormats.CODABAR,
-                        Html5QrcodeSupportedFormats.ITF
-                    ],
-                    verbose: false
-                });
+                // Initialize scanner without format restrictions for uploaded images to use default heuristics
+                const tempScanner = new Html5Qrcode("file-scanner-region");
 
                 let decoded = null;
 
                 // Attempt 1: scanFileV2 (returns richer result object)
                 try {
-                    const result = await tempScanner.scanFileV2(file, true);
+                    const result = await tempScanner.scanFileV2(file, false);
                     if (result && result.decodedText) {
                         decoded = result.decodedText;
                     }
@@ -229,7 +216,7 @@ const BarcodeScanner = ({
                 // Attempt 2: scanFile (simpler, sometimes catches what V2 misses)
                 if (!decoded) {
                     try {
-                        const fallbackResult = await tempScanner.scanFile(file, true);
+                        const fallbackResult = await tempScanner.scanFile(file, false);
                         if (fallbackResult) {
                             decoded = fallbackResult;
                         }

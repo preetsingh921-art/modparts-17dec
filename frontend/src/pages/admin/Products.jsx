@@ -38,6 +38,13 @@ const Products = () => {
   // Selection state
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [expandedRows, setExpandedRows] = useState([]);
+
+  const toggleRow = (id) => {
+    setExpandedRows(prev =>
+      prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
+    );
+  };
 
   // Print modal state
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -709,7 +716,7 @@ const Products = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[800px]">
               <thead className="bg-midnight-800">
                 <tr>
@@ -829,6 +836,98 @@ const Products = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden flex flex-col space-y-4 p-4">
+            {currentProducts.map(product => (
+              <div key={product.id} className="bg-midnight-800 rounded-lg border border-midnight-600 p-4 shadow">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3 max-w-[85%]">
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.includes(product.id)}
+                      onChange={(e) => handleSelectProduct(product.id, e.target.checked)}
+                      className="mt-1 flex-shrink-0 h-4 w-4 text-midnight-300 rounded border-midnight-600 bg-midnight-700"
+                    />
+                    <div className="w-12 h-12 flex-shrink-0">
+                      <PlaceholderImage
+                        src={processImageUrl(product.image_url)}
+                        alt={product.name}
+                        className="w-full h-full object-cover rounded"
+                        placeholderText="No Image"
+                      />
+                    </div>
+                    <div className="overflow-hidden">
+                      <h3 className="font-semibold text-white text-sm truncate">{product.name}</h3>
+                      <div className="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
+                        <span className="text-[10px] text-midnight-300 bg-midnight-700 px-2 py-0.5 rounded uppercase tracking-wider">
+                          {product.category_name || 'Uncategorized'}
+                        </span>
+                        <span className={`text-xs font-semibold ${product.quantity <= 0 ? 'text-red-400' : product.quantity <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
+                          Stock: {product.quantity}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toggleRow(product.id)}
+                    className="p-1 text-midnight-400 hover:text-white transition-colors flex-shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transform transition-transform ${expandedRows.includes(product.id) ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Always visible quick actions line */}
+                <div className="mt-4 flex items-center justify-between border-t border-midnight-700 pt-3">
+                  <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
+                  <div className="flex space-x-4">
+                    <Link to={`/admin/products/view/${product.id}`} className="text-green-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
+                    </Link>
+                    <Link to={`/admin/products/edit/${product.id}`} className="text-midnight-300">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                    </Link>
+                    <button onClick={() => handleDelete(product.id)} className="text-red-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expandable region */}
+                {expandedRows.includes(product.id) && (
+                  <div className="mt-4 bg-midnight-900 rounded p-3 text-sm space-y-3 border border-midnight-700">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Warehouse</span>
+                        <span className="text-white text-sm">{product.warehouse_name || 'Not assigned'}</span>
+                      </div>
+                      <div>
+                        <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Bin</span>
+                        <span className="text-white text-sm">{product.bin_number || 'N/A'}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Condition</span>
+                        <span className="inline-block px-2 py-0.5 bg-midnight-600 text-midnight-100 rounded text-xs">
+                          {product.condition_status}
+                        </span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Part Number</span>
+                        <span className="text-white font-mono text-sm">{product.part_number || 'N/A'}</span>
+                      </div>
+                    </div>
+                    {product.part_number && (
+                      <div className="mt-3 pt-3 border-t border-midnight-700 flex justify-center bg-white p-2 rounded">
+                        <InlineBarcode barcode={product.part_number} width={1.8} height={40} showPartNumber={false} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Pagination */}

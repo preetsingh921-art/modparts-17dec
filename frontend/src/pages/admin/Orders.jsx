@@ -27,6 +27,13 @@ const Orders = () => {
   // Selection state
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [expandedRows, setExpandedRows] = useState([]);
+
+  const toggleRow = (id) => {
+    setExpandedRows(prev =>
+      prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
+    );
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -427,7 +434,7 @@ const Orders = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full min-w-[900px]">
                 <thead className="bg-midnight-800">
                   <tr>
@@ -506,6 +513,94 @@ const Orders = () => {
                 ))}
               </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden flex flex-col space-y-4 p-4">
+              {currentOrders.map(order => (
+                <div key={order.id} className="bg-midnight-800 rounded-lg border border-midnight-600 p-4 shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-3 w-full">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrders.includes(order.id)}
+                        onChange={(e) => handleSelectOrder(order.id, e.target.checked)}
+                        className="mt-1 flex-shrink-0 h-4 w-4 text-midnight-300 rounded border-midnight-600 bg-midnight-700"
+                      />
+                      <div className="flex-grow">
+                        <div className="flex justify-between items-center w-full">
+                          <h3 className="font-semibold text-white text-md">Ord #{order.id}</h3>
+                          <span className="text-white font-bold">${parseFloat(order.total_amount || 0).toFixed(2)}</span>
+                        </div>
+                        <p className="text-sm text-midnight-200 mt-1">{order.customer_name || 'Unknown Customer'}</p>
+                        <div className="mt-2 text-xs text-midnight-400">
+                          {new Date(order.created_at || Date.now()).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleRow(order.id)}
+                      className="p-1 text-midnight-400 hover:text-white transition-colors ml-2 flex-shrink-0"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transform transition-transform ${expandedRows.includes(order.id) ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Always visible quick actions line */}
+                  <div className="mt-3 flex items-center justify-between border-t border-midnight-700 pt-3">
+                    <select
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border-0 ${getStatusColor(order.status && typeof order.status === 'string' ? order.status : 'pending')}`}
+                      value={order.status && typeof order.status === 'string' ? order.status : 'pending'}
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                    >
+                      <option value="pending" className="bg-yellow-600 text-yellow-100">Pending</option>
+                      <option value="processing" className="bg-blue-600 text-blue-100">Processing</option>
+                      <option value="shipped" className="bg-emerald-600 text-emerald-100">Shipped</option>
+                      <option value="delivered" className="bg-green-600 text-green-100">Delivered</option>
+                      <option value="cancelled" className="bg-red-600 text-red-100">Cancelled</option>
+                    </select>
+                  </div>
+
+                  {/* Expandable region */}
+                  {expandedRows.includes(order.id) && (
+                    <div className="mt-3 bg-midnight-900 rounded p-3 text-sm space-y-3 border border-midnight-700">
+                      <div>
+                        <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Email</span>
+                        <span className="text-white text-sm">{order.email || 'No email'}</span>
+                      </div>
+                      {order.customer_phone && (
+                        <div>
+                          <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Phone</span>
+                          <span className="text-white text-sm">{order.customer_phone}</span>
+                        </div>
+                      )}
+                      {order.shipping_address && (
+                        <div>
+                          <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Shipping Address</span>
+                          <span className="text-white text-sm break-words">{order.shipping_address}</span>
+                        </div>
+                      )}
+                      
+                      <div className="pt-2 border-t border-midnight-700 flex flex-col space-y-2 mt-2">
+                        <Link
+                          to={`/orders/${order.id}`}
+                          className="w-full text-center py-2 bg-midnight-700 text-blue-400 rounded hover:bg-midnight-600"
+                        >
+                          View Full Details
+                        </Link>
+                        <button
+                          onClick={() => window.open(`/orders/${order.id}?print=true`, '_blank')}
+                          className="w-full text-center py-2 bg-midnight-700 text-green-400 rounded hover:bg-midnight-600"
+                        >
+                          Generate Invoice
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
 
           {/* Pagination */}

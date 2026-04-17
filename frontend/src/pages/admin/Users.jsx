@@ -35,6 +35,13 @@ const Users = () => {
   // Selection state
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [expandedRows, setExpandedRows] = useState([]);
+
+  const toggleRow = (id) => {
+    setExpandedRows(prev =>
+      prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
+    );
+  };
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -600,7 +607,7 @@ const Users = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[700px]">
               <thead className="bg-gray-50">
                 <tr>
@@ -708,6 +715,104 @@ const Users = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden flex flex-col space-y-4 p-4">
+            {currentUsers.map(user => (
+              <div key={user.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3 w-full">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.includes(user.id)}
+                      onChange={(e) => handleSelectUser(user.id, e.target.checked)}
+                      className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded border-gray-300 bg-white"
+                    />
+                    <div className="flex-grow">
+                      <div className="flex justify-between items-center w-full">
+                        <h3 className="font-semibold text-gray-900 text-md">{user.first_name} {user.last_name}</h3>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          user.role === 'admin' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'
+                        }`}>
+                          {user.role}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center space-x-2">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          user.status === 'active' ? 'bg-green-100 text-green-800' :
+                          user.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                          user.status === 'suspended' ? 'bg-orange-100 text-orange-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {user.status || 'active'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toggleRow(user.id)}
+                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors ml-2 flex-shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transform transition-transform ${expandedRows.includes(user.id) ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Always visible quick actions line */}
+                <div className="mt-3 flex items-center justify-end border-t border-gray-100 pt-3">
+                  <div className="flex space-x-4">
+                    <button onClick={() => handleViewUser(user)} className="text-green-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
+                    </button>
+                    <button onClick={() => handleEditUser(user)} className="text-blue-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                    </button>
+
+                    {user.status === 'active' ? (
+                      <button onClick={() => handleUpdateUserStatus(user.id, 'blocked')} className="text-red-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" /></svg>
+                      </button>
+                    ) : (
+                      <button onClick={() => handleUpdateUserStatus(user.id, 'active')} className="text-green-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      </button>
+                    )}
+                    <button onClick={() => handleDeleteUser(user.id)} className="text-red-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expandable region */}
+                {expandedRows.includes(user.id) && (
+                  <div className="mt-3 bg-gray-50 rounded p-3 text-sm space-y-3 border border-gray-200">
+                    <div>
+                      <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Email</span>
+                      <span className="text-gray-900 text-sm break-all">{user.email}</span>
+                    </div>
+                    {user.phone && (
+                      <div>
+                        <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Phone</span>
+                        <span className="text-gray-900 text-sm">{user.phone}</span>
+                      </div>
+                    )}
+                    {(user.address || user.city) && (
+                      <div>
+                        <span className="text-gray-500 block text-xs uppercase tracking-wider mb-1">Address</span>
+                        <span className="text-gray-900 text-sm">
+                          {user.address} 
+                          {user.city && `, ${user.city}`}
+                          {user.state && `, ${user.state}`}
+                          {user.zip_code && ` ${user.zip_code}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Pagination */}

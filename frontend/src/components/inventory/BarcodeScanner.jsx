@@ -26,8 +26,11 @@ const BarcodeScanner = ({
     const [isSearching, setIsSearching] = useState(false);
     const [lastScannedCode, setLastScannedCode] = useState('');
     const [scanStatus, setScanStatus] = useState('');
+    const [flashOn, setFlashOn] = useState(false);
+    const [flashSupported, setFlashSupported] = useState(true); // Assume supported until it fails
 
     const html5QrCodeRef = useRef(null);
+    const fileInputRef = useRef(null);
     const searchTimeoutRef = useRef(null);
 
     // Supported barcode formats for product labels
@@ -118,13 +121,10 @@ const BarcodeScanner = ({
             });
 
             const config = {
-                fps: 15,  // Higher FPS for better scanning
-                qrbox: { width: 280, height: 80 }, // Wide rectangle for 1D barcodes
+                fps: 20,  // Higher FPS for better scanning
+                qrbox: { width: 300, height: 100 }, // Slightly larger box for longer barcodes like 856-W0047-00
                 aspectRatio: 1.777778, // 16:9 for better camera view
-                disableFlip: false,
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true // Use native detector if available
-                }
+                disableFlip: false
             };
 
             await html5QrCodeRef.current.start(
@@ -135,6 +135,7 @@ const BarcodeScanner = ({
             );
 
             setScanning(true);
+            setFlashOn(false); // Reset flash state on new start
             setScanStatus('📷 Scanning... Hold barcode steady in the box');
             console.log('📷 Scanner started successfully');
         } catch (err) {
@@ -142,6 +143,53 @@ const BarcodeScanner = ({
             setError(`Camera error: ${err.message || err}. Try refreshing the page.`);
             setScanStatus('');
             setScanning(false);
+        }
+    };
+
+    // Toggle Flash (Torch)
+    const toggleFlash = async () => {
+        if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+            try {
+                const advancedConstraints = { torch: !flashOn };
+                await html5QrCodeRef.current.applyVideoConstraints({ advanced: [advancedConstraints] });
+                setFlashOn(!flashOn);
+            } catch (err) {
+                console.warn('Flash not supported on this device/camera:', err);
+                setFlashSupported(false);
+                setError('Flash (Torch) feature is not supported on this device/browser.');
+            }
+        }
+    };
+
+    // Scan from Image File
+    const handleFileUploadScan = async (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            setScanStatus('🔄 Processing image file...');
+            setError(null);
+            
+            // If camera is open, we stop it first to prevent conflicts
+            if (scanning) {
+                await stopScanning();
+            }
+
+            try {
+                // Initialize temporary scanner for file on a hidden div
+                const tempScanner = new Html5Qrcode("file-scanner-region");
+                const result = await tempScanner.scanFile(file, true);
+                if (result) {
+                    onScanSuccess(result, { result: { format: { formatName: 'Image File Upload' } } });
+                }
+            } catch (err) {
+                console.error('File scan error:', err);
+                setError('Could not find a valid barcode in the uploaded image.');
+                setScanStatus('');
+            }
+            
+            // Reset input so the same file could be selected again
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
     };
 
@@ -276,6 +324,9 @@ const BarcodeScanner = ({
 
     return (
         <div className="barcode-scanner" style={{ textAlign: 'center' }}>
+            {/* Hidden div for file scanning */}
+            <div id="file-scanner-region" style={{ display: 'none' }}></div>
+
             {/* Scanner Region */}
             {showPreview && hasCamera && (
                 <div style={{ marginBottom: '15px' }}>
@@ -378,26 +429,70 @@ const BarcodeScanner = ({
                             📷 Start Camera Scan
                         </button>
                     ) : (
-                        <button
-                            onClick={stopScanning}
-                            type="button"
-                            style={{
-                                padding: '14px 28px',
-                                backgroundColor: '#f44336',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                boxShadow: '0 2px 8px rgba(244, 67, 54, 0.3)'
-                            }}
-                        >
-                            ⏹️ Stop Scanning
-                        </button>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                            <button
+                                onClick={stopScanning}
+                                type="button"
+                                style={{
+                                    padding: '14px 28px',
+                                    backgroundColor: '#f44336',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 2px 8px rgba(244, 67, 54, 0.3)'
+                                }}
+                            >
+                                ⏹️ Stop Scanning
+                            </button>
+                            
+                            {/* Flash Button */}
+                            {flashSupported && (
+                                <button
+                                    onClick={toggleFlash}
+                                    type="button"
+                                    style={{
+                                        padding: '14px 20px',
+                                        backgroundColor: flashOn ? '#FFEB3B' : '#607D8B',
+                                        color: flashOn ? 'black' : 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '16px',
+                                        fontWeight: 'bold',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                                    }}
+                                    title="Toggle Flash / Torch"
+                                >
+                                    {flashOn ? '🔦 Flash ON' : '💡 Flash OFF'}
+                                </button>
+                            )}
+                        </div>
                     )}
                 </div>
             )}
+
+            {/* Image Upload Area */}
+            <div style={{ marginBottom: '15px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px', fontWeight: 'bold' }}>OR SCAN FROM IMAGE</p>
+                <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleFileUploadScan} 
+                    ref={fileInputRef}
+                    style={{
+                        padding: '10px',
+                        border: '1px dashed #ccc',
+                        borderRadius: '6px',
+                        backgroundColor: '#f9f9f9',
+                        width: '280px',
+                        fontSize: '14px',
+                        cursor: 'pointer'
+                    }} 
+                />
+            </div>
 
             {/* No Camera Message */}
             {!hasCamera && (

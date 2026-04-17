@@ -198,30 +198,82 @@ const BarcodeScanner = ({
             }
 
             try {
-                // Initialize scanner without format restrictions for uploaded images to use default heuristics
-                const tempScanner = new Html5Qrcode("file-scanner-region");
-
                 let decoded = null;
 
-                // Attempt 1: scanFileV2 (returns richer result object)
-                try {
-                    const result = await tempScanner.scanFileV2(file, false);
-                    if (result && result.decodedText) {
-                        decoded = result.decodedText;
+                // Attempt 1: Native BarcodeDetector API (if supported by OS/browser)
+                // This uses native ML vision frameworks and easily finds small barcodes in 12MP photos
+                if ('BarcodeDetector' in window) {
+                    try {
+                        const detector = new window.BarcodeDetector();
+                        const bitmap = await createImageBitmap(file);
+                        const barcodes = await detector.detect(bitmap);
+                        if (barcodes && barcodes.length > 0) {
+                            decoded = barcodes[0].rawValue;
+                            console.log('✅ Native BarcodeDetector succeeded');
+                        }
+                    } catch (nativeErr) {
+                        console.warn('Native BarcodeDetector failed, falling back:', nativeErr);
                     }
-                } catch (v2Err) {
-                    console.warn('scanFileV2 failed, trying scanFile fallback:', v2Err);
                 }
 
-                // Attempt 2: scanFile (simpler, sometimes catches what V2 misses)
+                // JS Scanner Fallbacks
                 if (!decoded) {
+                    const tempScanner = new Html5Qrcode("file-scanner-region");
+
+                    // Attempt 2: HTML5Qrcode on the original image
                     try {
-                        const fallbackResult = await tempScanner.scanFile(file, false);
-                        if (fallbackResult) {
-                            decoded = fallbackResult;
+                        const result = await tempScanner.scanFileV2(file, false);
+                        if (result && result.decodedText) {
+                            decoded = result.decodedText;
                         }
-                    } catch (v1Err) {
-                        console.warn('scanFile fallback also failed:', v1Err);
+                    } catch (v2Err) {
+                        try {
+                            const fallbackResult = await tempScanner.scanFile(file, false);
+                            if (fallbackResult) decoded = fallbackResult;
+                        } catch (v1Err) {
+                            console.warn('HTML5Qrcode full-image scan failed.');
+                        }
+                    }
+
+                    // Attempt 3: Smart Auto-Crop via Canvas
+                    // Users often take a picture where the barcode is centered but very small relative to the photo.
+                    // Cropping out the edges helps the JS scanner find the alignment markers.
+                    if (!decoded) {
+                        try {
+                            setScanStatus('🔄 Enhancing and centering image...');
+                            const img = await createImageBitmap(file);
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            
+                            // Crop the center 50% of the image
+                            const cropWidth = img.width * 0.5;
+                            const cropHeight = img.height * 0.5;
+                            const startX = (img.width - cropWidth) / 2;
+                            const startY = (img.height - cropHeight) / 2;
+                            
+                            // Scale down if massive (helps zxing performance)
+                            const maxDimension = 1000;
+                            const scale = Math.min(1, maxDimension / Math.max(cropWidth, cropHeight));
+                            
+                            canvas.width = cropWidth * scale;
+                            canvas.height = cropHeight * scale;
+                            
+                            // Apply contrast enhancement
+                            ctx.filter = 'contrast(1.2) grayscale(100%)';
+                            ctx.drawImage(img, startX, startY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+                            
+                            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+                            const croppedFile = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
+                            
+                            try {
+                                decoded = await tempScanner.scanFile(croppedFile, false);
+                                console.log('✅ Auto-crop scan succeeded');
+                            } catch (cropErr) {
+                                console.warn('Auto-crop scan failed.');
+                            }
+                        } catch (cropProcErr) {
+                            console.warn('Auto-crop processing failed:', cropProcErr);
+                        }
                     }
                 }
 
@@ -232,7 +284,7 @@ const BarcodeScanner = ({
                 }
             } catch (err) {
                 console.error('File scan error:', err);
-                setError('Could not find a valid barcode in the uploaded image. Try cropping the image closer to just the barcode area.');
+                setError('Could not dynamically find a barcode in the image. Please try taking a closer photo or entering it manually.');
                 setScanStatus('');
             }
             

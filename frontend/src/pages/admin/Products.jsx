@@ -751,8 +751,8 @@ const Products = () => {
                         <div>
                           <p className="font-semibold text-white">{product.name}</p>
                           <p className="text-sm text-gray-300 truncate max-w-xs">
-                            {product.description.substring(0, 50)}
-                            {product.description.length > 50 ? '...' : ''}
+                            {(product.description || '').substring(0, 50)}
+                            {(product.description || '').length > 50 ? '...' : ''}
                           </p>
                         </div>
                       </div>

@@ -59,7 +59,7 @@ const BarcodeScanner = ({
                         d.label.toLowerCase().includes('rear') ||
                         d.label.toLowerCase().includes('environment')
                     );
-                    setSelectedCameraId(backCamera?.id || devices[0].id);
+                    setSelectedCameraId(backCamera?.id || "environment");
                     setHasCamera(true);
                     console.log('📷 Found cameras:', devices.map(d => d.label));
                 } else {
@@ -131,8 +131,12 @@ const BarcodeScanner = ({
                 }
             };
 
+            const cameraTarget = (selectedCameraId === "environment") 
+                ? { facingMode: "environment" } 
+                : selectedCameraId;
+
             await html5QrCodeRef.current.start(
-                selectedCameraId,
+                cameraTarget,
                 config,
                 onScanSuccess,
                 () => { } // Ignore per-frame failures
@@ -180,9 +184,10 @@ const BarcodeScanner = ({
             try {
                 // Initialize temporary scanner for file on a hidden div using pure Zxing
                 const tempScanner = new Html5Qrcode("file-scanner-region");
-                const result = await tempScanner.scanFile(file, true);
-                if (result) {
-                    onScanSuccess(result, { result: { format: { formatName: 'Image File Upload' } } });
+                // Use scanFileV2 for stricter boundaries on wide 1D barcodes
+                const result = await tempScanner.scanFileV2(file, true);
+                if (result && result.decodedText) {
+                    onScanSuccess(result.decodedText, result);
                 }
             } catch (err) {
                 console.error('File scan error:', err);
@@ -333,20 +338,41 @@ const BarcodeScanner = ({
 
             {/* Scanner Region */}
             {showPreview && hasCamera && (
-                <div style={{ marginBottom: '15px' }}>
-                    <div
-                        id="barcode-scanner-region"
-                        style={{
-                            width: `${width}px`,
-                            height: scanning ? `${height}px` : '0px',
-                            margin: '0 auto',
-                            border: scanning ? '3px solid #4CAF50' : 'none',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            transition: 'height 0.3s ease',
-                            backgroundColor: '#000'
-                        }}
-                    />
+                <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ position: 'relative', width: `${width}px`, height: scanning ? `${height}px` : '0px', transition: 'height 0.3s ease' }}>
+                        <style>{`
+                            @keyframes scanning-laser {
+                                0% { top: 10%; opacity: 0; }
+                                10% { opacity: 1; }
+                                90% { opacity: 1; }
+                                100% { top: 90%; opacity: 0; }
+                            }
+                            .laser-line {
+                                position: absolute;
+                                left: 10%;
+                                width: 80%;
+                                height: 2px;
+                                background-color: red;
+                                box-shadow: 0 0 10px 2px red;
+                                z-index: 10;
+                                animation: scanning-laser 2.5s infinite linear;
+                                pointer-events: none;
+                            }
+                        `}</style>
+                        <div
+                            id="barcode-scanner-region"
+                            style={{
+                                width: '100%',
+                                height: scanning ? `${height}px` : '0px',
+                                border: scanning ? '3px solid #4CAF50' : 'none',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                transition: 'height 0.3s ease',
+                                backgroundColor: '#000'
+                            }}
+                        />
+                        {scanning && <div className="laser-line"></div>}
+                    </div>
                 </div>
             )}
 

@@ -117,14 +117,20 @@ const BarcodeScanner = ({
             // Create new instance with format configuration
             html5QrCodeRef.current = new Html5Qrcode("barcode-scanner-region", {
                 formatsToSupport: formatsToSupport,
-                verbose: false
+                verbose: false,
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true // Use native detector if available
+                }
             });
 
             const config = {
                 fps: 20,  // Higher FPS for better scanning
                 qrbox: { width: 300, height: 100 }, // Slightly larger box for longer barcodes like 856-W0047-00
                 aspectRatio: 1.777778, // 16:9 for better camera view
-                disableFlip: false
+                disableFlip: false,
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
             };
 
             await html5QrCodeRef.current.start(
@@ -175,7 +181,12 @@ const BarcodeScanner = ({
 
             try {
                 // Initialize temporary scanner for file on a hidden div
-                const tempScanner = new Html5Qrcode("file-scanner-region");
+                const tempScanner = new Html5Qrcode("file-scanner-region", {
+                    formatsToSupport: formatsToSupport,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
+                });
                 const result = await tempScanner.scanFile(file, true);
                 if (result) {
                     onScanSuccess(result, { result: { format: { formatName: 'Image File Upload' } } });

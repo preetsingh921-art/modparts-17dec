@@ -117,19 +117,17 @@ const BarcodeScanner = ({
             // Create new instance with format configuration
             html5QrCodeRef.current = new Html5Qrcode("barcode-scanner-region", {
                 formatsToSupport: formatsToSupport,
-                verbose: false,
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true // Use native detector if available
-                }
+                verbose: false
             });
 
             const config = {
-                fps: 20,  // Higher FPS for better scanning
-                qrbox: { width: 300, height: 100 }, // Slightly larger box for longer barcodes like 856-W0047-00
+                fps: 10,  // Lower FPS actually gives camera more time to auto-focus between frames
+                qrbox: { width: 320, height: 100 }, // Generous width for Code-128
                 aspectRatio: 1.777778, // 16:9 for better camera view
                 disableFlip: false,
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true
+                videoConstraints: {
+                    width: { ideal: 1920, min: 1280 }, // Demand HD feed to resolve dense barcode lines
+                    advanced: [{ focusMode: "continuous" }]
                 }
             };
 
@@ -180,13 +178,8 @@ const BarcodeScanner = ({
             }
 
             try {
-                // Initialize temporary scanner for file on a hidden div
-                const tempScanner = new Html5Qrcode("file-scanner-region", {
-                    formatsToSupport: formatsToSupport,
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true
-                    }
-                });
+                // Initialize temporary scanner for file on a hidden div using pure Zxing
+                const tempScanner = new Html5Qrcode("file-scanner-region");
                 const result = await tempScanner.scanFile(file, true);
                 if (result) {
                     onScanSuccess(result, { result: { format: { formatName: 'Image File Upload' } } });

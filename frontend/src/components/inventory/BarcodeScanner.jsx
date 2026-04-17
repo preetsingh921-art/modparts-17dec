@@ -120,15 +120,25 @@ const BarcodeScanner = ({
                 verbose: false
             });
 
+            const dynamicVideoConstraints = {
+                width: { ideal: 1920, min: 1280 }, // Demand HD feed to resolve dense barcode lines
+                advanced: [{ focusMode: "continuous" }]
+            };
+
+            // ⚠️ html5-qrcode overrides the cameraTarget entirely if videoConstraints is set,
+            // so we MUST inject the specific camera ID into the constraints directly!
+            if (selectedCameraId && selectedCameraId !== "environment") {
+                dynamicVideoConstraints.deviceId = { exact: selectedCameraId };
+            } else {
+                dynamicVideoConstraints.facingMode = "environment";
+            }
+
             const config = {
                 fps: 10,  // Lower FPS actually gives camera more time to auto-focus between frames
                 qrbox: { width: 320, height: 100 }, // Generous width for Code-128
                 aspectRatio: 1.777778, // 16:9 for better camera view
                 disableFlip: false,
-                videoConstraints: {
-                    width: { ideal: 1920, min: 1280 }, // Demand HD feed to resolve dense barcode lines
-                    advanced: [{ focusMode: "continuous" }]
-                }
+                videoConstraints: dynamicVideoConstraints
             };
 
             const cameraTarget = (selectedCameraId === "environment") 

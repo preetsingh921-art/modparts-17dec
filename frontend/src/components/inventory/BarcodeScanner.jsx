@@ -134,9 +134,15 @@ const BarcodeScanner = ({
             }
 
             const config = {
-                fps: 10,  // Lower FPS actually gives camera more time to auto-focus between frames
-                qrbox: { width: 320, height: 100 }, // Generous width for Code-128
-                aspectRatio: 1.777778, // 16:9 for better camera view
+                fps: 15,
+                // Dynamic qrbox: uses 80% of viewfinder width so barcodes aren't clipped on any screen size
+                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                    const qrboxWidth = Math.floor(viewfinderWidth * 0.85);
+                    const qrboxHeight = Math.floor(minEdge * 0.35);
+                    return { width: qrboxWidth, height: qrboxHeight };
+                },
+                aspectRatio: 1.777778,
                 disableFlip: false,
                 videoConstraints: dynamicVideoConstraints
             };
@@ -192,16 +198,54 @@ const BarcodeScanner = ({
             }
 
             try {
-                // Initialize temporary scanner for file on a hidden div using pure Zxing
-                const tempScanner = new Html5Qrcode("file-scanner-region");
-                // Use scanFileV2 for stricter boundaries on wide 1D barcodes
-                const result = await tempScanner.scanFileV2(file, true);
-                if (result && result.decodedText) {
-                    onScanSuccess(result.decodedText, result);
+                // Initialize scanner with explicit 1D barcode formats for better accuracy
+                const tempScanner = new Html5Qrcode("file-scanner-region", {
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.CODE_128,
+                        Html5QrcodeSupportedFormats.CODE_39,
+                        Html5QrcodeSupportedFormats.CODE_93,
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.EAN_8,
+                        Html5QrcodeSupportedFormats.UPC_A,
+                        Html5QrcodeSupportedFormats.UPC_E,
+                        Html5QrcodeSupportedFormats.CODABAR,
+                        Html5QrcodeSupportedFormats.ITF
+                    ],
+                    verbose: false
+                });
+
+                let decoded = null;
+
+                // Attempt 1: scanFileV2 (returns richer result object)
+                try {
+                    const result = await tempScanner.scanFileV2(file, true);
+                    if (result && result.decodedText) {
+                        decoded = result.decodedText;
+                    }
+                } catch (v2Err) {
+                    console.warn('scanFileV2 failed, trying scanFile fallback:', v2Err);
+                }
+
+                // Attempt 2: scanFile (simpler, sometimes catches what V2 misses)
+                if (!decoded) {
+                    try {
+                        const fallbackResult = await tempScanner.scanFile(file, true);
+                        if (fallbackResult) {
+                            decoded = fallbackResult;
+                        }
+                    } catch (v1Err) {
+                        console.warn('scanFile fallback also failed:', v1Err);
+                    }
+                }
+
+                if (decoded) {
+                    onScanSuccess(decoded, { result: { format: { formatName: 'Image File Upload' } } });
+                } else {
+                    throw new Error('No barcode detected in image');
                 }
             } catch (err) {
                 console.error('File scan error:', err);
-                setError('Could not find a valid barcode in the uploaded image.');
+                setError('Could not find a valid barcode in the uploaded image. Try cropping the image closer to just the barcode area.');
                 setScanStatus('');
             }
             

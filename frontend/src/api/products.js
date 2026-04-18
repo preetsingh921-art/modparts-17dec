@@ -257,6 +257,7 @@ export const deleteProduct = async (id) => {
 /**
  * Create multiple products at once (bulk import)
  * Skips duplicates by matching product name against existing products.
+ * Includes rate-limit protection with delays and retry logic.
  *
  * @param {Array} productsData - Array of product objects to create
  * @param {Function} onProgress - Optional callback: ({ current, total, created, skipped, failed, currentName, status })
@@ -265,11 +266,33 @@ export const deleteProduct = async (id) => {
 export const bulkCreateProducts = async (productsData, onProgress) => {
   const results = { created: [], skipped: [], failed: [] };
 
+  // Helper: delay between requests to avoid rate limiting
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Helper: create product with retry on 429
+  const createWithRetry = async (productData, retries = 3) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        return await createProduct(productData);
+      } catch (error) {
+        const is429 = error.message?.includes('429') || error.message?.includes('Too many') || error.message?.includes('rate');
+        if (is429 && attempt < retries) {
+          console.warn(`Rate limited on attempt ${attempt}, waiting ${attempt * 2}s before retry...`);
+          await delay(attempt * 2000); // exponential backoff: 2s, 4s, 6s
+          continue;
+        }
+        throw error;
+      }
+    }
+  };
+
   try {
     // Fetch existing products to detect duplicates
-    const existingProducts = await getProducts({ limit: 5000 });
+    const existingResult = await getProducts({ limit: 5000 });
+    // getProducts returns { products: [...], pagination: {...} }
+    const existingList = existingResult?.products || existingResult || [];
     const existingNames = new Set(
-      (Array.isArray(existingProducts) ? existingProducts : [])
+      (Array.isArray(existingList) ? existingList : [])
         .map(p => (p.name || '').toLowerCase().trim())
     );
 
@@ -298,7 +321,7 @@ export const bulkCreateProducts = async (productsData, onProgress) => {
       }
 
       try {
-        const response = await createProduct(productData);
+        const response = await createWithRetry(productData);
         results.created.push(response);
         existingNames.add(normalizedName); // prevent duplicates within same batch
         if (onProgress) {
@@ -326,6 +349,11 @@ export const bulkCreateProducts = async (productsData, onProgress) => {
             status: 'failed'
           });
         }
+      }
+
+      // Throttle: wait 300ms between each API call to avoid rate limits
+      if (i < total - 1) {
+        await delay(300);
       }
     }
 

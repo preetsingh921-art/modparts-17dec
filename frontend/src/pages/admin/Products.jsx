@@ -54,7 +54,7 @@ const Products = () => {
   const [printSizeLevel, setPrintSizeLevel] = useState(3);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (retryCount = 0) => {
       setLoading(true);
       try {
         const [productsResult, categoriesData] = await Promise.all([
@@ -64,23 +64,26 @@ const Products = () => {
 
         const productsData = productsResult.products || productsResult; // Handle both old and new API format
 
-        console.log('Products data:', productsData);
-        console.log('Categories data:', categoriesData);
-
-        // Log the first product to examine its structure
-        if (productsData && productsData.length > 0) {
-          console.log('First product structure:', JSON.stringify(productsData[0], null, 2));
+        // If we got zero products and haven't retried yet, retry once after a delay
+        // (handles transient rate-limit or network hiccups)
+        if ((!productsData || productsData.length === 0) && retryCount < 1) {
+          console.warn('Got 0 products, retrying in 1s...');
+          setTimeout(() => fetchData(retryCount + 1), 1000);
+          return;
         }
 
-        // Log the first category to examine its structure
-        if (categoriesData && categoriesData.length > 0) {
-          console.log('First category structure:', JSON.stringify(categoriesData[0], null, 2));
-        }
+        console.log('Products data:', productsData?.length, 'items');
+        console.log('Categories data:', categoriesData?.length, 'items');
 
-        setProducts(productsData);
+        setProducts(productsData || []);
         setCategories(categoriesData);
       } catch (err) {
         console.error('Error fetching data:', err);
+        if (retryCount < 1) {
+          console.warn('Fetch failed, retrying in 1s...');
+          setTimeout(() => fetchData(retryCount + 1), 1000);
+          return;
+        }
         setError(err.message || 'Failed to load products');
       } finally {
         setLoading(false);

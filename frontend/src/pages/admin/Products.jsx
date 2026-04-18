@@ -181,13 +181,17 @@ const Products = () => {
       const matchesCategory = selectedCategory === 'all' ||
         (product.category_id === selectedCategory);
 
-      // Search filtering
+      // Search filtering — check name, description, part_number, and barcode
       const productName = (product.name || '').toLowerCase();
       const productDesc = (product.description || '').toLowerCase();
+      const productPartNumber = (product.part_number || '').toLowerCase();
+      const productBarcode = (product.barcode || '').toLowerCase();
       const searchQueryLower = searchQuery.toLowerCase();
 
       const matchesSearch = productName.includes(searchQueryLower) ||
-        productDesc.includes(searchQueryLower);
+        productDesc.includes(searchQueryLower) ||
+        productPartNumber.includes(searchQueryLower) ||
+        productBarcode.includes(searchQueryLower);
 
       // For debugging specific products
       if (!matchesCategory && selectedCategory !== 'all') {
@@ -756,7 +760,7 @@ const Products = () => {
             <label className="block text-white mb-2">Search Products</label>
             <input
               type="text"
-              placeholder="Search by name or description..."
+              placeholder="Search by name, part number, or barcode..."
               className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded placeholder-gray-400"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

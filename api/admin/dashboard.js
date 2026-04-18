@@ -64,7 +64,8 @@ module.exports = async (req, res) => {
       ordersByStatusResult,
       lowStockResult,
       inventoryStockResult,
-      distinctPartsResult
+      distinctPartsResult,
+      productsByCategoryResult
     ] = await Promise.all([
       // Total products (distinct count)
       db.query('SELECT COUNT(*) FROM products'),
@@ -97,7 +98,15 @@ module.exports = async (req, res) => {
       // Full stock - total quantity of all items (including duplicates)
       db.query('SELECT COALESCE(SUM(quantity), 0) as full_stock FROM products'),
       // Distinct parts count
-      db.query('SELECT COUNT(DISTINCT part_number) as distinct_parts FROM products')
+      db.query('SELECT COUNT(DISTINCT part_number) as distinct_parts FROM products'),
+      // Products grouped by category
+      db.query(`
+        SELECT c.name as category_name, COUNT(p.id) as count
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        GROUP BY c.name
+        ORDER BY count DESC
+      `)
     ]);
 
     // Process results
@@ -127,6 +136,12 @@ module.exports = async (req, res) => {
       ordersStatusCounts[row.status] = parseInt(row.count);
     });
 
+    // Format products by category
+    const productsByCategory = productsByCategoryResult.rows.map(row => ({
+      name: row.category_name || 'Uncategorized',
+      count: parseInt(row.count)
+    }));
+
     const dashboardData = {
       total_products: totalProducts,
       total_orders: totalOrders,
@@ -136,7 +151,8 @@ module.exports = async (req, res) => {
       recent_orders: recentOrders,
       low_stock: lowStockResult.rows,
       full_stock: fullStock,
-      distinct_parts: distinctParts
+      distinct_parts: distinctParts,
+      products_by_category: productsByCategory
     };
 
     console.log('✅ Dashboard data fetched successfully from Neon');

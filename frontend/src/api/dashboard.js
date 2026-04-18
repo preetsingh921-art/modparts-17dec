@@ -45,7 +45,8 @@ export const getDashboardData = async () => {
       total_customers: 0,
       total_revenue: 0.00,
       recent_orders: [],
-      low_stock: []
+      low_stock: [],
+      products_by_category: []
     };
   }
 };

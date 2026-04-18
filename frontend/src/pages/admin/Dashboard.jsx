@@ -353,6 +353,40 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+        
+        {/* Products by Category Infographic */}
+        <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow lg:col-span-2 xl:col-span-1">
+          <div className="px-6 py-4 border-b border-midnight-700">
+            <h2 className="text-xl font-semibold text-midnight-50">Products by Category</h2>
+          </div>
+          <div className="p-6">
+            {!dashboardData.products_by_category || dashboardData.products_by_category.length === 0 ? (
+              <p className="text-midnight-400">No category data available</p>
+            ) : (
+              <div className="space-y-4">
+                {(() => {
+                  const maxCount = Math.max(...dashboardData.products_by_category.map(c => c.count));
+                  return dashboardData.products_by_category.map((category, index) => {
+                    const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-yellow-500', 'bg-red-500', 'bg-cyan-500', 'bg-orange-500'];
+                    const colorClass = colors[index % colors.length];
+                    const percentage = maxCount > 0 ? (category.count / maxCount) * 100 : 0;
+                    return (
+                      <div key={index} className="flex flex-col">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-midnight-100 font-medium">{category.name}</span>
+                          <span className="text-midnight-300">{category.count} items</span>
+                        </div>
+                        <div className="w-full bg-midnight-800 rounded-full h-2">
+                          <div className={`h-2 rounded-full ${colorClass} transition-all duration-500`} style={{ width: `${Math.max(2, percentage)}%` }}></div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

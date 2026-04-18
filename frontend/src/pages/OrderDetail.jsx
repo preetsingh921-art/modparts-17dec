@@ -217,7 +217,7 @@ const OrderDetail = () => {
         <h2 className="text-lg font-semibold text-white mb-3">Order Items</h2>
         <div className="border rounded overflow-hidden no-break">
           <table className="w-full order-items">
-            <thead className="bg-gray-100">
+            <thead className="bg-[#2a2a2a] print:bg-gray-100 border-b border-gray-700">
               <tr>
                 <th className="text-left p-3 text-white">Product</th>
                 <th className="text-center p-3 text-white">Price</th>
@@ -241,8 +241,8 @@ const OrderDetail = () => {
                 </tr>
               )}
             </tbody>
-            <tfoot className="bg-gray-50">
-              <tr className="border-t">
+            <tfoot className="bg-[#242424] print:bg-gray-50">
+              <tr className="border-t border-gray-700">
                 <td colSpan="3" className="p-3 text-right font-semibold text-white">Total:</td>
                 <td className="p-3 text-right font-bold text-white">${parseFloat(order.total_amount || 0).toFixed(2)}</td>
               </tr>

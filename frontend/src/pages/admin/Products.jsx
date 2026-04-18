@@ -454,7 +454,7 @@ const Products = () => {
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <button
             onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center justify-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 w-full sm:w-auto transition-colors"
+            className="flex items-center justify-center bg-slate-700 text-slate-50 px-4 py-2 rounded hover:bg-slate-600 w-full sm:w-auto transition-colors"
             disabled={isExporting}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

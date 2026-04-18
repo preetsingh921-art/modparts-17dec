@@ -14,7 +14,15 @@ html, body {
 
 @layer base {
   /* Fix text readability for inputs with white/light backgrounds */
-  input:not([type="checkbox"]):not([type="radio"]), textarea, select {
+  .bg-white input:not([type="checkbox"]):not([type="radio"]),
+  .bg-white textarea,
+  .bg-white select,
+  .bg-gray-50 input:not([type="checkbox"]):not([type="radio"]),
+  .bg-gray-100 input:not([type="checkbox"]):not([type="radio"]),
+  .bg-slate-50 input:not([type="checkbox"]):not([type="radio"]),
+  .bg-slate-100 input:not([type="checkbox"]):not([type="radio"]),
+  input[style*="background: #e2e8f0"],
+  input[style*="background-color: #e2e8f0"] {
     color: #1a1a1a;
   }
   

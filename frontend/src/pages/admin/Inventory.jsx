@@ -2347,24 +2347,38 @@ const Inventory = () => {
                                         </p>
                                     </div>
 
-                                    {/* Display Coordinates */}
+                                    {/* Display Coordinates + Map */}
                                     {(w.latitude && w.longitude) ? (
-                                        <div style={{ marginTop: '10px', padding: '8px', background: '#e3f2fd', borderRadius: '4px' }}>
-                                            <p style={{ margin: 0, fontSize: '12px', color: '#1565c0' }}>
-                                                🌐 Lat: {parseFloat(w.latitude).toFixed(4)}, Lng: {parseFloat(w.longitude).toFixed(4)}
-                                            </p>
-                                            <a
-                                                href={`https://www.google.com/maps?q=${w.latitude},${w.longitude}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{ fontSize: '11px', color: '#1976d2' }}
-                                            >
-                                                🗺️ Open in Google Maps
-                                            </a>
+                                        <div style={{ marginTop: '10px' }}>
+                                            <div style={{ padding: '8px', background: '#e3f2fd', borderRadius: '4px 4px 0 0' }}>
+                                                <p style={{ margin: 0, fontSize: '12px', color: '#1565c0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span>🌐 Lat: {parseFloat(w.latitude).toFixed(4)}, Lng: {parseFloat(w.longitude).toFixed(4)}</span>
+                                                    <a
+                                                        href={`https://www.google.com/maps?q=${w.latitude},${w.longitude}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ fontSize: '11px', color: '#1976d2', textDecoration: 'none', fontWeight: 'bold' }}
+                                                    >
+                                                        🗺️ Open in Maps ↗
+                                                    </a>
+                                                </p>
+                                            </div>
+                                            <iframe
+                                                title={`${w.name} location`}
+                                                src={`https://maps.google.com/maps?q=${w.latitude},${w.longitude}&z=15&output=embed`}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '150px',
+                                                    border: 'none',
+                                                    borderRadius: '0 0 4px 4px'
+                                                }}
+                                                loading="lazy"
+                                                allowFullScreen
+                                            />
                                         </div>
                                     ) : (
                                         <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
-                                            📍 No GPS coordinates set
+                                            📍 No GPS coordinates set — edit warehouse to add lat/long
                                         </p>
                                     )}
 

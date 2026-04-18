@@ -401,18 +401,15 @@ const Inventory = () => {
                     setMessage({ type: 'success', text: `Found: ${product.name} (Qty: ${product.quantity})` });
                 }
             } else {
-                // Search for product by barcode/part_number - ONLY in admin's warehouse
+                // Search for product by barcode/part_number - search GLOBALLY first
                 const productsModule = await import('../../api/products');
 
-                // First, search ONLY in admin's warehouse
-                const searchParams = { search: barcode, limit: 20 };
-                if (adminWarehouseId) {
-                    searchParams.warehouse_id = adminWarehouseId;
-                }
+                // Search without warehouse filter so we can find the product regardless of location
+                const searchParams = { search: barcode, limit: 50 };
                 console.log('🔍 SEARCH DEBUG:', { adminWarehouseId, searchParams, userWarehouseId: user?.warehouse_id });
                 const result = await productsModule.getProducts(searchParams);
                 const products = result.products || result;
-                console.log('🔍 SEARCH RESULTS:', products?.length, 'products found, first:', products?.[0]?.warehouse_id);
+                console.log('🔍 SEARCH RESULTS:', products?.length, 'products found');
 
                 // Find matching product in admin's warehouse
                 let matchingProducts = products?.filter(p =>

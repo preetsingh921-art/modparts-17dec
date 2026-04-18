@@ -326,13 +326,13 @@ const BarcodeScanner = ({
 
         try {
             console.log('🔍 Looking up:', barcodeValue, 'in warehouse:', warehouseId);
-            const searchParams = { search: barcodeValue, limit: 10 };
-            if (warehouseId) searchParams.warehouse_id = warehouseId;
+            // Search globally first (don't filter by warehouse — the parent handles warehouse logic)
+            const searchParams = { search: barcodeValue, limit: 50 };
             const result = await getProducts(searchParams);
 
             console.log('📦 API returned:', result.products?.length || 0, 'products');
 
-            // Find exact match first (part_number or barcode)
+            // Find exact match first (part_number or barcode), including hyphens
             const exactMatch = result.products?.find(p =>
                 p.part_number === barcodeValue ||
                 p.barcode === barcodeValue ||
@@ -374,8 +374,8 @@ const BarcodeScanner = ({
 
         setIsSearching(true);
         try {
-            const searchParams = { search: query, limit: 10 };
-            if (warehouseId) searchParams.warehouse_id = warehouseId;
+            // Search globally so products from any warehouse appear in suggestions
+            const searchParams = { search: query, limit: 20 };
             const result = await getProducts(searchParams);
             const products = result.products || [];
             console.log('🔍 Search found:', products.length, 'products for', query);

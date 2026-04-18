@@ -370,10 +370,15 @@ export const printBulkBarcodeLabels = (products, config = {}) => {
             page-break-inside: avoid;
             page-break-after: always;
             margin: 0;
-            padding: 1mm;
+            padding: 2mm;
             border: none;
+            width: 100%;
+            overflow: hidden;
           }
-          .label:last-child { page-break-after: auto; }
+          .label svg {
+            max-width: 100%;
+            height: auto;
+          }
         }
 
         * { box-sizing: border-box; }
@@ -426,29 +431,36 @@ export const printBulkBarcodeLabels = (products, config = {}) => {
         .labels-container {
           display: flex;
           flex-wrap: wrap;
-          gap: 12px;
+          gap: 24px;
           justify-content: flex-start;
+          padding: 10px;
         }
 
         .label {
-          border: 1px dashed #cbd5e1;
-          padding: 8px 12px;
+          border: 2px dashed #94a3b8;
+          padding: 20px 24px;
           text-align: center;
           background: white;
-          border-radius: 6px;
-          min-width: 180px;
-          max-width: 280px;
+          border-radius: 8px;
+          width: 300px;
+          overflow: hidden;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
         }
 
+        .label svg {
+          max-width: 100%;
+          height: auto;
+          display: block;
+        }
+
         .product-name {
           font-weight: 700;
-          font-size: ${Math.max(8, tape.fontSize - 1)}px;
-          margin-bottom: 3px;
-          max-width: 240px;
+          font-size: ${Math.max(10, tape.fontSize)}px;
+          margin-bottom: 6px;
+          max-width: 260px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -456,23 +468,19 @@ export const printBulkBarcodeLabels = (products, config = {}) => {
         }
 
         .part-number {
-          font-size: ${tape.fontSize}px;
+          font-size: ${Math.max(12, tape.fontSize + 1)}px;
           font-weight: 800;
           color: #000;
-          margin-top: 3px;
+          margin-top: 6px;
           font-family: 'Courier New', monospace;
-          letter-spacing: 1px;
+          letter-spacing: 1.5px;
         }
 
         .price {
-          font-size: ${Math.max(8, tape.fontSize - 1)}px;
+          font-size: ${Math.max(10, tape.fontSize)}px;
           font-weight: 700;
-          margin-top: 2px;
+          margin-top: 4px;
           color: #1e293b;
-        }
-
-        .barcode-svg svg {
-          max-width: 100%;
         }
       </style>
     </head>

@@ -234,137 +234,274 @@ export const printBarcodeLabel = ({ svgElement, productName, partNumber, price, 
 };
 
 /**
- * Print multiple barcode labels (bulk print)
- * @param {Array} products - Array of product objects with barcode info
- * @param {Object} sizeConfig - Optional size configuration { width, height }
+ * Brother P-touch D610BT tape preset configurations
+ * Dimensions are in mm; barcode sizing is tuned for each tape width.
  */
-export const printBulkBarcodeLabels = (products, sizeConfig = { width: 2, height: 60 }) => {
+export const BROTHER_TAPE_PRESETS = {
+  '3.5mm': { name: '3.5mm TZe', tapeWidth: 3.5, labelHeight: 3.5, barcodeWidth: 0.8, barcodeHeight: 8, fontSize: 4, orientation: 'landscape', showName: false, showPrice: false },
+  '6mm':   { name: '6mm TZe',   tapeWidth: 6,   labelHeight: 6,   barcodeWidth: 1.0, barcodeHeight: 14, fontSize: 5, orientation: 'landscape', showName: false, showPrice: false },
+  '9mm':   { name: '9mm TZe',   tapeWidth: 9,   labelHeight: 9,   barcodeWidth: 1.2, barcodeHeight: 20, fontSize: 6, orientation: 'landscape', showName: false, showPrice: false },
+  '12mm':  { name: '12mm TZe',  tapeWidth: 12,  labelHeight: 12,  barcodeWidth: 1.5, barcodeHeight: 28, fontSize: 7, orientation: 'landscape', showName: true,  showPrice: false },
+  '18mm':  { name: '18mm TZe',  tapeWidth: 18,  labelHeight: 18,  barcodeWidth: 1.8, barcodeHeight: 38, fontSize: 9, orientation: 'portrait',  showName: true,  showPrice: false },
+  '24mm':  { name: '24mm TZe',  tapeWidth: 24,  labelHeight: 24,  barcodeWidth: 2.2, barcodeHeight: 50, fontSize: 11, orientation: 'portrait', showName: true,  showPrice: true },
+};
+
+export const DEFAULT_LABEL_CONFIG = {
+  tapePreset: '24mm',
+  copies: 1,
+  showProductName: true,
+  showPartNumber: true,
+  showPrice: false,
+  orientation: 'portrait', // 'portrait' or 'landscape'
+  printerModel: 'brother_d610bt',
+};
+
+/**
+ * Get saved label settings from localStorage, merged with defaults
+ */
+export const getSavedLabelSettings = () => {
+  try {
+    const saved = localStorage.getItem('labelPrinterSettings');
+    if (saved) {
+      return { ...DEFAULT_LABEL_CONFIG, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.warn('Failed to load label settings:', e);
+  }
+  return { ...DEFAULT_LABEL_CONFIG };
+};
+
+/**
+ * Save label settings to localStorage
+ */
+export const saveLabelSettings = (settings) => {
+  try {
+    localStorage.setItem('labelPrinterSettings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('Failed to save label settings:', e);
+  }
+};
+
+/**
+ * Print multiple barcode labels (bulk print) — optimized for Brother P-touch D610BT
+ * @param {Array} products - Array of product objects with barcode/part_number info
+ * @param {Object} config - Label configuration
+ * @param {string} config.tapePreset - Tape preset key (e.g. '24mm')
+ * @param {number} config.copies - Number of copies per label
+ * @param {boolean} config.showProductName - Show product name on label
+ * @param {boolean} config.showPartNumber - Show part number on label
+ * @param {boolean} config.showPrice - Show price on label
+ * @param {string} config.orientation - 'portrait' or 'landscape'
+ */
+export const printBulkBarcodeLabels = (products, config = {}) => {
   if (!products || products.length === 0) return;
 
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    const labelsHtml = products.map(product => {
-      // Only barcode and part number - no product name, no price
-      return `
-        <div class="label">
-          <svg id="barcode-${product.id}"></svg>
-          ${product.barcode ? `<div class="part-number">${product.barcode}</div>` : ''}
-        </div>
-      `;
-    }).join('');
+  const settings = { ...getSavedLabelSettings(), ...config };
+  const tape = BROTHER_TAPE_PRESETS[settings.tapePreset] || BROTHER_TAPE_PRESETS['24mm'];
+  const copies = Math.max(1, settings.copies || 1);
+  const orientation = settings.orientation || tape.orientation;
 
-    const barcodeScripts = products.map(product => `
-      if (document.getElementById('barcode-${product.id}') && '${product.barcode}') {
+  // Build labels array with copies
+  const allLabels = [];
+  products.forEach(product => {
+    for (let c = 0; c < copies; c++) {
+      allLabels.push(product);
+    }
+  });
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+
+  const labelsHtml = allLabels.map((product, idx) => {
+    const partNum = product.part_number || product.barcode || '';
+    const barcodeVal = product.barcode || product.part_number || '';
+    return `
+      <div class="label">
+        ${settings.showProductName && product.name ? `<div class="product-name">${product.name}</div>` : ''}
+        <svg id="barcode-${idx}"></svg>
+        ${settings.showPartNumber && partNum ? `<div class="part-number">P/N: ${partNum}</div>` : ''}
+        ${settings.showPrice && product.price ? `<div class="price">$${parseFloat(product.price).toFixed(2)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  const barcodeScripts = allLabels.map((product, idx) => {
+    const barcodeVal = product.barcode || product.part_number || '';
+    if (!barcodeVal) return '';
+    return `
+      if (document.getElementById('barcode-${idx}')) {
         try {
-          JsBarcode('#barcode-${product.id}', '${product.barcode}', {
+          JsBarcode('#barcode-${idx}', '${barcodeVal.replace(/'/g, "\\'")}', {
             format: 'CODE128',
-            width: ${sizeConfig.width},
-            height: ${sizeConfig.height},
+            width: ${tape.barcodeWidth},
+            height: ${tape.barcodeHeight},
             displayValue: false,
-            margin: 5,
+            margin: 2,
             background: '#ffffff',
             lineColor: '#000000'
           });
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error('Barcode error for ${idx}:', e); }
       }
-    `).join('\n');
+    `;
+  }).join('\n');
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Bulk Barcode Labels</title>
-        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-        <style>
-          @media print {
-            @page { margin: 5mm; size: auto; }
-            body { margin: 0; padding: 0; }
-            .labels-container { display: block; }
-            .label { 
-              page-break-inside: avoid;
-              margin-bottom: 10px;
-            }
+  // Calculate page dimensions based on tape and orientation
+  const tapeH = tape.tapeWidth; // mm
+  const labelW = Math.max(40, tapeH * 3); // label length on continuous tape
+  const pageWidth = orientation === 'landscape' ? labelW : tapeH;
+  const pageHeight = orientation === 'landscape' ? tapeH : labelW;
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Barcode Labels — Brother P-touch D610BT (${tape.name})</title>
+      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+      <style>
+        @media print {
+          @page {
+            size: ${pageWidth}mm ${pageHeight}mm;
+            margin: 1mm;
           }
-          body { 
-            font-family: Arial, sans-serif; 
-            padding: 20px;
-          }
-          .labels-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            justify-content: flex-start;
-          }
+          body { margin: 0; padding: 0; }
+          .print-controls { display: none !important; }
+          .print-info { display: none !important; }
           .label {
-            border: 1px dashed #ccc;
-            padding: 15px 20px;
-            text-align: center;
-            background: white;
-            min-width: 200px;
-          }
-          .product-name {
-            font-weight: bold;
-            font-size: 12px;
-            margin-bottom: 5px;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-          .part-number {
-            font-size: 14px;
-            font-weight: bold;
-            color: #333;
-            margin-top: 8px;
-            font-family: monospace;
-          }
-          .price {
-            font-size: 14px;
-            font-weight: bold;
-            margin-top: 5px;
-          }
-          .print-controls {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 100;
-          }
-          .print-controls button {
-            padding: 10px 20px;
-            font-size: 14px;
-            cursor: pointer;
-            background: #4CAF50;
-            color: white;
+            page-break-inside: avoid;
+            page-break-after: always;
+            margin: 0;
+            padding: 1mm;
             border: none;
-            border-radius: 4px;
           }
-          @media print {
-            .print-controls { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="print-controls">
-          <button onclick="window.print()">🖨️ Print ${products.length} Labels</button>
+          .label:last-child { page-break-after: auto; }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+          font-family: Arial, Helvetica, sans-serif;
+          padding: 20px;
+          background: #f5f5f5;
+        }
+
+        .print-controls {
+          position: sticky;
+          top: 0;
+          background: white;
+          padding: 16px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+          z-index: 100;
+          margin-bottom: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        .print-controls button {
+          padding: 12px 28px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          background: #16a34a;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          transition: background 0.2s;
+        }
+        .print-controls button:hover { background: #15803d; }
+
+        .print-info {
+          background: #e0f2fe;
+          border: 1px solid #7dd3fc;
+          border-radius: 8px;
+          padding: 12px 16px;
+          margin-bottom: 20px;
+          font-size: 13px;
+          color: #0c4a6e;
+        }
+
+        .labels-container {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          justify-content: flex-start;
+        }
+
+        .label {
+          border: 1px dashed #cbd5e1;
+          padding: 8px 12px;
+          text-align: center;
+          background: white;
+          border-radius: 6px;
+          min-width: 180px;
+          max-width: 280px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .product-name {
+          font-weight: 700;
+          font-size: ${Math.max(8, tape.fontSize - 1)}px;
+          margin-bottom: 3px;
+          max-width: 240px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: #1e293b;
+        }
+
+        .part-number {
+          font-size: ${tape.fontSize}px;
+          font-weight: 800;
+          color: #000;
+          margin-top: 3px;
+          font-family: 'Courier New', monospace;
+          letter-spacing: 1px;
+        }
+
+        .price {
+          font-size: ${Math.max(8, tape.fontSize - 1)}px;
+          font-weight: 700;
+          margin-top: 2px;
+          color: #1e293b;
+        }
+
+        .barcode-svg svg {
+          max-width: 100%;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-controls">
+        <div>
+          <strong>Brother P-touch D610BT</strong> — ${tape.name} tape, ${orientation}, ${allLabels.length} label${allLabels.length !== 1 ? 's' : ''}
         </div>
-        <h2 style="margin-bottom: 20px;">Barcode Labels (${products.length})</h2>
-        <div class="labels-container">
-          ${labelsHtml}
-        </div>
-        <script>
-          window.onload = function() {
-            ${barcodeScripts}
-          }
-        </script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-  }
+        <button onclick="window.print()">🖨️ Print ${allLabels.length} Labels</button>
+      </div>
+
+      <div class="print-info">
+        💡 <strong>Tip:</strong> In the print dialog, select your <strong>Brother P-touch D610BT</strong> printer.
+        Set paper size to <strong>${tape.name}</strong> tape and margins to <strong>minimum</strong> for best results.
+      </div>
+
+      <div class="labels-container">
+        ${labelsHtml}
+      </div>
+
+      <script>
+        window.onload = function() {
+          ${barcodeScripts}
+        }
+      <\/script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 };
 
 export default {
@@ -372,5 +509,9 @@ export default {
   copyBarcodeAsImage,
   downloadBarcodeAsPng,
   printBarcodeLabel,
-  printBulkBarcodeLabels
+  printBulkBarcodeLabels,
+  BROTHER_TAPE_PRESETS,
+  DEFAULT_LABEL_CONFIG,
+  getSavedLabelSettings,
+  saveLabelSettings
 };

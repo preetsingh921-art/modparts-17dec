@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { BROTHER_TAPE_PRESETS, getSavedLabelSettings, saveLabelSettings } from '../../utils/barcodeUtils';
 
 const SiteSettings = () => {
     const [settings, setSettings] = useState({
@@ -20,6 +21,7 @@ const SiteSettings = () => {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [labelSettings, setLabelSettings] = useState(() => getSavedLabelSettings());
 
     useEffect(() => {
         // Load settings from localStorage or API
@@ -45,6 +47,7 @@ const SiteSettings = () => {
         try {
             // Save to localStorage (can be replaced with API call)
             localStorage.setItem('siteSettings', JSON.stringify(settings));
+            saveLabelSettings(labelSettings);
 
             setMessage({ type: 'success', text: 'Settings saved successfully!' });
         } catch (error) {
@@ -246,6 +249,83 @@ const SiteSettings = () => {
                             />
                         </div>
                     </div>
+                </div>
+
+                {/* Label Printer Settings */}
+                <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-[#F5F0E1] mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                        🖨️ Label Printer
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[#A8A090] text-sm mb-2">Printer Model</label>
+                            <select
+                                value={labelSettings.printerModel}
+                                onChange={(e) => setLabelSettings(prev => ({ ...prev, printerModel: e.target.value }))}
+                                className="w-full bg-[#242424] text-[#F5F0E1] border border-[#444] rounded px-4 py-2 focus:outline-none focus:border-[#8B2332]"
+                            >
+                                <option value="brother_d610bt">Brother P-touch D610BT</option>
+                                <option value="generic">Generic Label Printer</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[#A8A090] text-sm mb-2">Default Tape Width</label>
+                            <select
+                                value={labelSettings.tapePreset}
+                                onChange={(e) => setLabelSettings(prev => ({ ...prev, tapePreset: e.target.value }))}
+                                className="w-full bg-[#242424] text-[#F5F0E1] border border-[#444] rounded px-4 py-2 focus:outline-none focus:border-[#8B2332]"
+                            >
+                                {Object.entries(BROTHER_TAPE_PRESETS).map(([key, preset]) => (
+                                    <option key={key} value={key}>{preset.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[#A8A090] text-sm mb-2">Default Orientation</label>
+                            <select
+                                value={labelSettings.orientation}
+                                onChange={(e) => setLabelSettings(prev => ({ ...prev, orientation: e.target.value }))}
+                                className="w-full bg-[#242424] text-[#F5F0E1] border border-[#444] rounded px-4 py-2 focus:outline-none focus:border-[#8B2332]"
+                            >
+                                <option value="portrait">Portrait</option>
+                                <option value="landscape">Landscape</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[#A8A090] text-sm mb-2">Default Copies</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="20"
+                                value={labelSettings.copies}
+                                onChange={(e) => setLabelSettings(prev => ({ ...prev, copies: Math.max(1, Math.min(20, parseInt(e.target.value) || 1)) }))}
+                                className="w-full bg-[#242424] text-[#F5F0E1] border border-[#444] rounded px-4 py-2 focus:outline-none focus:border-[#8B2332]"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-[#A8A090] text-sm mb-2">Default Label Content</label>
+                            <div className="flex flex-wrap gap-4">
+                                {[
+                                    { key: 'showProductName', label: 'Product Name' },
+                                    { key: 'showPartNumber', label: 'Part Number' },
+                                    { key: 'showPrice', label: 'Price' },
+                                ].map(({ key, label }) => (
+                                    <label key={key} className="flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={labelSettings[key]}
+                                            onChange={(e) => setLabelSettings(prev => ({ ...prev, [key]: e.target.checked }))}
+                                            className="w-4 h-4 mr-2 accent-emerald-500"
+                                        />
+                                        <span className="text-[#A8A090] text-sm">{label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-[#666] text-xs mt-3">
+                        These defaults will be pre-selected when opening the bulk print dialog on the Products page.
+                    </p>
                 </div>
 
                 {/* Save Button */}

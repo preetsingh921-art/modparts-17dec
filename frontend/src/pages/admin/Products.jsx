@@ -13,7 +13,7 @@ import { exportToPDF, exportToXLSX } from '../../utils/exportUtils';
 import PlaceholderImage from '../../components/ui/PlaceholderImage';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import InlineBarcode from '../../components/ui/InlineBarcode';
-import { printBulkBarcodeLabels } from '../../utils/barcodeUtils';
+import { printBulkBarcodeLabels, BROTHER_TAPE_PRESETS, getSavedLabelSettings, saveLabelSettings } from '../../utils/barcodeUtils';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -51,7 +51,8 @@ const Products = () => {
 
   // Print modal state
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [printSizeLevel, setPrintSizeLevel] = useState(3);
+  const [labelConfig, setLabelConfig] = useState(() => getSavedLabelSettings());
+  const [rememberSettings, setRememberSettings] = useState(true);
 
   useEffect(() => {
     const fetchData = async (retryCount = 0) => {
@@ -583,45 +584,109 @@ const Products = () => {
 
       {/* Print Labels Modal with Size Controls */}
       {showPrintModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-midnight-900 border border-midnight-700 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold text-white mb-4">Print Barcode Labels</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-midnight-900 border border-midnight-700 rounded-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">🖨️ Print Barcode Labels</h3>
+              <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">Brother D610BT</span>
+            </div>
 
-            <p className="text-gray-400 mb-4">
-              Printing {selectedProducts.filter(id => products.find(p => p.id === id)?.part_number).length} labels
+            <p className="text-gray-400 text-sm mb-5">
+              {selectedProducts.filter(id => products.find(p => p.id === id)?.part_number).length} products selected
+              {labelConfig.copies > 1 ? ` × ${labelConfig.copies} copies = ${selectedProducts.filter(id => products.find(p => p.id === id)?.part_number).length * labelConfig.copies} total labels` : ''}
             </p>
 
-            {/* Size Controls */}
-            <div className="mb-6">
-              <label className="block text-gray-400 text-sm mb-3">Barcode Size</label>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setPrintSizeLevel(Math.max(1, printSizeLevel - 1))}
-                  disabled={printSizeLevel <= 1}
-                  className={`w-12 h-12 rounded-lg font-bold text-2xl flex items-center justify-center ${printSizeLevel <= 1
-                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                    : 'bg-red-600 text-white hover:bg-red-700'
+            {/* Tape Width Selector */}
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Tape Width</label>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(BROTHER_TAPE_PRESETS).map(([key, preset]) => (
+                  <button
+                    key={key}
+                    onClick={() => setLabelConfig(prev => ({ ...prev, tapePreset: key, orientation: preset.orientation }))}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      labelConfig.tapePreset === key
+                        ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                        : 'bg-midnight-800 text-gray-300 hover:bg-midnight-700'
                     }`}
-                >
-                  −
-                </button>
-                <div className="flex-1 text-center">
-                  <span className="text-white font-semibold text-xl">
-                    {['XS', 'S', 'M', 'L', 'XL'][printSizeLevel - 1]}
-                  </span>
-                  <span className="text-gray-400 text-sm ml-2">(Level {printSizeLevel}/5)</span>
-                </div>
-                <button
-                  onClick={() => setPrintSizeLevel(Math.min(5, printSizeLevel + 1))}
-                  disabled={printSizeLevel >= 5}
-                  className={`w-12 h-12 rounded-lg font-bold text-2xl flex items-center justify-center ${printSizeLevel >= 5
-                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
-                >
-                  +
-                </button>
+                  >
+                    {preset.name}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* Copies */}
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Copies per Label</label>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setLabelConfig(prev => ({ ...prev, copies: Math.max(1, prev.copies - 1) }))}
+                  disabled={labelConfig.copies <= 1}
+                  className="w-10 h-10 rounded-lg font-bold text-xl flex items-center justify-center bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500"
+                >−</button>
+                <span className="text-white font-semibold text-lg w-10 text-center">{labelConfig.copies}</span>
+                <button
+                  onClick={() => setLabelConfig(prev => ({ ...prev, copies: Math.min(20, prev.copies + 1) }))}
+                  disabled={labelConfig.copies >= 20}
+                  className="w-10 h-10 rounded-lg font-bold text-xl flex items-center justify-center bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500"
+                >+</button>
+              </div>
+            </div>
+
+            {/* Orientation */}
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Orientation</label>
+              <div className="flex gap-2">
+                {['portrait', 'landscape'].map(o => (
+                  <button
+                    key={o}
+                    onClick={() => setLabelConfig(prev => ({ ...prev, orientation: o }))}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+                      labelConfig.orientation === o
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-midnight-800 text-gray-300 hover:bg-midnight-700'
+                    }`}
+                  >
+                    {o === 'portrait' ? '↕' : '↔'} {o}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Content Toggles */}
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Label Content</label>
+              <div className="space-y-2">
+                {[
+                  { key: 'showProductName', label: 'Product Name' },
+                  { key: 'showPartNumber', label: 'Part Number (P/N)' },
+                  { key: 'showPrice', label: 'Price' },
+                ].map(({ key, label }) => (
+                  <label key={key} className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={labelConfig[key]}
+                      onChange={(e) => setLabelConfig(prev => ({ ...prev, [key]: e.target.checked }))}
+                      className="w-4 h-4 mr-3 accent-emerald-500"
+                    />
+                    <span className="text-gray-300 text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Remember Settings */}
+            <div className="mb-5">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberSettings}
+                  onChange={(e) => setRememberSettings(e.target.checked)}
+                  className="w-4 h-4 mr-3 accent-blue-500"
+                />
+                <span className="text-gray-400 text-sm">Remember my settings</span>
+              </label>
             </div>
 
             {/* Action Buttons */}
@@ -635,25 +700,19 @@ const Products = () => {
               <button
                 onClick={() => {
                   const productsToPrint = products
-                    .filter(p => selectedProducts.includes(p.id) && p.part_number)
-                    .map(p => ({ ...p, barcode: p.part_number })); // Use part_number as barcode
+                    .filter(p => selectedProducts.includes(p.id) && (p.part_number || p.barcode))
+                    .map(p => ({ ...p, barcode: p.barcode || p.part_number }));
 
-                  // Size configurations based on level
-                  const sizeConfigs = {
-                    1: { width: 1.2, height: 35 },
-                    2: { width: 1.8, height: 50 },
-                    3: { width: 2.2, height: 65 },
-                    4: { width: 2.8, height: 80 },
-                    5: { width: 3.5, height: 100 }
-                  };
-                  const sizeConfig = sizeConfigs[printSizeLevel] || sizeConfigs[3];
+                  if (rememberSettings) {
+                    saveLabelSettings(labelConfig);
+                  }
 
-                  printBulkBarcodeLabels(productsToPrint, sizeConfig);
+                  printBulkBarcodeLabels(productsToPrint, labelConfig);
                   setShowPrintModal(false);
                   setSelectedProducts([]);
                   setSelectAll(false);
                 }}
-                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
               >
                 🖨️ Print Labels
               </button>

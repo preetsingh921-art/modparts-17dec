@@ -12,6 +12,33 @@ const sampleCsvData = [
   ['Headlight Assembly', '65.75', 'Bodywork', '3', 'Chrome headlight assembly.', 'Used', 'HL-88', '', '2', 'D-03']
 ];
 
+// Field aliases for smart auto-mapping
+const fieldAliases = {
+  name: ['name', 'title', 'product', 'item'],
+  price: ['price', 'cost', 'amount', 'msrp', 'rate'],
+  category_id: ['category', 'type', 'group', 'class', 'department'],
+  quantity: ['quantity', 'qty', 'stock', 'inventory', 'count', 'amount'],
+  description: ['description', 'desc', 'details', 'info', 'text'],
+  condition_status: ['condition', 'status', 'state'],
+  part_number: ['part', 'mpn', 'sku', 'number', 'pn'],
+  barcode: ['barcode', 'upc', 'ean', 'isbn', 'code'],
+  warehouse_id: ['warehouse', 'location', 'site'],
+  bin_number: ['bin', 'shelf', 'aisle', 'position']
+};
+
+const getFieldMatchScore = (header, targetField) => {
+  const normHeader = header.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  const normTarget = targetField.replace(/_/g, '');
+  if (normHeader === normTarget) return 100;
+  
+  const aliases = fieldAliases[targetField] || [];
+  for (const alias of aliases) {
+    if (normHeader === alias) return 90;
+    if (normHeader.includes(alias) || alias.includes(normHeader)) return 70;
+  }
+  return 0;
+};
+
 /**
  * Generate and download a CSV file with sample product data
  */
@@ -70,7 +97,8 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
   const [fileName, setFileName] = useState('');
   const [parsedData, setParsedData] = useState([]);
   const [headers, setHeaders] = useState([]);
-  const [previewData, setPreviewData] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState(1); // 1: Upload, 2: Preview, 3: Mapping
@@ -86,7 +114,7 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
       setFileName('');
       setParsedData([]);
       setHeaders([]);
-      setPreviewData([]);
+      setCurrentPage(1);
       setIsLoading(false);
       setError('');
       setStep(1);
@@ -129,19 +157,31 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
         const headers = Object.keys(results.data[0]);
         setHeaders(headers);
 
-        // Create initial mappings (auto-map fields with matching names)
+        // Create initial mappings (smart auto-map via aliases and similarity)
         const initialMappings = {};
-        headers.forEach(header => {
-          const normalizedHeader = header.toLowerCase().trim().replace(/\s+/g, '_');
-          if (requiredFields.includes(normalizedHeader)) {
-            initialMappings[normalizedHeader] = header;
+        const availableFields = ['name', 'price', 'category_id', 'quantity', 'description', 'condition_status', 'part_number', 'barcode', 'warehouse_id', 'bin_number'];
+        
+        availableFields.forEach(field => {
+          let bestMatch = null;
+          let bestScore = 0;
+          
+          headers.forEach(header => {
+            const score = getFieldMatchScore(header, field);
+            if (score > bestScore && score >= 70) {
+              bestScore = score;
+              bestMatch = header;
+            }
+          });
+          
+          if (bestMatch) {
+            initialMappings[field] = bestMatch;
           }
         });
         setMappings(initialMappings);
 
-        // Set parsed data and preview (first 5 rows)
+        // Set parsed data for preview
         setParsedData(results.data);
-        setPreviewData(results.data.slice(0, 5));
+        setCurrentPage(1);
         setIsLoading(false);
         setStep(2);
       },
@@ -348,10 +388,10 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
             <div>
               <h3 className="text-lg font-semibold mb-2">Preview Data</h3>
               <p className="mb-4 text-gray-700">
-                Review the first 5 rows of your CSV file and map the columns to product fields.
+                Review your CSV file and map the columns to product fields. Showing page {currentPage} of {Math.ceil(parsedData.length / itemsPerPage)}.
               </p>
 
-              {previewData.length > 0 && (
+              {parsedData.length > 0 && (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -393,7 +433,7 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {previewData.map((row, rowIndex) => (
+                      {parsedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((row, rowIndex) => (
                         <tr key={rowIndex}>
                           {headers.map((header, colIndex) => (
                             <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -404,6 +444,63 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
                       ))}
                     </tbody>
                   </table>
+                  
+                  {/* Pagination Controls */}
+                  {parsedData.length > itemsPerPage && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6 mt-4">
+                      <div className="flex justify-between flex-1 sm:hidden">
+                        <button
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:bg-gray-100"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => setCurrentPage(Math.min(Math.ceil(parsedData.length / itemsPerPage), currentPage + 1))}
+                          disabled={currentPage === Math.ceil(parsedData.length / itemsPerPage)}
+                          className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:bg-gray-100"
+                        >
+                          Next
+                        </button>
+                      </div>
+                      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, parsedData.length)}</span> of{' '}
+                            <span className="font-medium">{parsedData.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                            <button
+                              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                              disabled={currentPage === 1}
+                              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
+                            >
+                              <span className="sr-only">Previous</span>
+                              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                            <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                              Page {currentPage} of {Math.ceil(parsedData.length / itemsPerPage)}
+                            </span>
+                            <button
+                              onClick={() => setCurrentPage(Math.min(Math.ceil(parsedData.length / itemsPerPage), currentPage + 1))}
+                              disabled={currentPage === Math.ceil(parsedData.length / itemsPerPage)}
+                              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
+                            >
+                              <span className="sr-only">Next</span>
+                              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </nav>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

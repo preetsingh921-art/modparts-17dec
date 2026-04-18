@@ -12,6 +12,18 @@ html, body {
   box-sizing: border-box;
 }
 
+@layer base {
+  /* Fix text readability for inputs with white/light backgrounds */
+  input:not([type="checkbox"]):not([type="radio"]), textarea, select {
+    color: #1a1a1a;
+  }
+  
+  /* Fix text readability for any container with a light background */
+  .bg-white, .bg-gray-50, .bg-gray-100, .bg-slate-50, .bg-slate-100 {
+    color: #1a1a1a;
+  }
+}
+
 /* Custom gear animation for auto parts theme */
 @keyframes gear-spin {
   from {

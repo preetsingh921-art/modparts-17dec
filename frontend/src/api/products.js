@@ -256,26 +256,80 @@ export const deleteProduct = async (id) => {
 
 /**
  * Create multiple products at once (bulk import)
+ * Skips duplicates by matching product name against existing products.
  *
  * @param {Array} productsData - Array of product objects to create
- * @returns {Promise<Array>} - Array of created products
+ * @param {Function} onProgress - Optional callback: ({ current, total, created, skipped, failed, currentName, status })
+ * @returns {Promise<Object>} - { created: [], skipped: [], failed: [] }
  */
-export const bulkCreateProducts = async (productsData) => {
-  try {
-    // Since we don't have a specific bulk create endpoint, we'll create products one by one
-    const createdProducts = [];
+export const bulkCreateProducts = async (productsData, onProgress) => {
+  const results = { created: [], skipped: [], failed: [] };
 
-    for (const productData of productsData) {
+  try {
+    // Fetch existing products to detect duplicates
+    const existingProducts = await getProducts({ limit: 5000 });
+    const existingNames = new Set(
+      (Array.isArray(existingProducts) ? existingProducts : [])
+        .map(p => (p.name || '').toLowerCase().trim())
+    );
+
+    const total = productsData.length;
+
+    for (let i = 0; i < total; i++) {
+      const productData = productsData[i];
+      const productName = (productData.name || '').trim();
+      const normalizedName = productName.toLowerCase();
+
+      // Check for duplicate
+      if (existingNames.has(normalizedName)) {
+        results.skipped.push(productData);
+        if (onProgress) {
+          onProgress({
+            current: i + 1,
+            total,
+            created: results.created.length,
+            skipped: results.skipped.length,
+            failed: results.failed.length,
+            currentName: productName,
+            status: 'skipped'
+          });
+        }
+        continue;
+      }
+
       try {
         const response = await createProduct(productData);
-        createdProducts.push(response);
+        results.created.push(response);
+        existingNames.add(normalizedName); // prevent duplicates within same batch
+        if (onProgress) {
+          onProgress({
+            current: i + 1,
+            total,
+            created: results.created.length,
+            skipped: results.skipped.length,
+            failed: results.failed.length,
+            currentName: productName,
+            status: 'created'
+          });
+        }
       } catch (error) {
-        console.error(`Error creating product ${productData.name}:`, error);
-        // Continue with the next product even if one fails
+        console.error(`Error creating product ${productName}:`, error);
+        results.failed.push({ ...productData, error: error.message });
+        if (onProgress) {
+          onProgress({
+            current: i + 1,
+            total,
+            created: results.created.length,
+            skipped: results.skipped.length,
+            failed: results.failed.length,
+            currentName: productName,
+            status: 'failed'
+          });
+        }
       }
     }
 
-    return createdProducts;
+    return results;
   } catch (error) {
     console.error('Error in bulk product creation:', error);
     throw new Error(error.message || 'Failed to import products');

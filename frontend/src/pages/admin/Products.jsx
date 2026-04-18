@@ -35,6 +35,9 @@ const Products = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState(null);
 
+  // Import progress state
+  const [importProgress, setImportProgress] = useState(null); // { current, total, created, skipped, failed, currentName, status }
+
   // Selection state
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -112,21 +115,30 @@ const Products = () => {
   };
 
   const handleImport = async (productsData) => {
-    setLoading(true);
+    setImportProgress({ current: 0, total: productsData.length, created: 0, skipped: 0, failed: 0, currentName: 'Preparing...', status: 'preparing' });
     try {
-      // Use the bulk create function to import products
-      const createdProducts = await bulkCreateProducts(productsData);
+      const results = await bulkCreateProducts(productsData, (progress) => {
+        setImportProgress(progress);
+      });
 
       // Refresh the products list
       const updatedProducts = await getProducts();
       setProducts(updatedProducts);
 
-      success(`Successfully imported ${createdProducts.length} out of ${productsData.length} products`);
+      // Build summary message
+      const parts = [];
+      if (results.created.length > 0) parts.push(`${results.created.length} imported`);
+      if (results.skipped.length > 0) parts.push(`${results.skipped.length} skipped (duplicates)`);
+      if (results.failed.length > 0) parts.push(`${results.failed.length} failed`);
+      success(parts.join(', '));
     } catch (err) {
       console.error('Error during import:', err);
       showError(err.message || 'Failed to import products');
     } finally {
-      setLoading(false);
+      // Keep progress visible for 2 seconds after completion before clearing
+      setTimeout(() => {
+        setImportProgress(null);
+      }, 2000);
     }
   };
 
@@ -508,6 +520,63 @@ const Products = () => {
         onImport={handleImport}
         categories={categories}
       />
+
+      {/* Import Progress Overlay */}
+      {importProgress && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+          <div className="bg-midnight-900 border border-midnight-700 rounded-xl shadow-2xl w-full max-w-lg p-6">
+            <h3 className="text-lg font-bold text-white mb-1">Importing Products</h3>
+            <p className="text-sm text-gray-400 mb-4 truncate">
+              {importProgress.current < importProgress.total
+                ? <>Processing: <span className="text-emerald-400 font-medium">{importProgress.currentName}</span></>
+                : <span className="text-emerald-400 font-medium">Import complete!</span>
+              }
+            </p>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-midnight-800 rounded-full h-4 mb-2 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300 ease-out"
+                style={{
+                  width: `${importProgress.total > 0 ? Math.round((importProgress.current / importProgress.total) * 100) : 0}%`,
+                  background: 'linear-gradient(90deg, #10b981, #34d399)'
+                }}
+              />
+            </div>
+
+            {/* Percentage & Count */}
+            <div className="flex justify-between text-sm mb-4">
+              <span className="text-gray-400">
+                {importProgress.current} of {importProgress.total} products
+              </span>
+              <span className="text-white font-semibold">
+                {importProgress.total > 0 ? Math.round((importProgress.current / importProgress.total) * 100) : 0}%
+              </span>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-midnight-800 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-emerald-400">{importProgress.created}</div>
+                <div className="text-xs text-gray-400 mt-1">Created</div>
+              </div>
+              <div className="bg-midnight-800 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-yellow-400">{importProgress.skipped}</div>
+                <div className="text-xs text-gray-400 mt-1">Skipped</div>
+              </div>
+              <div className="bg-midnight-800 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-red-400">{importProgress.failed}</div>
+                <div className="text-xs text-gray-400 mt-1">Failed</div>
+              </div>
+            </div>
+
+            {/* Completion indicator */}
+            {importProgress.current >= importProgress.total && (
+              <p className="text-center text-sm text-gray-400 mt-4 animate-pulse">Closing shortly...</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Print Labels Modal with Size Controls */}
       {showPrintModal && (

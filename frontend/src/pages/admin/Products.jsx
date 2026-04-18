@@ -13,6 +13,7 @@ import { exportToPDF, exportToXLSX } from '../../utils/exportUtils';
 import PlaceholderImage from '../../components/ui/PlaceholderImage';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import InlineBarcode from '../../components/ui/InlineBarcode';
+import BarcodeScanner from '../../components/inventory/BarcodeScanner';
 import { printBulkBarcodeLabels, BROTHER_TAPE_PRESETS, getSavedLabelSettings, saveLabelSettings } from '../../utils/barcodeUtils';
 
 const Products = () => {
@@ -53,6 +54,7 @@ const Products = () => {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [labelConfig, setLabelConfig] = useState(() => getSavedLabelSettings());
   const [rememberSettings, setRememberSettings] = useState(true);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     const fetchData = async (retryCount = 0) => {
@@ -758,13 +760,61 @@ const Products = () => {
 
           <div className="w-full md:w-1/2">
             <label className="block text-white mb-2">Search Products</label>
-            <input
-              type="text"
-              placeholder="Search by name, part number, or barcode..."
-              className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded placeholder-gray-400"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Search by name, part number, or barcode..."
+                className="flex-1 p-2 border border-midnight-600 bg-midnight-800 text-white rounded placeholder-gray-400"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button
+                onClick={() => setShowScanner(!showScanner)}
+                className={`px-3 py-2 rounded font-medium text-sm transition-colors flex items-center gap-1 ${
+                  showScanner
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+                title={showScanner ? 'Close Scanner' : 'Scan Barcode'}
+              >
+                {showScanner ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    Close
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    Scan
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Barcode Scanner Panel */}
+            {showScanner && (
+              <div className="mt-3 p-4 bg-midnight-800 border border-midnight-600 rounded-lg">
+                <BarcodeScanner
+                  onScan={(barcode, product) => {
+                    if (product) {
+                      setSearchQuery(product.part_number || product.barcode || product.name);
+                      success(`Found: ${product.name}`);
+                    } else {
+                      setSearchQuery(barcode);
+                    }
+                    setShowScanner(false);
+                  }}
+                  onError={(err) => showError('Scan failed: ' + err.message)}
+                  showPreview={true}
+                  width={280}
+                  height={220}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

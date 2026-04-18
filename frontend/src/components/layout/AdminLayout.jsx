@@ -58,7 +58,7 @@ const AdminLayout = () => {
   }, [user?.warehouse_id, user, setUser]);
 
   return (
-    <div className="min-h-screen" style={{ background: '#D4C5A9' }}>
+    <div className="min-h-screen bg-black">
       {/* Admin Header with Tabs */}
       <div className="bg-[#1a1a1a] border-b border-[#333]">
         <div className="container mx-auto px-4 py-4">

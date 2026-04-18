@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { BROTHER_TAPE_PRESETS, getSavedLabelSettings, saveLabelSettings } from '../../utils/barcodeUtils';
+import LocationPicker from '../../components/ui/LocationPicker';
 
 const SiteSettings = () => {
     const [settings, setSettings] = useState({
@@ -16,7 +17,10 @@ const SiteSettings = () => {
         meta_author: 'Sardaarji Autoparts',
         social_facebook: '',
         social_instagram: '',
-        social_twitter: ''
+        social_twitter: '',
+        store_latitude: '',
+        store_longitude: '',
+        location_address: ''
     });
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -167,6 +171,44 @@ const SiteSettings = () => {
                             />
                         </div>
                     </div>
+                </div>
+
+                {/* Store Location */}
+                <div className="bg-[#1a1a1a] border border-[#333] rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-[#F5F0E1] mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                        📍 Store Location
+                    </h3>
+                    <LocationPicker
+                        latitude={settings.store_latitude}
+                        longitude={settings.store_longitude}
+                        height={380}
+                        onLocationChange={(lat, lng, address) => {
+                            setSettings(prev => ({
+                                ...prev,
+                                store_latitude: lat,
+                                store_longitude: lng,
+                                location_address: address || prev.location_address
+                            }));
+                        }}
+                    />
+                    {settings.location_address && (
+                        <div className="mt-3 p-3 bg-[#242424] rounded border border-[#444]">
+                            <p className="text-[#A8A090] text-xs mb-1">Detected Address</p>
+                            <p className="text-[#F5F0E1] text-sm">{settings.location_address}</p>
+                        </div>
+                    )}
+                    {settings.store_latitude && settings.store_longitude && (
+                        <div className="mt-2 flex items-center gap-3">
+                            <a
+                                href={`https://www.google.com/maps?q=${settings.store_latitude},${settings.store_longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-400 text-xs hover:text-blue-300 transition-colors"
+                            >
+                                🗺️ View in Google Maps ↗
+                            </a>
+                        </div>
+                    )}
                 </div>
 
                 {/* SEO & Meta */}

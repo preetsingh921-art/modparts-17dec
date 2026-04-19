@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getAllOrders, updateOrderStatus } from '../../api/orders';
 import { useToast } from '../../context/ToastContext';
 import Pagination from '../../components/ui/Pagination';
@@ -13,7 +13,15 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [searchParams] = useSearchParams();
   const { success, error: showError } = useToast();
+
+  useEffect(() => {
+    const statusFromUrl = searchParams.get('status');
+    if (statusFromUrl) {
+      setStatusFilter(statusFromUrl);
+    }
+  }, [searchParams]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);

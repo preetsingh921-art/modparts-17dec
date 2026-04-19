@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getProducts, deleteProduct, bulkCreateProducts } from '../../api/products';
 import { getCategories } from '../../api/categories';
 import { useToast } from '../../context/ToastContext';
@@ -55,6 +55,16 @@ const Products = () => {
   const [labelConfig, setLabelConfig] = useState(() => getSavedLabelSettings());
   const [rememberSettings, setRememberSettings] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  // Sync state with URL if available (used by AI Assistant navigation)
+  useEffect(() => {
+    const searchFromUrl = searchParams.get('search');
+    const categoryFromUrl = searchParams.get('category');
+    
+    if (searchFromUrl) setSearchQuery(searchFromUrl);
+    if (categoryFromUrl) setSelectedCategory(categoryFromUrl);
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchData = async (retryCount = 0) => {

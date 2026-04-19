@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import AdminTabs from '../admin/AdminTabs';
+import AIChatBot from '../admin/AIChatBot';
 import { useAuth } from '../../context/AuthContext';
 
 const AdminLayout = () => {
@@ -89,9 +90,12 @@ const AdminLayout = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-6 relative">
         <Outlet />
       </div>
+      
+      {/* AI Chat Bot floating in the corner */}
+      <AIChatBot />
     </div>
   );
 };

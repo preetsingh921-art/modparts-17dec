@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
 import Pagination from '../../components/ui/Pagination';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -20,8 +21,17 @@ const Users = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [viewingUser, setViewingUser] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [searchParams] = useSearchParams();
   const { success, error: showError } = useToast();
   const { isOpen, confirm, handleClose, handleConfirm, dialogProps } = useConfirm();
+
+  useEffect(() => {
+    const roleFromUrl = searchParams.get('role');
+    const searchFromUrl = searchParams.get('search');
+    
+    if (roleFromUrl) setRoleFilter(roleFromUrl);
+    if (searchFromUrl) setSearchQuery(searchFromUrl);
+  }, [searchParams]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);

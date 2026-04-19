@@ -1,5 +1,6 @@
 const { verifyAdminToken } = require('../../lib/auth');
 const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
+const db = require('../../lib/db');
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'MISSING_KEY');
@@ -10,7 +11,7 @@ const responseSchema = {
     properties: {
         actionType: {
             type: SchemaType.STRING,
-            description: "Type of action to perform. Use 'navigate' to navigate to a page and set filters. Use 'answer' for general questions or greetings.",
+            description: "Type of action to perform. 'navigate' to navigate to a page and set filters. 'execute_sql' to run a query for aggregations/stats. 'answer' for general questions.",
         },
         targetPage: {
             type: SchemaType.STRING,
@@ -28,7 +29,11 @@ const responseSchema = {
         },
         responseText: {
             type: SchemaType.STRING,
-            description: "Conversational response to display to the user.",
+            description: "Conversational response to display to the user. For execute_sql, leave this blank.",
+        },
+        sqlQuery: {
+            type: SchemaType.STRING,
+            description: "If actionType is 'execute_sql', the Postgres SQL query to execute. MUST start with SELECT and be READ-ONLY.",
         }
     },
     required: ["actionType", "responseText"]
@@ -41,7 +46,21 @@ const model = genAI.getGenerativeModel({
         responseMimeType: "application/json",
         responseSchema: responseSchema,
     },
-    systemInstruction: "You are an AI assistant for an e-commerce admin panel. Your job is to parse natural language requests from the admin and figure out what page they want to see, and what filters to apply. For example, 'Show me pending orders' -> navigate to orders with status=pending. 'Look for brake parts' -> navigate to products with search='brake part'. If the user asks a general question, just give a helpful answer.",
+    systemInstruction: `You are an AI assistant for an e-commerce admin panel. Parse requests.
+- 'Show me pending orders' -> navigate to orders with status=pending.
+- 'Look for brake parts' -> navigate to products with search='brake part'.
+- For aggregate stats ("total revenue", "how many users"), use 'execute_sql' and write a valid Postgres query.
+SCHEMA: 
+- products(id, name, description, part_number, barcode, price, quantity, category_id, warehouse_id)
+- orders(id, user_id, total_amount, status, created_at)
+- users(id, email, first_name, last_name, role)
+If you return execute_sql, provide the SQL query in sqlQuery. MUST start with SELECT. Leave responseText blank.`,
+});
+
+// Second model config for summarizing data
+const textModel = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction: "You are interpreting raw SQL database results for a dashboard admin. Given the user's question and the raw JSON database response, answer the user's question directly in a friendly, conversational tone (1-2 sentences). Format currencies nicely.",
 });
 
 module.exports = async function handler(req, res) {
@@ -76,7 +95,27 @@ module.exports = async function handler(req, res) {
         console.log(`🤖 AI Raw Response: ${responseText}`);
 
         // Parse and return back to frontend
-        const parsedResponse = JSON.parse(responseText);
+        let parsedResponse = JSON.parse(responseText);
+
+        if (parsedResponse.actionType === 'execute_sql' && parsedResponse.sqlQuery) {
+            console.log(`🔍 Executing AI SQL: ${parsedResponse.sqlQuery}`);
+            if (!parsedResponse.sqlQuery.trim().toUpperCase().startsWith('SELECT')) {
+                throw new Error("Only SELECT queries are allowed for security.");
+            }
+            try {
+                // Execute readonly query
+                const dbResult = await db.query(parsedResponse.sqlQuery);
+                
+                // Second Pass: Ask AI to summarize the result
+                const summaryPrompt = `User asked: "${prompt}"\nDatabase returned: ${JSON.stringify(dbResult.rows)}`;
+                const summaryResponse = await textModel.generateContent(summaryPrompt);
+                
+                parsedResponse.responseText = summaryResponse.response.text();
+            } catch (dbError) {
+                console.error("❌ SQL Execution Error:", dbError);
+                parsedResponse.responseText = "I couldn't fetch that specific data right now due to a database error.";
+            }
+        }
 
         res.status(200).json({
             success: true,

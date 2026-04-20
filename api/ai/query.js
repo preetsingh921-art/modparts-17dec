@@ -1,52 +1,11 @@
 const { verifyAdminToken } = require('../../lib/auth');
 const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 const db = require('../../lib/db');
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'MISSING_KEY');
-
-// Define the expected output schema for Gemini
-const responseSchema = {
-    type: SchemaType.OBJECT,
-    properties: {
-        actionType: {
-            type: SchemaType.STRING,
-            description: "Type of action to perform. 'navigate' to navigate to a page and set filters. 'execute_sql' to run a query for aggregations/stats. 'answer' for general questions.",
-        },
-        targetPage: {
-            type: SchemaType.STRING,
-            description: "The page to navigate to if actionType is 'navigate'. Valid options: 'products', 'orders', 'users', 'inventory'.",
-        },
-        filters: {
-            type: SchemaType.OBJECT,
-            description: "Key-value pairs of filters to apply to the target page.",
-            properties: {
-                search: { type: SchemaType.STRING, description: "Text to search by name, email, part number, etc." },
-                category: { type: SchemaType.STRING, description: "Category ID if mentioned." },
-                status: { type: SchemaType.STRING, description: "Status filter e.g., 'pending', 'completed' for orders or 'active' for users." },
-                role: { type: SchemaType.STRING, description: "Role filter for users e.g., 'admin', 'user'." }
-            }
-        },
-        responseText: {
-            type: SchemaType.STRING,
-            description: "Conversational response to display to the user. For execute_sql, leave this blank.",
-        },
-        sqlQuery: {
-            type: SchemaType.STRING,
-            description: "If actionType is 'execute_sql', the Postgres SQL query to execute. MUST start with SELECT and be READ-ONLY.",
-        }
-    },
-    required: ["actionType", "responseText"]
-};
-
-// Determine which model the user wants (e.g., gemini-1.5-flash-latest, gemini-pro)
-const selectedModelName = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
-const isModernModel = selectedModelName.includes('1.5') || selectedModelName.includes('2.0');
-
-// Configure the model
-const modelConfig = {
-    model: selectedModelName,
-    systemInstruction: `You are an AI assistant for an e-commerce admin panel. Parse requests.
+// --- SHARED CONFIG ---
+const aiProvider = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+const sharedSystemInstruction = `You are an AI assistant for an e-commerce admin panel. Parse requests.
 - If the user wants to VIEW a LIST or TABLE of records (e.g., 'show all users', 'list pending orders', 'find brake parts'), ALWAYS use 'navigate'.
 - ONLY use 'execute_sql' for AGGREGATE STATS (e.g., 'how many users total?', 'what is the total revenue?').
 SCHEMA: 
@@ -54,94 +13,112 @@ SCHEMA:
 - orders(id, user_id, total_amount, status, created_at)
 - users(id, email, first_name, last_name, role)
 If returning execute_sql, provide the SQL query in sqlQuery. MUST start with SELECT and be safe.
-IMPORTANT: You MUST return ONLY a valid JSON object matching this schema. Do not return markdown formatted json.`,
+IMPORTANT: You MUST return ONLY a valid JSON object matching this schema. Do not return markdown formatted json.`;
+
+// --- GEMINI SPECIFIC CONFIG ---
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'MISSING_KEY');
+const selectedModelName = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
+const isModernModel = selectedModelName.includes('1.5') || selectedModelName.includes('2.0');
+const responseSchema = {
+    type: SchemaType.OBJECT,
+    properties: {
+        actionType: { type: SchemaType.STRING, description: "Type of action to perform. 'navigate' or 'execute_sql' or 'answer'." },
+        targetPage: { type: SchemaType.STRING, description: "The target admin page to navigate to e.g. 'products', 'orders', 'users'." },
+        filters: { type: SchemaType.OBJECT, properties: { search: { type: SchemaType.STRING }, category: { type: SchemaType.STRING }, status: { type: SchemaType.STRING }, role: { type: SchemaType.STRING } } },
+        responseText: { type: SchemaType.STRING, description: "Conversational text." },
+        sqlQuery: { type: SchemaType.STRING, description: "Postgres SELECT query if action is execute_sql." }
+    },
+    required: ["actionType", "responseText"]
 };
 
-// Only attach strict JSON schema for 1.5+ models (1.0 gemini-pro doesn't natively support it)
+const geminiConfig = { model: selectedModelName, systemInstruction: sharedSystemInstruction };
 if (isModernModel) {
-    modelConfig.generationConfig = {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-    };
+    geminiConfig.generationConfig = { responseMimeType: "application/json", responseSchema };
 }
+const geminiModel = genAI.getGenerativeModel(geminiConfig);
+const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer directly and conversationally formatting the numbers." });
 
-const model = genAI.getGenerativeModel(modelConfig);
-
-// Second model config for summarizing data
-const textModel = genAI.getGenerativeModel({
-    model: selectedModelName,
-    systemInstruction: "You are interpreting raw SQL database results for a dashboard admin. Given the user's question and the raw JSON database response, answer the user's question directly in a friendly, conversational tone (1-2 sentences). Format currencies nicely.",
-});
+// --- GROQ SPECIFIC CONFIG ---
+// Only initialize if explicitly requested to avoid missing key errors when using Gemini
+let groq = null;
+if (aiProvider === 'groq') {
+    groq = new Groq({ apiKey: process.env.GROQ_API_KEY || 'MISSING_KEY' });
+}
+const groqModelName = process.env.GROQ_MODEL || "llama3-8b-8192";
 
 module.exports = async function handler(req, res) {
     try {
-        // Verify admin access
         const decoded = verifyAdminToken(req);
-        if (!decoded) {
-            return res.status(401).json({ message: 'Unauthorized' });
-        }
-
-        if (req.method !== 'POST') {
-            return res.status(405).json({ message: 'Method not allowed' });
-        }
-
+        if (!decoded) return res.status(401).json({ message: 'Unauthorized' });
+        if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
+        
         const { prompt } = req.body;
-        if (!prompt) {
-            return res.status(400).json({ message: 'Prompt is required' });
+        if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
+
+        console.log(`🤖 AI Query received [${aiProvider}]: "${prompt}"`);
+        let responseText = "";
+
+        if (aiProvider === 'groq') {
+            // -- GROQ PIPELINE --
+            if (!process.env.GROQ_API_KEY) {
+                return res.status(500).json({ message: 'GROQ_API_KEY missing from environment variables.' });
+            }
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [{ role: "system", content: sharedSystemInstruction }, { role: "user", content: prompt }],
+                model: groqModelName,
+                response_format: { type: "json_object" }
+            });
+            responseText = chatCompletion.choices[0]?.message?.content || "";
+        } else {
+            // -- GEMINI PIPELINE --
+            if (!process.env.GEMINI_API_KEY) {
+                return res.status(500).json({ message: 'GEMINI_API_KEY missing from environment variables.' });
+            }
+            const result = await geminiModel.generateContent(prompt);
+            responseText = result.response.text();
         }
-
-        if (!process.env.GEMINI_API_KEY) {
-             return res.status(500).json({ 
-                 message: 'AI Assistant is not configured. Please add GEMINI_API_KEY to your environment variables.'
-             });
-        }
-
-        console.log(`🤖 AI Query received: "${prompt}"`);
-
-        // Generate content based on schema
-        const result = await model.generateContent(prompt);
-        let responseText = result.response.text();
         
         console.log(`🤖 AI Raw Response: ${responseText}`);
 
-        // Ensure we strip markdown code blocks if the AI includes them accidentally
         responseText = responseText.replace(/^```json\n?/gi, '').replace(/```$/gi, '').trim();
-
-        // Parse and return back to frontend
         let parsedResponse = JSON.parse(responseText);
 
+        // SECOND PASS (Text-to-SQL Execution)
         if (parsedResponse.actionType === 'execute_sql' && parsedResponse.sqlQuery) {
             console.log(`🔍 Executing AI SQL: ${parsedResponse.sqlQuery}`);
             if (!parsedResponse.sqlQuery.trim().toUpperCase().startsWith('SELECT')) {
                 throw new Error("Only SELECT queries are allowed for security.");
             }
             try {
-                // Execute readonly query
                 const dbResult = await db.query(parsedResponse.sqlQuery);
-                
-                // Second Pass: Ask AI to summarize the result
                 const rawDbStats = JSON.stringify(dbResult.rows);
                 const truncatedStats = rawDbStats.length > 4000 ? rawDbStats.substring(0, 4000) + '... (truncated)' : rawDbStats;
                 const summaryPrompt = `User asked: "${prompt}"\nDatabase returned: ${truncatedStats}`;
-                const summaryResponse = await textModel.generateContent(summaryPrompt);
-                
-                parsedResponse.responseText = summaryResponse.response.text();
+
+                if (aiProvider === 'groq') {
+                     const summaryCompletion = await groq.chat.completions.create({
+                        messages: [{ role: "system", content: "Answer the user's question directly based on the database results in 1-2 friendly sentences. Format currencies nicely." }, { role: "user", content: summaryPrompt }],
+                        model: groqModelName,
+                    });
+                    parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
+                } else {
+                     const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
+                     parsedResponse.responseText = summaryResponse.response.text();
+                }
+
             } catch (dbError) {
                 console.error("❌ SQL Execution Error:", dbError);
                 parsedResponse.responseText = "I couldn't fetch that specific data right now due to a database error.";
             }
         }
 
-        res.status(200).json({
-            success: true,
-            data: parsedResponse
-        });
+        res.status(200).json({ success: true, data: parsedResponse });
 
     } catch (error) {
         console.error('❌ AI API error:', error);
         return res.status(500).json({
             success: false,
-            message: `Failed to process AI query: ${error.message || 'Unknown error'}`,
+            message: `Failed to process AI query (${aiProvider}): ${error.message || 'Unknown error'}`,
             error: error.stack || error.message
         });
     }

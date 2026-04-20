@@ -224,8 +224,8 @@ const AIChatBot = () => {
                                             }`}>
                                                 {msg.htmlReport ? (
                                                     <div 
-                                                        id={`report-card-${index}`}
-                                                        className="min-w-[300px] text-black overflow-hidden rounded-md" 
+                                                        id={`report-card-${idx}`}
+                                                        className="min-w-[300px] bg-white text-black p-4 overflow-hidden rounded-md" 
                                                         dangerouslySetInnerHTML={{ __html: msg.htmlReport }}
                                                     />
                                                 ) : (
@@ -257,7 +257,7 @@ const AIChatBot = () => {
                                                         )}
                                                         {msg.htmlReport && (
                                                             <button 
-                                                                onClick={() => handleDownloadReport(index)}
+                                                                onClick={() => handleDownloadReport(idx)}
                                                                 className="p-1.5 text-[#666] hover:text-[#F5F0E1] bg-[#2a2a2a] border border-[#333] rounded-md shadow-sm"
                                                                 title="Download Image Report"
                                                             >

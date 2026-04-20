@@ -21,6 +21,7 @@ IMPORTANT: You MUST return ONLY a valid JSON object with the following exact key
   "sqlQuery": "SELECT ..." (only if execute_sql, MUST start with SELECT),
   "responseText": "Your conversational response to the user."
 }
+Do not use SQL wildcards (e.g. '%') in the 'search' filter. Just use plain text (e.g. 'H').
 Do not return markdown formatting blocks or any text outside the JSON object.`;
 
 // --- GEMINI SPECIFIC CONFIG ---

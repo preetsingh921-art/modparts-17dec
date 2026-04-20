@@ -40,7 +40,7 @@ const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, sys
 // --- GROQ SPECIFIC CONFIG ---
 // We initialize the client dynamically inside the pipeline to avoid global missing key errors
 let groq = null;
-const groqModelName = process.env.GROQ_MODEL || "llama3-8b-8192";
+const groqModelName = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 
 module.exports = async function handler(req, res) {
     try {

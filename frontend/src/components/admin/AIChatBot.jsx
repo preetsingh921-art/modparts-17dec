@@ -105,7 +105,7 @@ const AIChatBot = () => {
             const response = await api.post('/ai/query', { prompt: userText, provider: selectedProvider });
             const data = response.data.data;
 
-            setMessages(prev => [...prev, { role: 'ai', content: data.responseText }]);
+            setMessages(prev => [...prev, { role: 'ai', content: data.responseText, sqlQuery: data.sqlQuery }]);
 
             // If the AI determined a navigation intent, execute it
             if (data.actionType === 'navigate' && data.targetPage) {
@@ -207,8 +207,17 @@ const AIChatBot = () => {
                                                     ? 'bg-[#8B2332] text-white rounded-br-sm' 
                                                     : 'bg-[#2a2a2a] border border-[#333] text-[#F5F0E1] rounded-bl-sm'
                                             }`}>
-                                                <p className="whitespace-pre-wrap">{msg.content}</p>
-                                                
+                                                <div className="whitespace-pre-wrap">{msg.content}</div>
+                                                {msg.sqlQuery && (
+                                                    <details className="mt-2 text-xs border border-[#444] rounded-md overflow-hidden bg-[#242424]">
+                                                        <summary className="cursor-pointer px-3 py-1.5 bg-[#333] hover:bg-[#444] transition-colors border-b border-transparent open:border-[#444] font-medium text-[#A8A090]">
+                                                            View SQL Query
+                                                        </summary>
+                                                        <div className="p-3 bg-black/30 font-mono text-gray-300 overflow-x-auto whitespace-pre">
+                                                            {msg.sqlQuery}
+                                                        </div>
+                                                    </details>
+                                                )}
                                                 {/* Copy Button for AI Messages */}
                                                 {msg.role === 'ai' && (
                                                     <button 

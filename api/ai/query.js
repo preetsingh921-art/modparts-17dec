@@ -14,6 +14,11 @@ DATABASE SCHEMA:
 - users(id, email, first_name, last_name, role)
 - categories(id, name) (You can JOIN this with products if they ask for categories by name)
 
+SQL RULES:
+- If a user asks for both a list of items AND their count, DO NOT mix aggregate COUNT() with unaggregated columns, as it causes DB GROUP BY errors! Just SELECT the list of items normally. The conversational AI can count the rows manually.
+- MUST start with SELECT and be READ-ONLY.
+- ALWAYS use ILIKE instead of = for string matching (e.g. c.name ILIKE '%brakes%') to be case-insensitive.
+
 IMPORTANT: You MUST return ONLY a valid JSON object with the following exact keys:
 {
   "actionType": "navigate" | "execute_sql" | "answer",

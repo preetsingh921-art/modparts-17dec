@@ -140,24 +140,34 @@ module.exports = async function handler(req, res) {
                 const truncatedStats = rawDbStats.length > 4000 ? rawDbStats.substring(0, 4000) + '... (truncated)' : rawDbStats;
                 const summaryPrompt = `User asked: "${prompt}"\nDatabase returned: ${truncatedStats}`;
 
-                if (aiProvider === 'groq') {
-                     const summaryCompletion = await groq.chat.completions.create({
-                        messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points. VERY IMPORTANT RULES: 1) If the user asks for a 'graphical report', 'html', 'bar chart', or 'chart': output ONLY a complete self-contained HTML snippet wrapped in a ```html block. You MUST hardcode the ACTUAL data values from the database results directly into the HTML. NEVER use template syntax like {{ }}, {% %}, or any placeholder variables. Use ONLY inline CSS (style='...'). Build a horizontal bar chart using an SVG element: for each data row, render a <rect> with a width proportional to its value (scale the largest value to ~300px), a <text> label with the category name, and a <text> with the numeric value. Use distinct fill colors for each bar. 2) If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV text." }, { role: "user", content: summaryPrompt }],
-                        model: groqModelName,
-                        temperature: 0.0,
-                    });
-                    parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
-                } else {
-                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, generationConfig: { temperature: 0.0 }, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points. VERY IMPORTANT RULES: 1) If the user asks for a 'graphical report', 'html', 'bar chart', or 'chart': output ONLY a complete self-contained HTML snippet wrapped in a ```html block. You MUST hardcode the ACTUAL data values from the database results directly into the HTML. NEVER use template syntax like {{ }}, {% %}, or any placeholder variables. Use ONLY inline CSS (style='...'). Build a horizontal bar chart using an SVG element: for each data row, render a <rect> with a width proportional to its value (scale the largest value to ~300px), a <text> label with the category name, and a <text> with the numeric value. Use distinct fill colors for each bar. 2) If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV text." });
-                     const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
-                     parsedResponse.responseText = summaryResponse.response.text();
-                }
+                // --- CHART DETECTION: if user wants a chart, skip the LLM summarization and send raw data ---
+                const chartKeywords = /\b(chart|graph|pie|bar chart|graphical|html report|visual report)\b/i;
+                if (chartKeywords.test(prompt)) {
+                    // Detect chart type from the prompt
+                    let chartType = 'bar';
+                    if (/\bpie\b/i.test(prompt)) chartType = 'pie';
+                    else if (/\bline\b/i.test(prompt)) chartType = 'line';
+                    else if (/\bdoughnut\b/i.test(prompt)) chartType = 'doughnut';
 
-                // --- HTML EXTRACTION LOGIC ---
-                const htmlMatch = parsedResponse.responseText.match(/```(?:html|svg)\n?([\s\S]*?)```/i);
-                if (htmlMatch) {
-                    parsedResponse.htmlReport = htmlMatch[1].trim();
-                    parsedResponse.responseText = parsedResponse.responseText.replace(htmlMatch[0], '').trim() || "Here's your graphical report:";
+                    parsedResponse.chartData = {
+                        type: chartType,
+                        rows: dbResult.rows,
+                    };
+                    parsedResponse.responseText = "Here's your chart:";
+                } else {
+                    // Normal text summarization for non-chart queries
+                    if (aiProvider === 'groq') {
+                         const summaryCompletion = await groq.chat.completions.create({
+                            messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." }, { role: "user", content: summaryPrompt }],
+                            model: groqModelName,
+                            temperature: 0.0,
+                        });
+                        parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
+                    } else {
+                         const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, generationConfig: { temperature: 0.0 }, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." });
+                         const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
+                         parsedResponse.responseText = summaryResponse.response.text();
+                    }
                 }
 
             } catch (dbError) {

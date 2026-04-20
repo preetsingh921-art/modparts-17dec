@@ -1,7 +1,43 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/config';
-import html2canvas from 'html2canvas';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar, Pie, Doughnut, Line } from 'react-chartjs-2';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend);
+
+const CHART_COLORS = ['#8B2332', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444', '#14B8A6', '#F97316'];
+
+const ChartRenderer = ({ chartData, onExpand }) => {
+    if (!chartData || !chartData.rows || chartData.rows.length === 0) return <p className="text-gray-400 text-sm">No data to chart.</p>;
+    const keys = Object.keys(chartData.rows[0]);
+    const labelKey = keys.find(k => typeof chartData.rows[0][k] === 'string') || keys[0];
+    const valueKey = keys.find(k => typeof chartData.rows[0][k] === 'number' || !isNaN(Number(chartData.rows[0][k]))) || keys[1] || keys[0];
+    
+    const labels = chartData.rows.map(r => String(r[labelKey]));
+    const values = chartData.rows.map(r => Number(r[valueKey]) || 0);
+
+    const data = {
+        labels,
+        datasets: [{
+            label: valueKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            data: values,
+            backgroundColor: CHART_COLORS.slice(0, labels.length),
+            borderColor: chartData.type === 'line' ? '#8B2332' : CHART_COLORS.slice(0, labels.length),
+            borderWidth: chartData.type === 'line' ? 2 : 1,
+            tension: 0.3,
+        }]
+    };
+    const options = { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: chartData.type === 'pie' || chartData.type === 'doughnut', labels: { color: '#333' } }, title: { display: false } }, scales: chartData.type === 'bar' || chartData.type === 'line' ? { y: { beginAtZero: true, ticks: { color: '#555' } }, x: { ticks: { color: '#555' } } } : undefined };
+
+    const ChartComponent = { bar: Bar, pie: Pie, doughnut: Doughnut, line: Line }[chartData.type] || Bar;
+
+    return (
+        <div className="cursor-pointer" onClick={onExpand}>
+            <ChartComponent data={data} options={options} />
+        </div>
+    );
+};
 
 const PREDEFINED_PROMPTS = [
     { label: "Show all users", query: "Show me all users" },
@@ -20,19 +56,16 @@ const AIChatBot = () => {
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const navigate = useNavigate();
+    const [expandedChart, setExpandedChart] = useState(null);
+    const chartModalRef = useRef(null);
 
-    const handleDownloadReport = async (index) => {
-        const el = document.getElementById(`report-card-${index}`);
-        if (!el) return;
-        try {
-            const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2 });
-            const link = document.createElement('a');
-            link.download = `AI_Report_${new Date().getTime()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        } catch (e) {
-            console.error('Failed to capture report:', e);
-        }
+    const handleDownloadChart = () => {
+        const canvas = chartModalRef.current?.querySelector('canvas');
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = `AI_Chart_${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
     };
 
     // Initialize initial message only when opened
@@ -120,7 +153,7 @@ const AIChatBot = () => {
             const response = await api.post('/ai/query', { prompt: userText, provider: selectedProvider });
             const data = response.data.data;
 
-            setMessages(prev => [...prev, { role: 'ai', content: data.responseText, sqlQuery: data.sqlQuery, htmlReport: data.htmlReport }]);
+            setMessages(prev => [...prev, { role: 'ai', content: data.responseText, sqlQuery: data.sqlQuery, chartData: data.chartData }]);
 
             // If the AI determined a navigation intent, execute it
             if (data.actionType === 'navigate' && data.targetPage) {
@@ -222,18 +255,17 @@ const AIChatBot = () => {
                                                     ? 'bg-[#8B2332] text-white rounded-br-sm' 
                                                     : 'bg-[#2a2a2a] border border-[#333] text-[#F5F0E1] rounded-bl-sm'
                                             }`}>
-                                                {msg.htmlReport ? (
-                                                    <div 
-                                                        id={`report-card-${idx}`}
-                                                        className="min-w-[300px] bg-white text-black p-4 overflow-hidden rounded-md" 
-                                                        dangerouslySetInnerHTML={{ __html: msg.htmlReport }}
-                                                    />
+                                                {msg.chartData ? (
+                                                    <div className="min-w-[280px] bg-white rounded-lg p-3">
+                                                        <ChartRenderer chartData={msg.chartData} onExpand={() => setExpandedChart(msg.chartData)} />
+                                                        <p className="text-xs text-gray-400 mt-1 text-center">Click chart to expand</p>
+                                                    </div>
                                                 ) : (
                                                     <div className="whitespace-pre-wrap">{msg.content}</div>
                                                 )}
                                                 {msg.sqlQuery && (
                                                     <details className="mt-2 text-xs border border-[#444] rounded-md overflow-hidden bg-[#242424]">
-                                                        <summary className="cursor-pointer px-3 py-1.5 bg-[#333] hover:bg-[#444] transition-colors border-b border-transparent open:border-[#444] font-medium text-[#A8A090]">
+                                                        <summary className="cursor-pointer px-3 py-1.5 bg-[#333] hover:bg-[#444] transition-colors font-medium text-[#A8A090]">
                                                             View SQL Query
                                                         </summary>
                                                         <div className="p-3 bg-black/30 font-mono text-gray-300 overflow-x-auto whitespace-pre">
@@ -242,30 +274,17 @@ const AIChatBot = () => {
                                                     </details>
                                                 )}
                                                 {/* Copy Button for AI Messages */}
-                                                {msg.role === 'ai' && (
-                                                    <div className="absolute top-2 -right-8 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        {!msg.htmlReport && (
-                                                            <button 
-                                                                onClick={() => navigator.clipboard.writeText(msg.content)}
-                                                                className="p-1.5 text-[#666] hover:text-[#F5F0E1] bg-[#2a2a2a] border border-[#333] rounded-md shadow-sm"
-                                                                title="Copy response"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                                </svg>
-                                                            </button>
-                                                        )}
-                                                        {msg.htmlReport && (
-                                                            <button 
-                                                                onClick={() => handleDownloadReport(idx)}
-                                                                className="p-1.5 text-[#666] hover:text-[#F5F0E1] bg-[#2a2a2a] border border-[#333] rounded-md shadow-sm"
-                                                                title="Download Image Report"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                                </svg>
-                                                            </button>
-                                                        )}
+                                                {msg.role === 'ai' && !msg.chartData && (
+                                                    <div className="absolute top-2 -right-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={() => navigator.clipboard.writeText(msg.content)}
+                                                            className="p-1.5 text-[#666] hover:text-[#F5F0E1] bg-[#2a2a2a] border border-[#333] rounded-md shadow-sm"
+                                                            title="Copy response"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                            </svg>
+                                                        </button>
                                                     </div>
                                                 )}
                                             </div>
@@ -334,6 +353,41 @@ const AIChatBot = () => {
                                     </svg>
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Fullscreen Chart Modal */}
+            {expandedChart && (
+                <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-8" onClick={() => setExpandedChart(null)}>
+                    <div 
+                        ref={chartModalRef}
+                        className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-8 relative" 
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800">📊 AI Generated Report</h3>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={handleDownloadChart}
+                                    className="px-4 py-2 bg-[#8B2332] text-white text-sm rounded-lg hover:bg-[#6d1a27] transition-colors flex items-center gap-2"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    Download PNG
+                                </button>
+                                <button 
+                                    onClick={() => setExpandedChart(null)}
+                                    className="px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
+                                >
+                                    ✕ Close
+                                </button>
+                            </div>
+                        </div>
+                        <div className="w-full" style={{ height: '450px' }}>
+                            <ChartRenderer chartData={expandedChart} onExpand={() => {}} />
                         </div>
                     </div>
                 </div>

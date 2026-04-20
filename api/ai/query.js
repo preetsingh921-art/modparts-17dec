@@ -39,13 +39,13 @@ const responseSchema = {
     required: ["actionType", "responseText"]
 };
 
+// Determine which model the user wants (e.g., gemini-1.5-flash-latest, gemini-pro)
+const selectedModelName = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
+const isModernModel = selectedModelName.includes('1.5') || selectedModelName.includes('2.0');
+
 // Configure the model
-const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest",
-    generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-    },
+const modelConfig = {
+    model: selectedModelName,
     systemInstruction: `You are an AI assistant for an e-commerce admin panel. Parse requests.
 - If the user wants to VIEW a LIST or TABLE of records (e.g., 'show all users', 'list pending orders', 'find brake parts'), ALWAYS use 'navigate'.
 - ONLY use 'execute_sql' for AGGREGATE STATS (e.g., 'how many users total?', 'what is the total revenue?').
@@ -53,12 +53,23 @@ SCHEMA:
 - products(id, name, description, part_number, barcode, price, quantity, category_id, warehouse_id)
 - orders(id, user_id, total_amount, status, created_at)
 - users(id, email, first_name, last_name, role)
-If returning execute_sql, provide the SQL query in sqlQuery. MUST start with SELECT and be safe.`,
-});
+If returning execute_sql, provide the SQL query in sqlQuery. MUST start with SELECT and be safe.
+IMPORTANT: You MUST return ONLY a valid JSON object matching this schema. Do not return markdown formatted json.`,
+};
+
+// Only attach strict JSON schema for 1.5+ models (1.0 gemini-pro doesn't natively support it)
+if (isModernModel) {
+    modelConfig.generationConfig = {
+        responseMimeType: "application/json",
+        responseSchema: responseSchema,
+    };
+}
+
+const model = genAI.getGenerativeModel(modelConfig);
 
 // Second model config for summarizing data
 const textModel = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest",
+    model: selectedModelName,
     systemInstruction: "You are interpreting raw SQL database results for a dashboard admin. Given the user's question and the raw JSON database response, answer the user's question directly in a friendly, conversational tone (1-2 sentences). Format currencies nicely.",
 });
 

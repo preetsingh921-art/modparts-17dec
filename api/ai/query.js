@@ -3,17 +3,13 @@ const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
 const Groq = require('groq-sdk');
 const db = require('../../lib/db');
 
-// --- SHARED CONFIG ---
-const sharedSystemInstruction = `You are an AI assistant for an e-commerce admin panel. Parse requests.
+// --- SHARED GLOBALS ---
+let cachedDatabaseSchema = null;
+
+// The base rules without the hardcoded schema
+const baseSystemInstruction = `You are an AI assistant for an e-commerce admin panel. Parse requests.
 - Use 'navigate' to trigger a full page navigation to a table view (e.g., 'take me to the orders page').
 - Use 'execute_sql' to answer questions directly in the chat. You can use this for AGGREGATE STATS ('what is total revenue?') OR for DIRECT DATA QUERIES ('list the products in engine parts', 'which users are admins?').
-
-DATABASE SCHEMA: 
-- products(id, name, description, part_number, barcode, price, quantity, category_id, warehouse_id)
-- orders(id, user_id, total_amount, status, created_at)
-- order_items(id, order_id, product_id, quantity, price, created_at)
-- users(id, email, first_name, last_name, role)
-- categories(id, name) (You can JOIN this with products if they ask for categories by name)
 
 SQL RULES:
 - If a user asks for both a list of items AND their count, DO NOT mix aggregate COUNT() with unaggregated columns, as it causes DB GROUP BY errors! Just SELECT the list of items normally. The conversational AI can count the rows manually.
@@ -47,15 +43,7 @@ const responseSchema = {
     required: ["actionType", "responseText"]
 };
 
-const geminiConfig = { model: selectedModelName, systemInstruction: sharedSystemInstruction };
-if (isModernModel) {
-    geminiConfig.generationConfig = { responseMimeType: "application/json", responseSchema };
-}
-const geminiModel = genAI.getGenerativeModel(geminiConfig);
-const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer directly and conversationally formatting the numbers." });
-
 // --- GROQ SPECIFIC CONFIG ---
-// We initialize the client dynamically inside the pipeline to avoid global missing key errors
 let groq = null;
 const groqModelName = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 
@@ -70,6 +58,38 @@ module.exports = async function handler(req, res) {
 
         const aiProvider = (provider || process.env.AI_PROVIDER || 'gemini').toLowerCase();
 
+        // 1. DYNAMIC SCHEMA INTROSPECTION (Cached in memory to prevent recurrent database trips)
+        if (!cachedDatabaseSchema) {
+            console.log("🔍 Fetching Dynamic DB Schema for AI Context...");
+            const schemaQuery = `
+                SELECT table_name, column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = 'public' 
+                AND table_name NOT IN ('spatial_ref_sys')
+                AND column_name NOT ILIKE '%password%'
+                ORDER BY table_name, ordinal_position;
+            `;
+            const schemaRes = await db.query(schemaQuery);
+            
+            const tables = {};
+            schemaRes.rows.forEach(row => {
+                // Keep out strictly structural tables or ones without columns if any
+                if (!tables[row.table_name]) tables[row.table_name] = [];
+                tables[row.table_name].push(row.column_name);
+            });
+            
+            let schemaText = "DATABASE SCHEMA:\n";
+            for (const [table, columns] of Object.entries(tables)) {
+                schemaText += `- ${table}(${columns.join(', ')})\n`;
+            }
+            
+            cachedDatabaseSchema = schemaText.trim();
+            console.log("✅ Dynamic Schema Cached Successfully!");
+        }
+
+        // 2. Formulate final instruction dynamically with the live schema
+        const dynamicSystemInstruction = `${baseSystemInstruction}\n\n${cachedDatabaseSchema}`;
+
         console.log(`🤖 AI Query received [${aiProvider}]: "${prompt}"`);
         let responseText = "";
 
@@ -80,7 +100,7 @@ module.exports = async function handler(req, res) {
             }
             if (!groq) groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
             const chatCompletion = await groq.chat.completions.create({
-                messages: [{ role: "system", content: sharedSystemInstruction }, { role: "user", content: prompt }],
+                messages: [{ role: "system", content: dynamicSystemInstruction }, { role: "user", content: prompt }],
                 model: groqModelName,
                 response_format: { type: "json_object" }
             });
@@ -90,6 +110,12 @@ module.exports = async function handler(req, res) {
             if (!process.env.GEMINI_API_KEY) {
                 return res.status(500).json({ message: 'GEMINI_API_KEY missing from environment variables.' });
             }
+            // Bind config dynamically per request to append the dynamic schema cleanly
+            const geminiConfig = { model: selectedModelName, systemInstruction: dynamicSystemInstruction };
+            if (isModernModel) {
+                geminiConfig.generationConfig = { responseMimeType: "application/json", responseSchema };
+            }
+            const geminiModel = genAI.getGenerativeModel(geminiConfig);
             const result = await geminiModel.generateContent(prompt);
             responseText = result.response.text();
         }
@@ -99,7 +125,7 @@ module.exports = async function handler(req, res) {
         responseText = responseText.replace(/^```json\n?/gi, '').replace(/```$/gi, '').trim();
         let parsedResponse = JSON.parse(responseText);
 
-        // SECOND PASS (Text-to-SQL Execution)
+        // 3. SECOND PASS (Text-to-SQL Execution)
         if (parsedResponse.actionType === 'execute_sql' && parsedResponse.sqlQuery) {
             console.log(`🔍 Executing AI SQL: ${parsedResponse.sqlQuery}`);
             if (!parsedResponse.sqlQuery.trim().toUpperCase().startsWith('SELECT')) {
@@ -118,6 +144,7 @@ module.exports = async function handler(req, res) {
                     });
                     parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
                 } else {
+                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer directly and conversationally formatting the numbers." });
                      const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
                      parsedResponse.responseText = summaryResponse.response.text();
                 }

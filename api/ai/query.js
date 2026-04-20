@@ -47,14 +47,13 @@ const model = genAI.getGenerativeModel({
         responseSchema: responseSchema,
     },
     systemInstruction: `You are an AI assistant for an e-commerce admin panel. Parse requests.
-- 'Show me pending orders' -> navigate to orders with status=pending.
-- 'Look for brake parts' -> navigate to products with search='brake part'.
-- For aggregate stats ("total revenue", "how many users"), use 'execute_sql' and write a valid Postgres query.
+- If the user wants to VIEW a LIST or TABLE of records (e.g., 'show all users', 'list pending orders', 'find brake parts'), ALWAYS use 'navigate'.
+- ONLY use 'execute_sql' for AGGREGATE STATS (e.g., 'how many users total?', 'what is the total revenue?').
 SCHEMA: 
 - products(id, name, description, part_number, barcode, price, quantity, category_id, warehouse_id)
 - orders(id, user_id, total_amount, status, created_at)
 - users(id, email, first_name, last_name, role)
-If you return execute_sql, provide the SQL query in sqlQuery. MUST start with SELECT. Leave responseText blank.`,
+If returning execute_sql, provide the SQL query in sqlQuery. MUST start with SELECT and be safe.`,
 });
 
 // Second model config for summarizing data
@@ -90,9 +89,12 @@ module.exports = async function handler(req, res) {
 
         // Generate content based on schema
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        let responseText = result.response.text();
         
         console.log(`🤖 AI Raw Response: ${responseText}`);
+
+        // Ensure we strip markdown code blocks if the AI includes them accidentally
+        responseText = responseText.replace(/^```json\n?/gi, '').replace(/```$/gi, '').trim();
 
         // Parse and return back to frontend
         let parsedResponse = JSON.parse(responseText);
@@ -107,7 +109,9 @@ module.exports = async function handler(req, res) {
                 const dbResult = await db.query(parsedResponse.sqlQuery);
                 
                 // Second Pass: Ask AI to summarize the result
-                const summaryPrompt = `User asked: "${prompt}"\nDatabase returned: ${JSON.stringify(dbResult.rows)}`;
+                const rawDbStats = JSON.stringify(dbResult.rows);
+                const truncatedStats = rawDbStats.length > 4000 ? rawDbStats.substring(0, 4000) + '... (truncated)' : rawDbStats;
+                const summaryPrompt = `User asked: "${prompt}"\nDatabase returned: ${truncatedStats}`;
                 const summaryResponse = await textModel.generateContent(summaryPrompt);
                 
                 parsedResponse.responseText = summaryResponse.response.text();
@@ -126,8 +130,8 @@ module.exports = async function handler(req, res) {
         console.error('❌ AI API error:', error);
         return res.status(500).json({
             success: false,
-            message: 'Failed to process AI query',
-            error: error.message
+            message: `Failed to process AI query: ${error.message || 'Unknown error'}`,
+            error: error.stack || error.message
         });
     }
 };

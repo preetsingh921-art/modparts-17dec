@@ -38,11 +38,8 @@ const geminiModel = genAI.getGenerativeModel(geminiConfig);
 const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer directly and conversationally formatting the numbers." });
 
 // --- GROQ SPECIFIC CONFIG ---
-// Only initialize if explicitly requested to avoid missing key errors when using Gemini
+// We initialize the client dynamically inside the pipeline to avoid global missing key errors
 let groq = null;
-if (aiProvider === 'groq') {
-    groq = new Groq({ apiKey: process.env.GROQ_API_KEY || 'MISSING_KEY' });
-}
 const groqModelName = process.env.GROQ_MODEL || "llama3-8b-8192";
 
 module.exports = async function handler(req, res) {
@@ -64,6 +61,7 @@ module.exports = async function handler(req, res) {
             if (!process.env.GROQ_API_KEY) {
                 return res.status(500).json({ message: 'GROQ_API_KEY missing from environment variables.' });
             }
+            if (!groq) groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
             const chatCompletion = await groq.chat.completions.create({
                 messages: [{ role: "system", content: sharedSystemInstruction }, { role: "user", content: prompt }],
                 model: groqModelName,

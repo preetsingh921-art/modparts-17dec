@@ -140,12 +140,12 @@ module.exports = async function handler(req, res) {
 
                 if (aiProvider === 'groq') {
                      const summaryCompletion = await groq.chat.completions.create({
-                        messages: [{ role: "system", content: "Answer the user's question directly based on the database results in 1-2 friendly sentences. Format currencies nicely." }, { role: "user", content: summaryPrompt }],
+                        messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records or categories, format your response using bullet points or a nice markdown list so no data is lost. Keep it friendly." }, { role: "user", content: summaryPrompt }],
                         model: groqModelName,
                     });
                     parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
                 } else {
-                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer directly and conversationally formatting the numbers." });
+                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records or categories, format your response using bullet points or a nice markdown list so no data is lost. Keep it friendly." });
                      const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
                      parsedResponse.responseText = summaryResponse.response.text();
                 }

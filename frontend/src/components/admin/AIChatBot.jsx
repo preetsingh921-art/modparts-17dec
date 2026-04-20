@@ -15,6 +15,7 @@ const AIChatBot = () => {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isListening, setIsListening] = useState(false);
+    const [selectedProvider, setSelectedProvider] = useState('gemini');
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const navigate = useNavigate();
@@ -101,7 +102,7 @@ const AIChatBot = () => {
         setIsLoading(true);
 
         try {
-            const response = await api.post('/ai/query', { prompt: userText });
+            const response = await api.post('/ai/query', { prompt: userText, provider: selectedProvider });
             const data = response.data.data;
 
             setMessages(prev => [...prev, { role: 'ai', content: data.responseText }]);
@@ -169,11 +170,21 @@ const AIChatBot = () => {
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl text-[#8B2332]">✨</span>
                                 <h3 className="font-semibold text-lg text-[#F5F0E1]" style={{ fontFamily: "'Oswald', sans-serif" }}>AI Assistant Palette</h3>
-                                <span className="text-[#666] text-xs px-2 py-0.5 rounded border border-[#333] bg-[#242424]">Cmd+K</span>
+                                <span className="text-[#666] text-xs px-2 py-0.5 rounded border border-[#333] bg-[#242424] hidden sm:inline-block">Cmd+K</span>
                             </div>
-                            <button onClick={() => setIsOpen(false)} className="text-[#666] hover:text-white transition-colors">
-                                ✕
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <select 
+                                    value={selectedProvider}
+                                    onChange={(e) => setSelectedProvider(e.target.value)}
+                                    className="bg-[#2a2a2a] text-[#F5F0E1] border border-[#444] text-xs rounded-md px-2 py-1 focus:outline-none focus:border-[#8B2332]"
+                                >
+                                    <option value="gemini">Google Gemini</option>
+                                    <option value="groq">Llama 3 (Groq)</option>
+                                </select>
+                                <button onClick={() => setIsOpen(false)} className="text-[#666] hover:text-white transition-colors ml-2">
+                                    ✕
+                                </button>
+                            </div>
                         </div>
 
                         {/* Chat Area */}

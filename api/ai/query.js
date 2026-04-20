@@ -4,7 +4,6 @@ const Groq = require('groq-sdk');
 const db = require('../../lib/db');
 
 // --- SHARED CONFIG ---
-const aiProvider = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
 const sharedSystemInstruction = `You are an AI assistant for an e-commerce admin panel. Parse requests.
 - If the user wants to VIEW a LIST or TABLE of records (e.g., 'show all users', 'list pending orders', 'find brake parts'), ALWAYS use 'navigate'.
 - ONLY use 'execute_sql' for AGGREGATE STATS (e.g., 'how many users total?', 'what is the total revenue?').
@@ -52,8 +51,10 @@ module.exports = async function handler(req, res) {
         if (!decoded) return res.status(401).json({ message: 'Unauthorized' });
         if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
         
-        const { prompt } = req.body;
+        const { prompt, provider } = req.body;
         if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
+
+        const aiProvider = (provider || process.env.AI_PROVIDER || 'gemini').toLowerCase();
 
         console.log(`🤖 AI Query received [${aiProvider}]: "${prompt}"`);
         let responseText = "";
@@ -118,7 +119,7 @@ module.exports = async function handler(req, res) {
         console.error('❌ AI API error:', error);
         return res.status(500).json({
             success: false,
-            message: `Failed to process AI query (${aiProvider}): ${error.message || 'Unknown error'}`,
+            message: `Failed to process AI query: ${error.message || 'Unknown error'}`,
             error: error.stack || error.message
         });
     }

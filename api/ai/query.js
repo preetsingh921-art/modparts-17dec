@@ -11,6 +11,7 @@ const sharedSystemInstruction = `You are an AI assistant for an e-commerce admin
 DATABASE SCHEMA: 
 - products(id, name, description, part_number, barcode, price, quantity, category_id, warehouse_id)
 - orders(id, user_id, total_amount, status, created_at)
+- order_items(id, order_id, product_id, quantity, price, created_at)
 - users(id, email, first_name, last_name, role)
 - categories(id, name) (You can JOIN this with products if they ask for categories by name)
 

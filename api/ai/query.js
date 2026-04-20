@@ -140,12 +140,12 @@ module.exports = async function handler(req, res) {
 
                 if (aiProvider === 'groq') {
                      const summaryCompletion = await groq.chat.completions.create({
-                        messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records or categories, format your response using bullet points or a nice markdown list so no data is lost. Keep it friendly." }, { role: "user", content: summaryPrompt }],
+                        messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. IMPORTANT: If the user specifically asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text so it can be copy-pasted directly into a spreadsheet, with no conversational fluff." }, { role: "user", content: summaryPrompt }],
                         model: groqModelName,
                     });
                     parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
                 } else {
-                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records or categories, format your response using bullet points or a nice markdown list so no data is lost. Keep it friendly." });
+                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. IMPORTANT: If the user specifically asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text so it can be copy-pasted directly into a spreadsheet, with no conversational fluff." });
                      const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
                      parsedResponse.responseText = summaryResponse.response.text();
                 }

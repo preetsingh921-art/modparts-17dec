@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/config';
+import html2canvas from 'html2canvas';
 
 const PREDEFINED_PROMPTS = [
     { label: "Show all users", query: "Show me all users" },
@@ -19,6 +20,20 @@ const AIChatBot = () => {
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const navigate = useNavigate();
+
+    const handleDownloadReport = async (index) => {
+        const el = document.getElementById(`report-card-${index}`);
+        if (!el) return;
+        try {
+            const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2 });
+            const link = document.createElement('a');
+            link.download = `AI_Report_${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (e) {
+            console.error('Failed to capture report:', e);
+        }
+    };
 
     // Initialize initial message only when opened
     useEffect(() => {
@@ -105,7 +120,7 @@ const AIChatBot = () => {
             const response = await api.post('/ai/query', { prompt: userText, provider: selectedProvider });
             const data = response.data.data;
 
-            setMessages(prev => [...prev, { role: 'ai', content: data.responseText, sqlQuery: data.sqlQuery }]);
+            setMessages(prev => [...prev, { role: 'ai', content: data.responseText, sqlQuery: data.sqlQuery, htmlReport: data.htmlReport }]);
 
             // If the AI determined a navigation intent, execute it
             if (data.actionType === 'navigate' && data.targetPage) {
@@ -207,7 +222,15 @@ const AIChatBot = () => {
                                                     ? 'bg-[#8B2332] text-white rounded-br-sm' 
                                                     : 'bg-[#2a2a2a] border border-[#333] text-[#F5F0E1] rounded-bl-sm'
                                             }`}>
-                                                <div className="whitespace-pre-wrap">{msg.content}</div>
+                                                {msg.htmlReport ? (
+                                                    <div 
+                                                        id={`report-card-${index}`}
+                                                        className="min-w-[300px] text-black overflow-hidden rounded-md" 
+                                                        dangerouslySetInnerHTML={{ __html: msg.htmlReport }}
+                                                    />
+                                                ) : (
+                                                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                                                )}
                                                 {msg.sqlQuery && (
                                                     <details className="mt-2 text-xs border border-[#444] rounded-md overflow-hidden bg-[#242424]">
                                                         <summary className="cursor-pointer px-3 py-1.5 bg-[#333] hover:bg-[#444] transition-colors border-b border-transparent open:border-[#444] font-medium text-[#A8A090]">
@@ -220,18 +243,30 @@ const AIChatBot = () => {
                                                 )}
                                                 {/* Copy Button for AI Messages */}
                                                 {msg.role === 'ai' && (
-                                                    <button 
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(msg.content);
-                                                            // Could add a tiny visual feedback here if desired
-                                                        }}
-                                                        className="absolute top-2 -right-8 p-1.5 text-[#666] hover:text-[#F5F0E1] opacity-0 group-hover:opacity-100 transition-opacity bg-[#2a2a2a] border border-[#333] rounded-md shadow-sm"
-                                                        title="Copy response"
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                        </svg>
-                                                    </button>
+                                                    <div className="absolute top-2 -right-8 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        {!msg.htmlReport && (
+                                                            <button 
+                                                                onClick={() => navigator.clipboard.writeText(msg.content)}
+                                                                className="p-1.5 text-[#666] hover:text-[#F5F0E1] bg-[#2a2a2a] border border-[#333] rounded-md shadow-sm"
+                                                                title="Copy response"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                        {msg.htmlReport && (
+                                                            <button 
+                                                                onClick={() => handleDownloadReport(index)}
+                                                                className="p-1.5 text-[#666] hover:text-[#F5F0E1] bg-[#2a2a2a] border border-[#333] rounded-md shadow-sm"
+                                                                title="Download Image Report"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         )}

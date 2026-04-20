@@ -140,14 +140,21 @@ module.exports = async function handler(req, res) {
 
                 if (aiProvider === 'groq') {
                      const summaryCompletion = await groq.chat.completions.create({
-                        messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. IMPORTANT: If the user specifically asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text so it can be copy-pasted directly into a spreadsheet, with no conversational fluff." }, { role: "user", content: summaryPrompt }],
+                        messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points. VERY IMPORTANT RULES: 1) If the user specifically asks for a 'graphical report', 'html', or 'chart', output ONLY beautifully styled modern Tailwind CSS HTML elements (like SVG bar/pie charts or stat cards) representing the data. Wrap it EXACTLY in a ```html block. 2) If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." }, { role: "user", content: summaryPrompt }],
                         model: groqModelName,
                     });
                     parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
                 } else {
-                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. IMPORTANT: If the user specifically asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text so it can be copy-pasted directly into a spreadsheet, with no conversational fluff." });
+                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points. VERY IMPORTANT RULES: 1) If the user specifically asks for a 'graphical report', 'html', or 'chart', output ONLY beautifully styled modern Tailwind CSS HTML elements (like SVG bar/pie charts or stat cards) representing the data. Wrap it EXACTLY in a ```html block. 2) If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." });
                      const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
                      parsedResponse.responseText = summaryResponse.response.text();
+                }
+
+                // --- HTML EXTRACTION LOGIC ---
+                const htmlMatch = parsedResponse.responseText.match(/```html\n?([\s\S]*?)```/i);
+                if (htmlMatch) {
+                    parsedResponse.htmlReport = htmlMatch[1].trim();
+                    parsedResponse.responseText = parsedResponse.responseText.replace(htmlMatch[0], '').trim() || "Here's your graphical report:";
                 }
 
             } catch (dbError) {

@@ -41,7 +41,7 @@ const responseSchema = {
 
 // Configure the model
 const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-1.5-flash-latest",
     generationConfig: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
@@ -58,7 +58,7 @@ If returning execute_sql, provide the SQL query in sqlQuery. MUST start with SEL
 
 // Second model config for summarizing data
 const textModel = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-1.5-flash-latest",
     systemInstruction: "You are interpreting raw SQL database results for a dashboard admin. Given the user's question and the raw JSON database response, answer the user's question directly in a friendly, conversational tone (1-2 sentences). Format currencies nicely.",
 });
 

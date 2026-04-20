@@ -7,12 +7,21 @@ const db = require('../../lib/db');
 const sharedSystemInstruction = `You are an AI assistant for an e-commerce admin panel. Parse requests.
 - If the user wants to VIEW a LIST or TABLE of records (e.g., 'show all users', 'list pending orders', 'find brake parts'), ALWAYS use 'navigate'.
 - ONLY use 'execute_sql' for AGGREGATE STATS (e.g., 'how many users total?', 'what is the total revenue?').
-SCHEMA: 
+
+DATABASE SCHEMA: 
 - products(id, name, description, part_number, barcode, price, quantity, category_id, warehouse_id)
 - orders(id, user_id, total_amount, status, created_at)
 - users(id, email, first_name, last_name, role)
-If returning execute_sql, provide the SQL query in sqlQuery. MUST start with SELECT and be safe.
-IMPORTANT: You MUST return ONLY a valid JSON object matching this schema. Do not return markdown formatted json.`;
+
+IMPORTANT: You MUST return ONLY a valid JSON object with the following exact keys:
+{
+  "actionType": "navigate" | "execute_sql" | "answer",
+  "targetPage": "products" | "orders" | "users" | "inventory" (only if navigating),
+  "filters": { "search": "...", "status": "...", "category": "...", "role": "..." } (only if navigating),
+  "sqlQuery": "SELECT ..." (only if execute_sql, MUST start with SELECT),
+  "responseText": "Your conversational response to the user."
+}
+Do not return markdown formatting blocks or any text outside the JSON object.`;
 
 // --- GEMINI SPECIFIC CONFIG ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'MISSING_KEY');

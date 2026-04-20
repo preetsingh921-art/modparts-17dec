@@ -104,6 +104,7 @@ module.exports = async function handler(req, res) {
             const chatCompletion = await groq.chat.completions.create({
                 messages: [{ role: "system", content: dynamicSystemInstruction }, { role: "user", content: prompt }],
                 model: groqModelName,
+                temperature: 0.0,
                 response_format: { type: "json_object" }
             });
             responseText = chatCompletion.choices[0]?.message?.content || "";
@@ -115,7 +116,7 @@ module.exports = async function handler(req, res) {
             // Bind config dynamically per request to append the dynamic schema cleanly
             const geminiConfig = { model: selectedModelName, systemInstruction: dynamicSystemInstruction };
             if (isModernModel) {
-                geminiConfig.generationConfig = { responseMimeType: "application/json", responseSchema };
+                geminiConfig.generationConfig = { temperature: 0.0, responseMimeType: "application/json", responseSchema };
             }
             const geminiModel = genAI.getGenerativeModel(geminiConfig);
             const result = await geminiModel.generateContent(prompt);
@@ -143,10 +144,11 @@ module.exports = async function handler(req, res) {
                      const summaryCompletion = await groq.chat.completions.create({
                         messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points. VERY IMPORTANT RULES: 1) If the user specifically asks for a 'graphical report', 'html', or 'chart', output ONLY beautifully styled HTML using strictly INLINE CSS styles (style='...'). DO NOT use Tailwind or external CSS classes. Use pure robust SVG elements to draw charts (bar/pie) representing the data inside a clean aesthetic container. Wrap it EXACTLY in a ```html block. 2) If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." }, { role: "user", content: summaryPrompt }],
                         model: groqModelName,
+                        temperature: 0.0,
                     });
                     parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
                 } else {
-                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points. VERY IMPORTANT RULES: 1) If the user specifically asks for a 'graphical report', 'html', or 'chart', output ONLY beautifully styled HTML using strictly INLINE CSS styles (style='...'). DO NOT use Tailwind or external CSS classes. Use pure robust SVG elements to draw charts (bar/pie) representing the data inside a clean aesthetic container. Wrap it EXACTLY in a ```html block. 2) If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." });
+                     const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, generationConfig: { temperature: 0.0 }, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points. VERY IMPORTANT RULES: 1) If the user specifically asks for a 'graphical report', 'html', or 'chart', output ONLY beautifully styled HTML using strictly INLINE CSS styles (style='...'). DO NOT use Tailwind or external CSS classes. Use pure robust SVG elements to draw charts (bar/pie) representing the data inside a clean aesthetic container. Wrap it EXACTLY in a ```html block. 2) If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." });
                      const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
                      parsedResponse.responseText = summaryResponse.response.text();
                 }

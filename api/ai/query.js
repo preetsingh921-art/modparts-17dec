@@ -18,6 +18,11 @@ SQL RULES:
 - MUST start with SELECT and be READ-ONLY.
 - ALWAYS use ILIKE instead of = for string matching (e.g. c.name ILIKE '%brakes%') to be case-insensitive.
 
+CHART RULES:
+- When the user asks for a GROUPED, COMPARISON, COMBO, or MULTI-METRIC chart (e.g., "revenue AND quantity", "revenue vs qty", "group column chart"), your SQL query MUST return ONE text/label column AND MULTIPLE numeric columns. For example: SELECT p.name, SUM(oi.quantity) AS qty_sold, SUM(oi.quantity * oi.price) AS revenue FROM order_items oi JOIN products p ON oi.product_id = p.id GROUP BY p.name ORDER BY revenue DESC LIMIT 10.
+- When the user asks for a simple chart (single metric), return ONE label column and ONE numeric column as usual.
+- ALWAYS alias numeric columns with clear, descriptive names (e.g., qty_sold, revenue, total_orders).
+
 IMPORTANT: You MUST return ONLY a valid JSON object with the following exact keys:
 {
   "actionType": "navigate" | "execute_sql" | "answer",
@@ -141,7 +146,7 @@ module.exports = async function handler(req, res) {
                 const summaryPrompt = `User asked: "${prompt}"\nDatabase returned: ${truncatedStats}`;
 
                 // --- CHART DETECTION: if user wants a chart, skip the LLM summarization and send raw data ---
-                const chartKeywords = /\b(chart|graph|pie|bar chart|graphical|html report|visual report)\b/i;
+                const chartKeywords = /\b(chart|graph|pie|bar chart|bar|graphical|html report|visual report|column|grouped|stacked|combo|comparison|compare|vs|versus)\b/i;
                 if (chartKeywords.test(prompt)) {
                     // Detect chart type from the prompt
                     let chartType = 'bar';
@@ -149,10 +154,37 @@ module.exports = async function handler(req, res) {
                     else if (/\bline\b/i.test(prompt)) chartType = 'line';
                     else if (/\bdoughnut\b/i.test(prompt)) chartType = 'doughnut';
 
-                    parsedResponse.chartData = {
-                        type: chartType,
-                        rows: dbResult.rows,
-                    };
+                    // Detect if this should be a grouped/multi-dataset chart
+                    const isGrouped = /\b(group|grouped|comparison|compare|combo|multi|vs|versus|stacked|and|&)\b/i.test(prompt);
+
+                    // Analyze DB result columns to find label and value keys
+                    const rows = dbResult.rows;
+                    if (rows.length > 0) {
+                        const keys = Object.keys(rows[0]);
+                        const labelKeys = keys.filter(k => typeof rows[0][k] === 'string' || (typeof rows[0][k] !== 'number' && isNaN(Number(rows[0][k]))));
+                        const valueKeys = keys.filter(k => typeof rows[0][k] === 'number' || (!isNaN(Number(rows[0][k])) && rows[0][k] !== null && !labelKeys.includes(k)));
+                        
+                        // Build multi-dataset chart data if multiple numeric columns exist
+                        if (valueKeys.length > 1 && (isGrouped || valueKeys.length >= 2)) {
+                            parsedResponse.chartData = {
+                                type: chartType,
+                                multiDataset: true,
+                                labelKey: labelKeys[0] || keys[0],
+                                valueKeys: valueKeys,
+                                rows: rows,
+                            };
+                        } else {
+                            parsedResponse.chartData = {
+                                type: chartType,
+                                rows: rows,
+                            };
+                        }
+                    } else {
+                        parsedResponse.chartData = {
+                            type: chartType,
+                            rows: rows,
+                        };
+                    }
                     parsedResponse.responseText = "Here's your chart:";
                 } else {
                     // Normal text summarization for non-chart queries

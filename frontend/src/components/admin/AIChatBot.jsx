@@ -9,42 +9,93 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElemen
 
 const CHART_COLORS = ['#8B2332', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444', '#14B8A6', '#F97316'];
 
+const DATASET_COLORS = [
+    { bg: 'rgba(139, 35, 50, 0.7)', border: '#8B2332' },
+    { bg: 'rgba(59, 130, 246, 0.7)', border: '#3B82F6' },
+    { bg: 'rgba(16, 185, 129, 0.7)', border: '#10B981' },
+    { bg: 'rgba(245, 158, 11, 0.7)', border: '#F59E0B' },
+    { bg: 'rgba(139, 92, 246, 0.7)', border: '#8B5CF6' },
+    { bg: 'rgba(236, 72, 153, 0.7)', border: '#EC4899' },
+];
+
 const ChartRenderer = ({ chartData, onExpand }) => {
     if (!chartData || !chartData.rows || chartData.rows.length === 0) return <p className="text-gray-400 text-sm">No data to chart.</p>;
-    const keys = Object.keys(chartData.rows[0]);
-    const labelKey = keys.find(k => typeof chartData.rows[0][k] === 'string') || keys[0];
-    const valueKey = keys.find(k => typeof chartData.rows[0][k] === 'number' || !isNaN(Number(chartData.rows[0][k]))) || keys[1] || keys[0];
     
-    const labels = chartData.rows.map(r => String(r[labelKey]));
-    const values = chartData.rows.map(r => Number(r[valueKey]) || 0);
-
-    const data = {
-        labels,
-        datasets: [{
-            label: valueKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            data: values,
-            backgroundColor: CHART_COLORS.slice(0, labels.length),
-            borderColor: chartData.type === 'line' ? '#8B2332' : CHART_COLORS.slice(0, labels.length),
-            borderWidth: chartData.type === 'line' ? 2 : 1,
-            tension: 0.3,
-        }]
-    };
-    const options = { 
-        responsive: true, 
-        maintainAspectRatio: true, 
-        plugins: { 
-            legend: { display: chartData.type === 'pie' || chartData.type === 'doughnut', labels: { color: '#333' } }, 
-            title: { display: false },
-            datalabels: {
-                color: chartData.type === 'pie' || chartData.type === 'doughnut' ? '#fff' : '#444',
-                anchor: chartData.type === 'pie' || chartData.type === 'doughnut' ? 'center' : 'end',
-                align: chartData.type === 'pie' || chartData.type === 'doughnut' ? 'center' : 'top',
-                font: { weight: 'bold' },
-                formatter: (value) => value
+    let data, options;
+    
+    // Multi-dataset (grouped/stacked) chart
+    if (chartData.multiDataset && chartData.valueKeys && chartData.valueKeys.length > 1) {
+        const labels = chartData.rows.map(r => String(r[chartData.labelKey]));
+        
+        const datasets = chartData.valueKeys.map((vk, idx) => {
+            const colorSet = DATASET_COLORS[idx % DATASET_COLORS.length];
+            return {
+                label: vk.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                data: chartData.rows.map(r => Number(r[vk]) || 0),
+                backgroundColor: colorSet.bg,
+                borderColor: colorSet.border,
+                borderWidth: 1,
+                tension: 0.3,
+            };
+        });
+        
+        data = { labels, datasets };
+        options = {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: true, labels: { color: '#333', font: { weight: 'bold' } } },
+                title: { display: false },
+                datalabels: {
+                    color: '#444',
+                    anchor: 'end',
+                    align: 'top',
+                    font: { weight: 'bold', size: 10 },
+                    formatter: (value) => value?.toLocaleString?.() || value
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#555' } },
+                x: { ticks: { color: '#555', maxRotation: 45 } }
             }
-        }, 
-        scales: chartData.type === 'bar' || chartData.type === 'line' ? { y: { beginAtZero: true, ticks: { color: '#555' } }, x: { ticks: { color: '#555' } } } : undefined 
-    };
+        };
+    } else {
+        // Single-dataset chart (original behavior)
+        const keys = Object.keys(chartData.rows[0]);
+        const labelKey = keys.find(k => typeof chartData.rows[0][k] === 'string') || keys[0];
+        const valueKey = keys.find(k => typeof chartData.rows[0][k] === 'number' || !isNaN(Number(chartData.rows[0][k]))) || keys[1] || keys[0];
+        
+        const labels = chartData.rows.map(r => String(r[labelKey]));
+        const values = chartData.rows.map(r => Number(r[valueKey]) || 0);
+
+        data = {
+            labels,
+            datasets: [{
+                label: valueKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                data: values,
+                backgroundColor: CHART_COLORS.slice(0, labels.length),
+                borderColor: chartData.type === 'line' ? '#8B2332' : CHART_COLORS.slice(0, labels.length),
+                borderWidth: chartData.type === 'line' ? 2 : 1,
+                tension: 0.3,
+            }]
+        };
+        options = { 
+            responsive: true, 
+            maintainAspectRatio: true, 
+            plugins: { 
+                legend: { display: chartData.type === 'pie' || chartData.type === 'doughnut', labels: { color: '#333' } }, 
+                title: { display: false },
+                datalabels: {
+                    color: chartData.type === 'pie' || chartData.type === 'doughnut' ? '#fff' : '#444',
+                    anchor: chartData.type === 'pie' || chartData.type === 'doughnut' ? 'center' : 'end',
+                    align: chartData.type === 'pie' || chartData.type === 'doughnut' ? 'center' : 'top',
+                    font: { weight: 'bold' },
+                    formatter: (value) => value
+                }
+            }, 
+            scales: chartData.type === 'bar' || chartData.type === 'line' ? { y: { beginAtZero: true, ticks: { color: '#555' } }, x: { ticks: { color: '#555' } } } : undefined 
+        };
+    }
 
     const ChartComponent = { bar: Bar, pie: Pie, doughnut: Doughnut, line: Line }[chartData.type] || Bar;
 

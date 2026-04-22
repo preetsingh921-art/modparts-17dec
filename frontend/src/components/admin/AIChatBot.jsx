@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/config';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Pie, Doughnut, Line } from 'react-chartjs-2';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, ChartDataLabels);
 
 const CHART_COLORS = ['#8B2332', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444', '#14B8A6', '#F97316'];
 
@@ -28,7 +29,22 @@ const ChartRenderer = ({ chartData, onExpand }) => {
             tension: 0.3,
         }]
     };
-    const options = { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: chartData.type === 'pie' || chartData.type === 'doughnut', labels: { color: '#333' } }, title: { display: false } }, scales: chartData.type === 'bar' || chartData.type === 'line' ? { y: { beginAtZero: true, ticks: { color: '#555' } }, x: { ticks: { color: '#555' } } } : undefined };
+    const options = { 
+        responsive: true, 
+        maintainAspectRatio: true, 
+        plugins: { 
+            legend: { display: chartData.type === 'pie' || chartData.type === 'doughnut', labels: { color: '#333' } }, 
+            title: { display: false },
+            datalabels: {
+                color: chartData.type === 'pie' || chartData.type === 'doughnut' ? '#fff' : '#444',
+                anchor: chartData.type === 'pie' || chartData.type === 'doughnut' ? 'center' : 'end',
+                align: chartData.type === 'pie' || chartData.type === 'doughnut' ? 'center' : 'top',
+                font: { weight: 'bold' },
+                formatter: (value) => value
+            }
+        }, 
+        scales: chartData.type === 'bar' || chartData.type === 'line' ? { y: { beginAtZero: true, ticks: { color: '#555' } }, x: { ticks: { color: '#555' } } } : undefined 
+    };
 
     const ChartComponent = { bar: Bar, pie: Pie, doughnut: Doughnut, line: Line }[chartData.type] || Bar;
 

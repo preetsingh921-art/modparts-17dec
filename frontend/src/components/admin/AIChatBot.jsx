@@ -106,6 +106,75 @@ const ChartRenderer = ({ chartData, onExpand }) => {
     );
 };
 
+// Table Renderer for structured data display + CSV download
+const TableRenderer = ({ tableData }) => {
+    if (!tableData || !tableData.rows || tableData.rows.length === 0) return <p className="text-gray-400 text-sm">No data to display.</p>;
+
+    const { columns, rows } = tableData;
+
+    const handleDownloadCSV = () => {
+        const headers = columns.map(c => c.replace(/_/g, ' ').toUpperCase()).join(',');
+        const csvRows = rows.map(row => 
+            columns.map(col => {
+                const val = row[col] === null || row[col] === undefined ? '' : String(row[col]);
+                return val.includes(',') || val.includes('"') || val.includes('\n') 
+                    ? `"${val.replace(/"/g, '""')}"` 
+                    : val;
+            }).join(',')
+        );
+        const csv = [headers, ...csvRows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `AI_Report_${Date.now()}.csv`;
+        link.click();
+    };
+
+    return (
+        <div className="min-w-[300px] max-w-full">
+            {/* Header with count + download */}
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-400">{rows.length} row{rows.length !== 1 ? 's' : ''}</span>
+                <button
+                    onClick={handleDownloadCSV}
+                    className="flex items-center gap-1 text-xs bg-[#1a1a1a] hover:bg-[#333] text-[#A8A090] hover:text-white border border-[#444] px-2.5 py-1 rounded-md transition-colors"
+                    title="Download CSV"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    CSV
+                </button>
+            </div>
+            {/* Scrollable table */}
+            <div className="overflow-x-auto overflow-y-auto max-h-[300px] rounded-lg border border-[#444]">
+                <table className="w-full text-xs">
+                    <thead className="sticky top-0 z-10">
+                        <tr className="bg-[#333]">
+                            {columns.map(col => (
+                                <th key={col} className="px-3 py-2 text-left text-[#F5F0E1] font-semibold whitespace-nowrap border-b border-[#444]">
+                                    {col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row, i) => (
+                            <tr key={i} className={`${i % 2 === 0 ? 'bg-[#242424]' : 'bg-[#1e1e1e]'} hover:bg-[#333] transition-colors`}>
+                                {columns.map(col => (
+                                    <td key={col} className="px-3 py-1.5 text-[#d4d4d4] whitespace-nowrap border-b border-[#333]">
+                                        {row[col] === null || row[col] === undefined ? <span className="text-gray-600 italic">null</span> : String(row[col])}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
 const PREDEFINED_PROMPTS = [
     { label: "Show all users", query: "Show me all users" },
     { label: "Pending Orders", query: "Find pending orders" },
@@ -220,7 +289,7 @@ const AIChatBot = () => {
             const response = await api.post('/ai/query', { prompt: userText, provider: selectedProvider });
             const data = response.data.data;
 
-            setMessages(prev => [...prev, { role: 'ai', content: data.responseText, sqlQuery: data.sqlQuery, chartData: data.chartData }]);
+            setMessages(prev => [...prev, { role: 'ai', content: data.responseText, sqlQuery: data.sqlQuery, chartData: data.chartData, tableData: data.tableData }]);
 
             // If the AI determined a navigation intent, execute it
             if (data.actionType === 'navigate' && data.targetPage) {
@@ -322,7 +391,12 @@ const AIChatBot = () => {
                                                     ? 'bg-[#8B2332] text-white rounded-br-sm' 
                                                     : 'bg-[#2a2a2a] border border-[#333] text-[#F5F0E1] rounded-bl-sm'
                                             }`}>
-                                                {msg.chartData ? (
+                                                {msg.tableData ? (
+                                                    <div>
+                                                        <div className="whitespace-pre-wrap mb-2">{msg.content}</div>
+                                                        <TableRenderer tableData={msg.tableData} />
+                                                    </div>
+                                                ) : msg.chartData ? (
                                                     <div className="min-w-[280px] bg-white rounded-lg p-3">
                                                         <ChartRenderer chartData={msg.chartData} onExpand={() => setExpandedChart(msg.chartData)} />
                                                         <p className="text-xs text-gray-400 mt-1 text-center">Click chart to expand</p>

@@ -145,8 +145,11 @@ module.exports = async function handler(req, res) {
                 const truncatedStats = rawDbStats.length > 4000 ? rawDbStats.substring(0, 4000) + '... (truncated)' : rawDbStats;
                 const summaryPrompt = `User asked: "${prompt}"\nDatabase returned: ${truncatedStats}`;
 
+                // --- TABLE/CSV DETECTION: if user wants a table or CSV, send raw structured data ---
+                const tableKeywords = /\b(table|csv|spreadsheet|excel|sheet|tabular|export data|download data|list all|show all|show me all)\b/i;
                 // --- CHART DETECTION: if user wants a chart, skip the LLM summarization and send raw data ---
                 const chartKeywords = /\b(chart|graph|pie|bar chart|bar|graphical|html report|visual report|column|grouped|stacked|combo|comparison|compare|vs|versus)\b/i;
+                
                 if (chartKeywords.test(prompt)) {
                     // Detect chart type from the prompt
                     let chartType = 'bar';
@@ -186,6 +189,14 @@ module.exports = async function handler(req, res) {
                         };
                     }
                     parsedResponse.responseText = "Here's your chart:";
+                } else if (tableKeywords.test(prompt) && dbResult.rows.length > 0) {
+                    // Send raw table data for frontend rendering
+                    parsedResponse.tableData = {
+                        columns: Object.keys(dbResult.rows[0]),
+                        rows: dbResult.rows,
+                        totalRows: dbResult.rows.length,
+                    };
+                    parsedResponse.responseText = `Here's your data (${dbResult.rows.length} rows):`;
                 } else {
                     // Normal text summarization for non-chart queries
                     if (aiProvider === 'groq') {

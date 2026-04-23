@@ -62,8 +62,9 @@ const ChartRenderer = ({ chartData, onExpand }) => {
     } else {
         // Single-dataset chart (original behavior)
         const keys = Object.keys(chartData.rows[0]);
-        const labelKey = keys.find(k => typeof chartData.rows[0][k] === 'string') || keys[0];
-        const valueKey = keys.find(k => typeof chartData.rows[0][k] === 'number' || !isNaN(Number(chartData.rows[0][k]))) || keys[1] || keys[0];
+        const isNumeric = (val) => val !== null && val !== undefined && ((typeof val === 'number') || (typeof val === 'string' && val.trim() !== '' && isFinite(Number(val))));
+        const labelKey = keys.find(k => !isNumeric(chartData.rows[0][k])) || keys[0];
+        const valueKey = keys.find(k => isNumeric(chartData.rows[0][k])) || keys[1] || keys[0];
         
         const labels = chartData.rows.map(r => String(r[labelKey]));
         const values = chartData.rows.map(r => Number(r[valueKey]) || 0);

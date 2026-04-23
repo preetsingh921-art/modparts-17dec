@@ -161,11 +161,29 @@ module.exports = async function handler(req, res) {
                     const isGrouped = /\b(group|grouped|comparison|compare|combo|multi|vs|versus|stacked|and|&)\b/i.test(prompt);
 
                     // Analyze DB result columns to find label and value keys
+                    // NOTE: PostgreSQL returns numeric/decimal columns as strings (e.g. "1234.56")
+                    // so we must check if a string is parseable as a number before classifying it
                     const rows = dbResult.rows;
                     if (rows.length > 0) {
                         const keys = Object.keys(rows[0]);
-                        const labelKeys = keys.filter(k => typeof rows[0][k] === 'string' || (typeof rows[0][k] !== 'number' && isNaN(Number(rows[0][k]))));
-                        const valueKeys = keys.filter(k => typeof rows[0][k] === 'number' || (!isNaN(Number(rows[0][k])) && rows[0][k] !== null && !labelKeys.includes(k)));
+                        
+                        // Helper: check if a value is numeric (handles pg numeric-as-string)
+                        const isNumericValue = (val) => {
+                            if (val === null || val === undefined) return false;
+                            if (typeof val === 'number') return true;
+                            if (typeof val === 'string' && val.trim() !== '' && isFinite(Number(val))) return true;
+                            return false;
+                        };
+                        
+                        const labelKeys = keys.filter(k => !isNumericValue(rows[0][k]));
+                        const valueKeys = keys.filter(k => isNumericValue(rows[0][k]));
+                        
+                        // Coerce numeric string values to actual numbers for Chart.js
+                        const coercedRows = rows.map(row => {
+                            const newRow = { ...row };
+                            valueKeys.forEach(vk => { newRow[vk] = Number(newRow[vk]) || 0; });
+                            return newRow;
+                        });
                         
                         // Build multi-dataset chart data if multiple numeric columns exist
                         if (valueKeys.length > 1 && (isGrouped || valueKeys.length >= 2)) {
@@ -174,12 +192,12 @@ module.exports = async function handler(req, res) {
                                 multiDataset: true,
                                 labelKey: labelKeys[0] || keys[0],
                                 valueKeys: valueKeys,
-                                rows: rows,
+                                rows: coercedRows,
                             };
                         } else {
                             parsedResponse.chartData = {
                                 type: chartType,
-                                rows: rows,
+                                rows: coercedRows,
                             };
                         }
                     } else {

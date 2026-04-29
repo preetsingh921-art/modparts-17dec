@@ -1282,14 +1282,12 @@ const Inventory = () => {
                                         <tr style={{ background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)' }}>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Product</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Part#</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>From</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>To</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Status</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Shipped</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Received</th>
+                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Qty</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>From → To</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B', minWidth: '280px' }}>Pipeline Status</th>
+                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Tracking</th>
                                             <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Duration</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Dispatcher</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Receiver</th>
+                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1303,55 +1301,143 @@ const Inventory = () => {
                                             const matchDate = !movementsDateFilter || (m.shipped_at || m.created_at || '').startsWith(movementsDateFilter);
                                             return matchSearch && matchSource && matchDest && matchDate;
                                         }).map(m => {
-                                            // Calculate transit duration
+                                            // Pipeline stages definition
+                                            const PIPELINE = [
+                                                { key: 'pending', label: 'Created', icon: '📋', ts: m.created_at },
+                                                { key: 'picked', label: 'Picked', icon: '🔍', ts: m.picked_at },
+                                                { key: 'packed', label: 'Packed', icon: '📦', ts: m.packed_at },
+                                                { key: 'customs_review', label: 'Customs', icon: '🛃', ts: m.customs_cleared_at },
+                                                { key: 'in_transit', label: 'In Transit', icon: '✈️', ts: m.shipped_at },
+                                                { key: 'arrived', label: 'Arrived', icon: '📥', ts: m.received_at },
+                                                { key: 'completed', label: 'Done', icon: '✅', ts: m.scanned_at }
+                                            ];
+                                            const statusIndex = PIPELINE.findIndex(s => s.key === m.status);
+
+                                            // Duration calc
                                             const shippedDate = m.shipped_at ? new Date(m.shipped_at) : new Date(m.created_at);
                                             const receivedDate = m.received_at ? new Date(m.received_at) : null;
-                                            const now = new Date();
-                                            const endDate = m.status === 'completed' && m.received_at ? receivedDate : now;
+                                            const endDate = m.status === 'completed' && m.received_at ? receivedDate : new Date();
                                             const diffMs = endDate - shippedDate;
                                             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                                             const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                                             const durationText = diffDays > 0 ? `${diffDays}d ${diffHours}h` : `${diffHours}h`;
 
+                                            // Determine which country flags to show
+                                            const fromFlag = m.from_warehouse_country === 'CAN' ? '🇨🇦' : m.from_warehouse_country === 'IND' ? '🇮🇳' : '';
+                                            const toFlag = m.to_warehouse_country === 'CAN' ? '🇨🇦' : m.to_warehouse_country === 'IND' ? '🇮🇳' : '';
+
+                                            // Next valid status for advancement
+                                            const nextStatus = statusIndex < PIPELINE.length - 1 ? PIPELINE[statusIndex + 1] : null;
+
                                             return (
                                                 <tr key={m.id} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: '#1a1a1a' }}>
-                                                    <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.product_name}</td>
+                                                    <td style={{ padding: '12px', color: '#F5F0E1' }}>
+                                                        {m.product_name}
+                                                        {m.hs_code && <div style={{ fontSize: '10px', color: '#888' }}>HS: {m.hs_code}</div>}
+                                                    </td>
                                                     <td style={{ padding: '12px', fontFamily: 'monospace', color: '#B8860B' }}>{m.part_number || m.barcode}</td>
-                                                    <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.from_warehouse_name}</td>
-                                                    <td style={{ padding: '12px', color: '#F5F0E1' }}>{m.to_warehouse_name}</td>
+                                                    <td style={{ padding: '12px', textAlign: 'center', color: '#F5F0E1', fontWeight: 'bold' }}>{m.quantity || 1}</td>
+                                                    <td style={{ padding: '12px', color: '#F5F0E1', fontSize: '13px' }}>
+                                                        <span>{fromFlag} {m.from_warehouse_name}</span>
+                                                        <span style={{ color: '#B8860B', margin: '0 6px' }}>→</span>
+                                                        <span>{toFlag} {m.to_warehouse_name}</span>
+                                                        {m.from_bin_number && <div style={{ fontSize: '10px', color: '#888' }}>Bin: {m.from_bin_number}</div>}
+                                                    </td>
+                                                    {/* Pipeline Status Stepper */}
                                                     <td style={{ padding: '12px' }}>
-                                                        <span style={{
-                                                            padding: '4px 8px',
-                                                            borderRadius: '4px',
-                                                            fontSize: '12px',
-                                                            background: m.status === 'in_transit' ? 'rgba(184, 134, 11, 0.3)' : 'rgba(76, 175, 80, 0.3)',
-                                                            color: m.status === 'in_transit' ? '#B8860B' : '#4caf50',
-                                                            border: `1px solid ${m.status === 'in_transit' ? '#B8860B' : '#4caf50'}`
-                                                        }}>
-                                                            {m.status}
-                                                        </span>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                            {PIPELINE.map((stage, i) => {
+                                                                const isDone = i < statusIndex;
+                                                                const isCurrent = i === statusIndex;
+                                                                const isPending = i > statusIndex;
+                                                                return (
+                                                                    <div key={stage.key} style={{ display: 'flex', alignItems: 'center' }} title={`${stage.label}${stage.ts ? ': ' + new Date(stage.ts).toLocaleString() : ''}`}>
+                                                                        <div style={{
+                                                                            width: isCurrent ? '24px' : '18px',
+                                                                            height: isCurrent ? '24px' : '18px',
+                                                                            borderRadius: '50%',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            fontSize: isCurrent ? '12px' : '9px',
+                                                                            background: isDone ? '#4caf50' : isCurrent ? '#1976d2' : '#444',
+                                                                            color: 'white',
+                                                                            border: isCurrent ? '2px solid #64b5f6' : 'none',
+                                                                            fontWeight: 'bold',
+                                                                            transition: 'all 0.2s'
+                                                                        }}>
+                                                                            {isDone ? '✓' : stage.icon}
+                                                                        </div>
+                                                                        {i < PIPELINE.length - 1 && (
+                                                                            <div style={{
+                                                                                width: '12px',
+                                                                                height: '2px',
+                                                                                background: isDone ? '#4caf50' : '#444'
+                                                                            }} />
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <div style={{ marginTop: '4px', fontSize: '10px', color: statusIndex >= PIPELINE.length - 1 ? '#4caf50' : '#1976d2', fontWeight: 'bold' }}>
+                                                            {PIPELINE[statusIndex]?.icon} {PIPELINE[statusIndex]?.label || m.status}
+                                                            {m.customs_status && m.customs_status !== 'not_required' && (
+                                                                <span style={{ marginLeft: '6px', color: m.customs_status === 'cleared' ? '#4caf50' : '#ff9800' }}>
+                                                                    | 🛃 {m.customs_status}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
-                                                    <td style={{ padding: '12px', color: '#888', fontSize: '12px' }}>
-                                                        {shippedDate.toLocaleString()}
-                                                        {m.created_by_name && <div style={{ fontSize: '10px', color: '#4caf50' }}>by {m.created_by_name}</div>}
-                                                    </td>
-                                                    <td style={{ padding: '12px', color: '#888', fontSize: '12px' }}>
-                                                        {receivedDate ? receivedDate.toLocaleString() : '-'}
-                                                        {m.received_by_name && <div style={{ fontSize: '10px', color: '#4caf50' }}>by {m.received_by_name}</div>}
+                                                    <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '11px', color: '#888' }}>
+                                                        {m.tracking_number || '-'}
                                                     </td>
                                                     <td style={{ padding: '12px', fontSize: '12px' }}>
                                                         <span style={{
-                                                            color: m.status === 'in_transit' ? (diffDays > 3 ? '#f44336' : '#B8860B') : '#4caf50',
+                                                            color: m.status === 'completed' ? '#4caf50' : (diffDays > 3 ? '#f44336' : '#B8860B'),
                                                             fontWeight: 'bold'
                                                         }}>
                                                             {durationText}
                                                         </span>
+                                                        <div style={{ fontSize: '10px', color: '#666' }}>
+                                                            {m.created_by_name && <span>by {m.created_by_name}</span>}
+                                                        </div>
                                                     </td>
-                                                    <td style={{ padding: '12px', color: '#4caf50', fontSize: '12px' }}>
-                                                        {m.created_by_name || '-'}
-                                                    </td>
-                                                    <td style={{ padding: '12px', color: '#4caf50', fontSize: '12px' }}>
-                                                        {m.received_by_name || (m.status === 'completed' ? 'Unknown' : '-')}
+                                                    {/* Actions: Advance Status */}
+                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                        {nextStatus && m.status !== 'completed' && m.status !== 'cancelled' ? (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (!confirm(`Advance to "${nextStatus.label}"?`)) return;
+                                                                    try {
+                                                                        await movementsAPI.updateStatus({
+                                                                            movement_id: m.id,
+                                                                            new_status: nextStatus.key
+                                                                        });
+                                                                        fetchMovements();
+                                                                        setMessage({ type: 'success', text: `✅ Status advanced to ${nextStatus.label}` });
+                                                                    } catch (err) {
+                                                                        setMessage({ type: 'error', text: 'Failed to update status' });
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    padding: '5px 10px',
+                                                                    fontSize: '11px',
+                                                                    background: 'linear-gradient(135deg, #1976d2, #1565c0)',
+                                                                    color: 'white',
+                                                                    border: 'none',
+                                                                    borderRadius: '4px',
+                                                                    cursor: 'pointer',
+                                                                    whiteSpace: 'nowrap'
+                                                                }}
+                                                                title={`Advance to: ${nextStatus.label}`}
+                                                            >
+                                                                → {nextStatus.icon} {nextStatus.label}
+                                                            </button>
+                                                        ) : (
+                                                            <span style={{ fontSize: '11px', color: '#4caf50' }}>
+                                                                {m.status === 'completed' ? '✅ Done' : m.status === 'cancelled' ? '❌' : '-'}
+                                                            </span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );

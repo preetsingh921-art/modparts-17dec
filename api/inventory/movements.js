@@ -13,8 +13,11 @@ module.exports = async function handler(req, res) {
           p.name as product_name,
           p.barcode,
           p.part_number,
+          p.hs_code,
           fw.name as from_warehouse_name,
+          fw.country as from_warehouse_country,
           tw.name as to_warehouse_name,
+          tw.country as to_warehouse_country,
           cu.first_name || ' ' || cu.last_name as created_by_name,
           ru.first_name || ' ' || ru.last_name as received_by_name
         FROM inventory_movements m
@@ -67,17 +70,17 @@ module.exports = async function handler(req, res) {
 
             // Ship products - decrease quantity at source
             if (action === 'ship') {
-                const { product_ids, from_warehouse_id, to_warehouse_id, notes, quantity = 1 } = req.body;
+                const { product_ids, from_warehouse_id, to_warehouse_id, notes, quantity = 1, from_bin_number, tracking_number } = req.body;
 
                 const movements = [];
                 for (const productId of product_ids) {
-                    // Create movement record with shipped_at timestamp and quantity
+                    // Create movement record with shipped_at timestamp, quantity, and tracking info
                     const result = await db.query(`
                         INSERT INTO inventory_movements 
-                        (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at, quantity)
-                        VALUES ($1, $2, $3, 'transfer', 'in_transit', $4, $5, NOW(), $6)
+                        (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at, quantity, from_bin_number, tracking_number)
+                        VALUES ($1, $2, $3, 'transfer', 'in_transit', $4, $5, NOW(), $6, $7, $8)
                         RETURNING *
-                    `, [productId, from_warehouse_id, to_warehouse_id, notes, decoded.id, quantity]);
+                    `, [productId, from_warehouse_id, to_warehouse_id, notes, decoded.id, quantity, from_bin_number || null, tracking_number || null]);
                     movements.push(result.rows[0]);
 
                     // Decrease quantity at source by specified amount (but don't go below 0)
@@ -90,12 +93,83 @@ module.exports = async function handler(req, res) {
                     console.log(`📤 Shipped ${quantity} of product ${productId}: decreased quantity at warehouse ${from_warehouse_id}`);
                 }
 
-                // TODO: Create notification for destination warehouse admin
-                // This would require a notifications table and admin-warehouse mapping
-
                 return res.status(201).json({
                     message: `${movements.length} products shipped successfully. Quantity decreased at source.`,
                     movements
+                });
+            }
+
+            // Update transfer status through pipeline: picked → packed → customs_review → in_transit → arrived
+            if (action === 'update-status') {
+                const { movement_id, new_status, tracking_number: trackNum, customs_status: custStatus, notes: statusNotes } = req.body;
+
+                if (!movement_id || !new_status) {
+                    return res.status(400).json({ message: 'movement_id and new_status are required' });
+                }
+
+                // Valid status transitions
+                const VALID_STATUSES = ['pending', 'picked', 'packed', 'customs_review', 'in_transit', 'arrived', 'received', 'completed', 'cancelled'];
+                if (!VALID_STATUSES.includes(new_status)) {
+                    return res.status(400).json({ message: `Invalid status. Valid: ${VALID_STATUSES.join(', ')}` });
+                }
+
+                // Build dynamic update with timestamp for the specific stage
+                const timestampMap = {
+                    'picked': 'picked_at',
+                    'packed': 'packed_at',
+                    'in_transit': 'shipped_at',
+                    'arrived': 'received_at',
+                    'received': 'received_at',
+                    'completed': 'scanned_at',
+                    'customs_review': 'customs_cleared_at',
+                };
+
+                let updateFields = 'status = $2, updated_at = NOW()';
+                const updateParams = [movement_id, new_status];
+                let paramIdx = 3;
+
+                // Set the timestamp for this pipeline stage
+                const tsField = timestampMap[new_status];
+                if (tsField) {
+                    updateFields += `, ${tsField} = NOW()`;
+                }
+
+                // Optionally update tracking number
+                if (trackNum) {
+                    updateFields += `, tracking_number = $${paramIdx}`;
+                    updateParams.push(trackNum);
+                    paramIdx++;
+                }
+
+                // Optionally update customs status
+                if (custStatus) {
+                    updateFields += `, customs_status = $${paramIdx}`;
+                    updateParams.push(custStatus);
+                    paramIdx++;
+                }
+
+                // Optionally update notes
+                if (statusNotes) {
+                    updateFields += `, notes = $${paramIdx}`;
+                    updateParams.push(statusNotes);
+                    paramIdx++;
+                }
+
+                const result = await db.query(`
+                    UPDATE inventory_movements 
+                    SET ${updateFields}
+                    WHERE id = $1
+                    RETURNING *
+                `, updateParams);
+
+                if (result.rows.length === 0) {
+                    return res.status(404).json({ message: 'Movement not found' });
+                }
+
+                console.log(`📋 Movement ${movement_id} status → ${new_status}`);
+                return res.json({
+                    message: `Transfer status updated to '${new_status}'`,
+                    movement: result.rows[0]
                 });
             }
 

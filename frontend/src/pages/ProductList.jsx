@@ -5,6 +5,7 @@ import { getCategories } from '../api/categories';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
 import { processImageUrl, handleImageError } from '../utils/imageHelper';
+import { useGeoLocation, getWarehouseFlag } from '../hooks/useGeoLocation';
 import RangeSlider from '../components/RangeSlider';
 import Pagination from '../components/ui/Pagination';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -16,6 +17,7 @@ const ProductList = () => {
   const location = useLocation();
   const { addToCart } = useCart();
   const { success } = useToast();
+  const { countryCode: geoCountry } = useGeoLocation();
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -145,7 +147,8 @@ const ProductList = () => {
             sortOrder: 'desc',
             categories: categoriesToFilter.length > 0 ? categoriesToFilter.join(',') : undefined,
             minPrice: priceRange.min > 0 ? priceRange.min : undefined,
-            maxPrice: priceRange.max < 99999 ? priceRange.max : undefined
+            maxPrice: priceRange.max < 99999 ? priceRange.max : undefined,
+            country: geoCountry || undefined // Geo-IP warehouse routing
           });
 
           // Update selectedCategory for backward compatibility
@@ -172,7 +175,7 @@ const ProductList = () => {
     };
 
     fetchProducts();
-  }, [categoryId, searchQuery, currentPage, itemsPerPage, selectedCategories, priceRange]);
+  }, [categoryId, searchQuery, currentPage, itemsPerPage, selectedCategories, priceRange, geoCountry]);
 
 
 
@@ -709,6 +712,14 @@ const ProductList = () => {
                               : '❌ Out of stock'}
                           </span>
                         </div>
+                        {/* Warehouse origin badge */}
+                        {product.warehouse_country && (
+                          <div className="flex items-center mt-1">
+                            <span className="text-xs text-[#A8A090] bg-[#333] px-2 py-0.5 rounded">
+                              {getWarehouseFlag(product.warehouse_country)} Ships from {product.warehouse_name || product.warehouse_country}
+                            </span>
+                          </div>
+                        )}
                         <p className="text-[#8B2332] font-bold text-xl mb-3">
                           ${parseFloat(product.price).toFixed(2)}
                         </p>

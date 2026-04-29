@@ -16,9 +16,11 @@ module.exports = async function handler(req, res) {
       const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice) : null;
       const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
       const warehouseId = req.query.warehouse_id || null; // Filter by warehouse
+      // Geo-IP: detect visitor country for warehouse-scoped stock routing
+      const visitorCountry = req.query.country || req.headers['cf-ipcountry'] || req.headers['x-visitor-country'] || null;
 
       console.log('🔍 Products API called with filters (Neon):', {
-        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId
+        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId, visitorCountry
       });
 
       // Calculate offset
@@ -31,7 +33,8 @@ module.exports = async function handler(req, res) {
           c.name as category_name, 
           c.description as category_description,
           w.name as warehouse_name,
-          w.location as warehouse_location
+          w.location as warehouse_location,
+          w.country as warehouse_country
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN warehouses w ON p.warehouse_id = w.id
@@ -114,12 +117,26 @@ module.exports = async function handler(req, res) {
         paramCount++;
       }
 
+      // Geo-IP Country Filter: India visitors see only IND warehouse stock
+      if (visitorCountry) {
+        const upperCountry = visitorCountry.toUpperCase();
+        if (upperCountry === 'IN' || upperCountry === 'IND') {
+          // India customers: show only IND warehouse products
+          const countryClause = ` AND w.country = 'IND'`;
+          queryText += countryClause;
+          countQueryText += countryClause;
+          console.log('🇮🇳 Geo-IP: Filtering to IND warehouse only');
+        }
+        // Global customers (CAN, US, etc.): see all warehouses, no filter applied
+      }
+
       // Add Sorting
       // Validate sortBy to prevent SQL injection
       const allowedSortColumns = ['name', 'price', 'created_at', 'updated_at', 'quantity'];
       const safeSortBy = allowedSortColumns.includes(sortBy) ? `p.${sortBy}` : 'p.created_at';
 
-      queryText += ` ORDER BY ${safeSortBy} ${sortOrder}`;
+      // Prioritize IND warehouse products first (nearest warehouse sorting), then apply user sort
+      queryText += ` ORDER BY CASE WHEN w.country = 'IND' THEN 0 ELSE 1 END, ${safeSortBy} ${sortOrder}`;
 
       // Add Pagination
       queryText += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;

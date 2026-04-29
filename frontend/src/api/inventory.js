@@ -253,12 +253,12 @@ export const movementsAPI = {
     return response.json();
   },
 
-  // Update movement status
-  updateStatus: async (id, status, notes = null) => {
-    const response = await fetch(`${API_BASE_URL}/inventory/movements`, {
-      method: 'PUT',
+  // Update movement status through pipeline (picked → packed → customs_review → in_transit → arrived → completed)
+  updateStatus: async ({ movement_id, new_status, tracking_number, customs_status, notes }) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=update-status`, {
+      method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ id, status, notes }),
+      body: JSON.stringify({ movement_id, new_status, tracking_number, customs_status, notes }),
     });
     return response.json();
   },

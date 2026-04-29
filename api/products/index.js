@@ -117,17 +117,22 @@ module.exports = async function handler(req, res) {
         paramCount++;
       }
 
-      // Geo-IP Country Filter: India visitors see only IND warehouse stock
+      // Geo-IP Country Filter: India visitors get IND warehouse products prioritized
+      // NOTE: We use SOFT prioritization (sort order) instead of hard filtering
+      // to avoid empty results when warehouse country data is incomplete
+      // Handles country variants: 'IND', 'India', 'IN', 'CAN', 'Canada', 'CA', etc.
+      let geoSortPrefix = '';
       if (visitorCountry) {
         const upperCountry = visitorCountry.toUpperCase();
         if (upperCountry === 'IN' || upperCountry === 'IND') {
-          // India customers: show only IND warehouse products
-          const countryClause = ` AND w.country = 'IND'`;
-          queryText += countryClause;
-          countQueryText += countryClause;
-          console.log('🇮🇳 Geo-IP: Filtering to IND warehouse only');
+          // India customers: prioritize IND/India warehouse products first in sort
+          geoSortPrefix = `CASE WHEN w.country ILIKE 'IND%' OR w.country ILIKE 'India%' THEN 0 WHEN w.country IS NULL THEN 1 ELSE 2 END, `;
+          console.log('🇮🇳 Geo-IP: Prioritizing IND warehouse products');
         }
-        // Global customers (CAN, US, etc.): see all warehouses, no filter applied
+      }
+      // If no geo detected, still prioritize IND (default nearest warehouse)
+      if (!geoSortPrefix) {
+        geoSortPrefix = `CASE WHEN w.country ILIKE 'IND%' OR w.country ILIKE 'India%' THEN 0 ELSE 1 END, `;
       }
 
       // Add Sorting
@@ -135,8 +140,8 @@ module.exports = async function handler(req, res) {
       const allowedSortColumns = ['name', 'price', 'created_at', 'updated_at', 'quantity'];
       const safeSortBy = allowedSortColumns.includes(sortBy) ? `p.${sortBy}` : 'p.created_at';
 
-      // Prioritize IND warehouse products first (nearest warehouse sorting), then apply user sort
-      queryText += ` ORDER BY CASE WHEN w.country = 'IND' THEN 0 ELSE 1 END, ${safeSortBy} ${sortOrder}`;
+      // Apply geo-priority sorting, then user's sort preference
+      queryText += ` ORDER BY ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
 
       // Add Pagination
       queryText += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;

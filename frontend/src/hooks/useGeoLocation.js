@@ -67,9 +67,12 @@ export function getWarehouseFlag(countryCode) {
   const flags = {
     'IND': '🇮🇳',
     'IN': '🇮🇳',
+    'INDIA': '🇮🇳',
     'CAN': '🇨🇦',
     'CA': '🇨🇦',
+    'CANADA': '🇨🇦',
     'US': '🇺🇸',
+    'USA': '🇺🇸',
     'UK': '🇬🇧',
     'GB': '🇬🇧',
   };

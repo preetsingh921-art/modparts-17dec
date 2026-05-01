@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
         const { prompt, provider } = req.body;
         if (!prompt) return res.status(400).json({ message: 'Prompt is required' });
 
-        const aiProvider = (provider || process.env.AI_PROVIDER || 'gemini').toLowerCase();
+        const aiProvider = (provider || process.env.AI_PROVIDER || 'groq').toLowerCase();
 
         // 1. DYNAMIC SCHEMA INTROSPECTION (Cached in memory to prevent recurrent database trips)
         if (!cachedDatabaseSchema) {

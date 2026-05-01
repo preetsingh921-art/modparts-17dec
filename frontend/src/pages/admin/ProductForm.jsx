@@ -8,6 +8,7 @@ import { processImageUrl, handleImageError } from '../../utils/imageHelper';
 import { InlineLoader } from '../../components/ui/LoadingSpinner';
 import PlaceholderImage from '../../components/ui/PlaceholderImage';
 import InlineBarcode from '../../components/ui/InlineBarcode';
+import api from '../../api/config';
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -26,7 +27,7 @@ const ProductForm = () => {
     price: '',
     category_id: '',
     condition_status: 'New',
-    quantity: '',
+    quantity: '0', // Default quantity is 0 - stock only increases when received via scan
     image_url: '',
     part_number: prefilledPartNumber,
     barcode: prefilledPartNumber, // Also use as barcode
@@ -40,6 +41,8 @@ const ProductForm = () => {
   const [imagePreview, setImagePreview] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
   const fileInputRef = useRef(null);
+  const [aiCategorySuggestion, setAiCategorySuggestion] = useState(null); // AI category suggestion
+  const [aiCategoryLoading, setAiCategoryLoading] = useState(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -51,6 +54,11 @@ const ProductForm = () => {
         if (data.length > 0 && !isEditMode) {
           setFormData(prev => ({ ...prev, category_id: data[0].id }));
         }
+
+        // If we have a prefilled part number (from barcode scan), trigger AI categorization
+        if (prefilledPartNumber && data.length > 0 && !isEditMode) {
+          suggestCategory(prefilledPartNumber, data);
+        }
       } catch (err) {
         console.error('Error fetching categories:', err);
       }
@@ -58,6 +66,29 @@ const ProductForm = () => {
 
     fetchCategories();
   }, [isEditMode]);
+
+  // AI Category Suggestion function
+  const suggestCategory = async (partNumber, availableCategories) => {
+    setAiCategoryLoading(true);
+    try {
+      const response = await api.post('/ai/categorize', {
+        part_number: partNumber,
+        name: partNumber // Use part number as name hint too
+      });
+
+      const suggestion = response.data;
+      if (suggestion && suggestion.category_id) {
+        setAiCategorySuggestion(suggestion);
+        // Auto-select the AI-suggested category
+        setFormData(prev => ({ ...prev, category_id: String(suggestion.category_id) }));
+        console.log(`🤖 AI suggested category: ${suggestion.category_name} (${Math.round(suggestion.confidence * 100)}% confidence, method: ${suggestion.method})`);
+      }
+    } catch (err) {
+      console.error('AI category suggestion failed:', err);
+      // Silently fail - user can still manually select
+    }
+    setAiCategoryLoading(false);
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -287,7 +318,12 @@ const ProductForm = () => {
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-2">Category</label>
+              <label className="block text-gray-700 mb-2">
+                Category
+                {aiCategoryLoading && (
+                  <span className="ml-2 text-sm text-blue-500 animate-pulse">🤖 AI analyzing...</span>
+                )}
+              </label>
               <select
                 name="category_id"
                 value={formData.category_id}
@@ -303,6 +339,27 @@ const ProductForm = () => {
                   </option>
                 ))}
               </select>
+              {aiCategorySuggestion && (
+                <div style={{
+                  marginTop: '6px',
+                  padding: '6px 10px',
+                  backgroundColor: aiCategorySuggestion.method === 'ai' ? '#e8f5e9' : '#fff3e0',
+                  borderRadius: '6px',
+                  border: `1px solid ${aiCategorySuggestion.method === 'ai' ? '#4caf50' : '#ff9800'}`,
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <span>{aiCategorySuggestion.method === 'ai' ? '🤖' : '🔤'}</span>
+                  <span>
+                    <strong>AI Suggestion:</strong> {aiCategorySuggestion.category_name}
+                    <span style={{ marginLeft: '8px', color: '#666' }}>
+                      ({Math.round(aiCategorySuggestion.confidence * 100)}% confidence)
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

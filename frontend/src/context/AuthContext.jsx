@@ -129,7 +129,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAdmin = () => {
-    return user && user.role === 'admin';
+    return user && (user.role === 'admin' || user.role === 'superadmin');
+  };
+
+  const isSuperAdmin = () => {
+    return user && user.role === 'superadmin';
   };
 
   // Function to update user data in context
@@ -151,6 +155,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAuthenticated,
     isAdmin,
+    isSuperAdmin,
     updateUserData
   };
 

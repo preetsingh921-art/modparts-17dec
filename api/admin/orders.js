@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 // JWT secret for token verification
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Helper function to verify JWT token and check admin role
+// Helper function to verify JWT token and check admin/superadmin role
 function verifyAdminToken(req) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -16,8 +16,8 @@ function verifyAdminToken(req) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Check if user has admin role
-    if (decoded.role !== 'admin') {
+    // Check if user has admin or superadmin role
+    if (decoded.role !== 'admin' && decoded.role !== 'superadmin') {
       return null;
     }
 
@@ -42,34 +42,82 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
-      // Get all orders with user information
-      console.log('📋 Admin fetching all orders (Neon)...');
+      // Get orders - superadmin sees all, regular admin sees only orders containing products from their warehouse
+      console.log('📋 Admin fetching orders (Neon)... Role:', adminUser.role, 'Warehouse:', adminUser.warehouse_id);
 
-      const query = `
-        SELECT 
-          o.*,
-          u.id as user_db_id, u.email as user_email, u.first_name, u.last_name, u.phone as user_phone,
-          COALESCE(
-            json_agg(
-              json_build_object(
-                'id', oi.id,
-                'product_id', oi.product_id,
-                'quantity', oi.quantity,
-                'price', oi.price,
-                'product', json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url)
-              )
-            ) FILTER (WHERE oi.id IS NOT NULL),
-            '[]'
-          ) as order_items
-        FROM orders o
-        LEFT JOIN users u ON o.user_id = u.id
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        LEFT JOIN products p ON oi.product_id = p.id
-        GROUP BY o.id, u.id
-        ORDER BY o.created_at DESC
-      `;
+      const isSuperAdmin = adminUser.role === 'superadmin';
 
-      const { rows: orders } = await db.query(query);
+      let query;
+      let queryParams = [];
+
+      if (isSuperAdmin) {
+        // Superadmin sees ALL orders across all locations
+        query = `
+          SELECT 
+            o.*,
+            u.id as user_db_id, u.email as user_email, u.first_name, u.last_name, u.phone as user_phone,
+            COALESCE(
+              json_agg(
+                json_build_object(
+                  'id', oi.id,
+                  'product_id', oi.product_id,
+                  'quantity', oi.quantity,
+                  'price', oi.price,
+                  'product', json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url, 'warehouse_id', p.warehouse_id)
+                )
+              ) FILTER (WHERE oi.id IS NOT NULL),
+              '[]'
+            ) as order_items
+          FROM orders o
+          LEFT JOIN users u ON o.user_id = u.id
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          LEFT JOIN products p ON oi.product_id = p.id
+          GROUP BY o.id, u.id
+          ORDER BY o.created_at DESC
+        `;
+      } else {
+        // Regular admin: only see orders that contain products from their warehouse
+        if (!adminUser.warehouse_id) {
+          return res.status(200).json({
+            success: true,
+            data: [],
+            count: 0,
+            message: 'No warehouse assigned. Contact superadmin.'
+          });
+        }
+
+        query = `
+          SELECT 
+            o.*,
+            u.id as user_db_id, u.email as user_email, u.first_name, u.last_name, u.phone as user_phone,
+            COALESCE(
+              json_agg(
+                json_build_object(
+                  'id', oi.id,
+                  'product_id', oi.product_id,
+                  'quantity', oi.quantity,
+                  'price', oi.price,
+                  'product', json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url, 'warehouse_id', p.warehouse_id)
+                )
+              ) FILTER (WHERE oi.id IS NOT NULL),
+              '[]'
+            ) as order_items
+          FROM orders o
+          LEFT JOIN users u ON o.user_id = u.id
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          LEFT JOIN products p ON oi.product_id = p.id
+          WHERE o.id IN (
+            SELECT DISTINCT oi2.order_id FROM order_items oi2
+            JOIN products p2 ON oi2.product_id = p2.id
+            WHERE p2.warehouse_id = $1
+          )
+          GROUP BY o.id, u.id
+          ORDER BY o.created_at DESC
+        `;
+        queryParams = [adminUser.warehouse_id];
+      }
+
+      const { rows: orders } = await db.query(query, queryParams);
 
       // Format response for frontend compatibility
       const ordersWithUsers = orders.map(order => ({
@@ -86,7 +134,7 @@ module.exports = async (req, res) => {
         customer_phone: order.user_phone || null
       }));
 
-      console.log(`✅ Successfully fetched ${ordersWithUsers.length} orders from Neon`);
+      console.log(`✅ Successfully fetched ${ordersWithUsers.length} orders from Neon (${isSuperAdmin ? 'all locations' : 'warehouse ' + adminUser.warehouse_id})`);
 
       return res.status(200).json({
         success: true,

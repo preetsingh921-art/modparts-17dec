@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { getProducts, deleteProduct, bulkCreateProducts } from '../../api/products';
 import { getCategories } from '../../api/categories';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import useConfirm from '../../hooks/useConfirm';
 import { processImageUrl, handleImageError } from '../../utils/imageHelper';
@@ -25,6 +26,7 @@ const Products = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const { success, error: showError } = useToast();
+  const { user, isSuperAdmin } = useAuth();
   const { isOpen, confirm, handleClose, handleConfirm, dialogProps } = useConfirm();
 
   // Pagination state
@@ -70,8 +72,13 @@ const Products = () => {
     const fetchData = async (retryCount = 0) => {
       setLoading(true);
       try {
+        // Superadmin sees ALL products, regular admin sees only their warehouse
+        const fetchParams = { limit: 1000 };
+        if (!isSuperAdmin() && user?.warehouse_id) {
+          fetchParams.warehouse_id = user.warehouse_id;
+        }
         const [productsResult, categoriesData] = await Promise.all([
-          getProducts({ limit: 1000 }), // Get all products for admin
+          getProducts(fetchParams), // Warehouse-scoped for regular admins
           getCategories()
         ]);
 

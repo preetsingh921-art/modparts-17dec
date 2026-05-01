@@ -216,11 +216,14 @@ module.exports = async function handler(req, res) {
         name, description, condition_status, price, quantity, category_id, image_url, part_number, barcode
       });
 
-      if (!name || !condition_status || !price || price < 0 || quantity < 0) {
+      if (!name || !condition_status || !price || price < 0) {
         return res.status(400).json({
-          message: 'Name, condition status, valid price, and quantity are required'
+          message: 'Name, condition status, and valid price are required'
         });
       }
+
+      // Default quantity to 0 - stock only increases when parts are received via scan
+      const finalQuantity = quantity !== undefined && quantity !== null ? parseInt(quantity) : 0;
 
       // Barcode logic:
       // ALWAYS use part_number as barcode when available (so scanning returns the part number)
@@ -254,7 +257,7 @@ module.exports = async function handler(req, res) {
         description || null,
         condition_status,
         parseFloat(price),
-        parseInt(quantity),
+        finalQuantity,
         category_id ? parseInt(category_id) : null,
         image_url || null,
         part_number || null,

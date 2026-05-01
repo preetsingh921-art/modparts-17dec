@@ -13,7 +13,7 @@ const AdminRoute = ({ children }) => {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
-        if (user && user.role === 'admin') {
+        if (user && (user.role === 'admin' || user.role === 'superadmin')) {
           console.log('Admin bypass enabled via localStorage');
           setIsBypassEnabled(true);
         }

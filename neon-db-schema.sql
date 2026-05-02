@@ -158,3 +158,8 @@ CREATE TABLE public.wishlist (
   created_at           timestamp with time zone DEFAULT now()
 );
 
+
+-- Added by Antigravity: Fix barcode unique constraint to allow multiple warehouses to hold the same product
+ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_barcode_key;
+ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_barcode_warehouse_unique;
+ALTER TABLE public.products ADD CONSTRAINT products_barcode_warehouse_unique UNIQUE (barcode, warehouse_id);

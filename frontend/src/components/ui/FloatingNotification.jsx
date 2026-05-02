@@ -11,6 +11,9 @@ const FloatingNotification = ({ message, type = 'info', duration = 4000, onDismi
     useEffect(() => {
         if (!message) return;
 
+        setIsVisible(true);
+        setIsExiting(false);
+
         const timer = setTimeout(() => {
             setIsExiting(true);
             setTimeout(() => {

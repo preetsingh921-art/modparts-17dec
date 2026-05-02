@@ -187,7 +187,7 @@ module.exports = async function handler(req, res) {
 
                 // Get the movement and validate destination
                 const movementResult = await db.query(`
-                    SELECT m.*, p.part_number, p.name, p.description, p.price, p.category, p.barcode, p.image_url
+                    SELECT m.*, p.part_number, p.name, p.description, p.price, p.category_id, p.barcode, p.image_url, p.condition_status
                     FROM inventory_movements m
                     JOIN products p ON m.product_id = p.id
                     WHERE m.id = $1
@@ -234,19 +234,20 @@ module.exports = async function handler(req, res) {
                 } else {
                     // Product doesn't exist - create new entry
                     await db.query(`
-                        INSERT INTO products (part_number, name, description, price, category, barcode, image_url, warehouse_id, bin_number, quantity)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                        INSERT INTO products (part_number, name, description, price, category_id, barcode, image_url, warehouse_id, bin_number, quantity, condition_status)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     `, [
                         movement.part_number,
                         movement.name,
                         movement.description,
                         movement.price,
-                        movement.category,
+                        movement.category_id,
                         movement.barcode,
                         movement.image_url,
                         warehouse_id,
                         bin_number,
-                        quantity
+                        quantity,
+                        movement.condition_status || 'New'
                     ]);
 
                     resultMessage = `Received ${quantity} units. New product entry created in warehouse.`;
@@ -308,7 +309,7 @@ module.exports = async function handler(req, res) {
                 } else {
                     // Need to get product details from any warehouse
                     const productDetails = await db.query(`
-                        SELECT name, description, price, category, barcode, image_url 
+                        SELECT name, description, price, category_id, barcode, image_url, condition_status 
                         FROM products WHERE part_number = $1 LIMIT 1
                     `, [part_number]);
 
@@ -320,19 +321,20 @@ module.exports = async function handler(req, res) {
 
                     // Create new entry in warehouse
                     await db.query(`
-                        INSERT INTO products (part_number, name, description, price, category, barcode, image_url, warehouse_id, bin_number, quantity)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                        INSERT INTO products (part_number, name, description, price, category_id, barcode, image_url, warehouse_id, bin_number, quantity, condition_status)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     `, [
                         part_number,
                         details.name,
                         details.description,
                         details.price,
-                        details.category,
+                        details.category_id,
                         details.barcode,
                         details.image_url,
                         warehouse_id,
                         bin_number,
-                        quantity
+                        quantity,
+                        details.condition_status || 'New'
                     ]);
 
                     resultMessage = `Created new inventory entry with ${quantity} units.`;

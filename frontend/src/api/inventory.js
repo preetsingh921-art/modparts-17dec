@@ -212,16 +212,19 @@ export const movementsAPI = {
 
   // Receive product at destination (requires movement_id and warehouse_id for validation)
   receive: async ({ movementId, binNumber, warehouseId }) => {
+    const payload = {
+      movement_id: movementId,
+      bin_number: binNumber,
+      warehouse_id: warehouseId,
+    };
+    console.log("🚀 [FRONTEND API] Sending receive payload:", payload);
     const response = await fetch(`${API_BASE_URL}/inventory/movements?action=receive`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({
-        movement_id: movementId,
-        bin_number: binNumber,
-        warehouse_id: warehouseId,
-      }),
+      body: JSON.stringify(payload),
     });
     const data = await response.json();
+    console.log("🚀 [FRONTEND API] Response from receive:", response.status, data);
     if (!response.ok) throw new Error(data.message || 'Failed to receive product');
     return data;
   },
@@ -244,17 +247,20 @@ export const movementsAPI = {
 
   // Add unexpected inventory (product not expected, admin confirmed)
   addUnexpected: async ({ partNumber, warehouseId, binNumber, quantity = 1 }) => {
+    const payload = {
+      part_number: partNumber,
+      warehouse_id: warehouseId,
+      bin_number: binNumber,
+      quantity,
+    };
+    console.log("🚀 [FRONTEND API] Sending addUnexpected payload:", payload);
     const response = await fetch(`${API_BASE_URL}/inventory/movements?action=add-unexpected`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({
-        part_number: partNumber,
-        warehouse_id: warehouseId,
-        bin_number: binNumber,
-        quantity,
-      }),
+      body: JSON.stringify(payload),
     });
     const data = await response.json();
+    console.log("🚀 [FRONTEND API] Response from addUnexpected:", response.status, data);
     if (!response.ok) throw new Error(data.message || 'Failed to add unexpected inventory');
     return data;
   },

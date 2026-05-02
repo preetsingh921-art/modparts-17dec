@@ -1086,6 +1086,8 @@ const Inventory = () => {
                                                                 type: 'success',
                                                                 text: `✅ 1 unit shipped to ${destWarehouse?.name || 'destination'}! (${scannedProduct.quantity - 1} remaining)`
                                                             });
+                                                            fetchMovements();
+                                                            fetchBins(adminWarehouseId);
                                                         } else {
                                                             // RECEIVE MODE: Handle expected vs unexpected
                                                             const myWarehouse = warehouses.find(w => String(w.id) === String(adminWarehouseId));
@@ -1119,6 +1121,7 @@ const Inventory = () => {
                                                             setSelectedBin('');
                                                             setReceiveQuantity(1);
                                                             fetchMovements(); // Refresh movements list
+                                                            fetchBins(adminWarehouseId); // Refresh warehouse inventory tables
                                                         }
                                                         // Refresh product data
                                                         setScannedProduct(null);

@@ -94,8 +94,15 @@ module.exports = async function handler(req, res) {
             console.log("✅ Dynamic Schema Cached Successfully!");
         }
 
-        // 2. Formulate final instruction dynamically with the live schema
-        const dynamicSystemInstruction = `${baseSystemInstruction}\n\n${cachedDatabaseSchema}`;
+        // 2. Formulate final instruction dynamically with the live schema and user context
+        const userContext = `
+USER CONTEXT:
+- Role: ${decoded.role} (Superadmins can see all data across all warehouses. Regular admins should only query data related to their assigned warehouse)
+- Warehouse ID: ${decoded.warehouse_id || 'None / Global'}
+
+If the user asks questions about "my warehouse", "my products", or "my orders", you MUST filter your SQL query to ONLY include records where warehouse_id = ${decoded.warehouse_id || 'NULL'} (unless they are a superadmin). If they ask what warehouse they are under, answer them conversationally using this context.`;
+
+        const dynamicSystemInstruction = `${baseSystemInstruction}\n${userContext}\n\n${cachedDatabaseSchema}`;
 
         console.log(`🤖 AI Query received [${aiProvider}]: "${prompt}"`);
         let responseText = "";

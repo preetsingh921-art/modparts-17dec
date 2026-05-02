@@ -221,7 +221,9 @@ export const movementsAPI = {
         warehouse_id: warehouseId,
       }),
     });
-    return response.json();
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to receive product');
+    return data;
   },
 
   // Assign product to a bin
@@ -235,7 +237,9 @@ export const movementsAPI = {
         warehouse_id: warehouseId,
       }),
     });
-    return response.json();
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to assign bin');
+    return data;
   },
 
   // Add unexpected inventory (product not expected, admin confirmed)
@@ -250,7 +254,9 @@ export const movementsAPI = {
         quantity,
       }),
     });
-    return response.json();
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to add unexpected inventory');
+    return data;
   },
 
   // Update movement status through pipeline (picked → packed → customs_review → in_transit → arrived → completed)

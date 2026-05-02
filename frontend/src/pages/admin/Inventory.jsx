@@ -1123,7 +1123,8 @@ const Inventory = () => {
                                                         // Refresh product data
                                                         setScannedProduct(null);
                                                     } catch (err) {
-                                                        setMessage({ type: 'error', text: `Failed to ${transferAction} product` });
+                                                        console.error("Action error:", err);
+                                                        setMessage({ type: 'error', text: `Failed to process product: ${err.message || 'Unknown error'}` });
                                                     }
                                                     setLoading(false);
                                                 }}

@@ -411,15 +411,24 @@ const Inventory = () => {
                 const products = result.products || result;
                 console.log('🔍 SEARCH RESULTS:', products?.length, 'products found');
 
-                // Find matching product in admin's warehouse
+                // Find matching products by barcode/part number
                 let matchingProducts = products?.filter(p =>
                     p.part_number === barcode || p.barcode === barcode ||
                     p.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
                     p.name?.toLowerCase().includes(barcode.toLowerCase())
                 ) || [];
 
+                // Sort so that the product in the admin's warehouse is FIRST
+                if (matchingProducts.length > 1) {
+                    matchingProducts.sort((a, b) => {
+                        if (String(a.warehouse_id) === String(adminWarehouseId)) return -1;
+                        if (String(b.warehouse_id) === String(adminWarehouseId)) return 1;
+                        return 0;
+                    });
+                }
+
                 if (matchingProducts.length === 0 && products?.length > 0) {
-                    // If no exact match, use first result from admin's warehouse
+                    // If no exact match, use first result
                     matchingProducts = [products[0]];
                 }
 

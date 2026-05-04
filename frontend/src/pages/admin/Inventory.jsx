@@ -1065,6 +1065,7 @@ const Inventory = () => {
                                             {/* Action Button */}
                                             <button
                                                 onClick={async () => {
+                                                    alert(`Button Clicked!\nAction: ${showUnexpectedConfirm ? 'Add Unexpected' : 'Receive Expected'}\nPart: ${scannedProduct?.part_number}\nWarehouse: ${adminWarehouseId}\nQuantity: ${receiveQuantity}`);
                                                     if (activeTab === 'scan-send' && !selectedWarehouse) {
                                                         setMessage({ type: 'error', text: 'Please select a destination warehouse' });
                                                         return;

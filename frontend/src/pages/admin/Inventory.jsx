@@ -395,7 +395,38 @@ const Inventory = () => {
                 if (activeTab === 'scan-send' && adminWarehouseId && String(product.warehouse_id) !== String(adminWarehouseId)) {
                     setScannedProduct(null);
                     setMessage({ type: 'warning', text: `Cannot send: Product is in ${product.warehouse_name || 'another warehouse'}, not your warehouse.` });
+                } else if (activeTab === 'scan-receive') {
+                    // RECEIVE MODE with product object: auto-receive immediately
+                    setScannedProduct(product);
+                    setPendingMovement(null);
+                    setShowUnexpectedConfirm(false);
+                    setReceiveQuantity(1);
+
+                    try {
+                        console.log('📥 AUTO-RECEIVE (manual select): Adding 1 unit of', product.part_number, 'to warehouse', adminWarehouseId);
+                        await movementsAPI.addUnexpected({
+                            partNumber: product.part_number,
+                            warehouseId: adminWarehouseId,
+                            binNumber: product.bin_number || null,
+                            quantity: 1
+                        });
+                        const newQty = (parseInt(product.quantity) || 0) + 1;
+                        setScannedProduct({ ...product, quantity: newQty });
+                        setMessage({
+                            type: 'success',
+                            text: `✅ RECEIVED: ${product.name} — quantity updated to ${newQty} in your warehouse!`
+                        });
+                        console.log('📥 AUTO-RECEIVE SUCCESS: New quantity =', newQty);
+                        fetchBins(adminWarehouseId);
+                    } catch (receiveErr) {
+                        console.error('📥 AUTO-RECEIVE ERROR:', receiveErr);
+                        setMessage({
+                            type: 'error',
+                            text: `❌ Failed to receive: ${receiveErr.message}`
+                        });
+                    }
                 } else {
+                    // SEND mode - product is in admin's warehouse
                     setScannedProduct(product);
                     setSendQuantity(1);
                     setMessage({ type: 'success', text: `Found: ${product.name} (Qty: ${product.quantity})` });

@@ -479,16 +479,37 @@ const Inventory = () => {
                                 text: `✅ EXPECTED: ${matchedMovement.product_name || barcode} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
                             });
                         } else if (matchingProducts.length > 0) {
-                            // Product exists but no pending movement - UNEXPECTED
+                            // Product exists but no pending movement - AUTO RECEIVE
                             const foundProduct = matchingProducts[0];
                             setScannedProduct(foundProduct);
                             setPendingMovement(null);
-                            setShowUnexpectedConfirm(true);
+                            setShowUnexpectedConfirm(false);
                             setReceiveQuantity(1);
-                            setMessage({
-                                type: 'warning',
-                                text: `⚠️ UNEXPECTED: ${foundProduct.name} was not expected. Confirm to add to inventory.`
-                            });
+
+                            // AUTO-RECEIVE: Immediately add to inventory
+                            try {
+                                console.log('📥 AUTO-RECEIVE: Adding 1 unit of', foundProduct.part_number, 'to warehouse', adminWarehouseId);
+                                await movementsAPI.addUnexpected({
+                                    partNumber: foundProduct.part_number,
+                                    warehouseId: adminWarehouseId,
+                                    binNumber: foundProduct.bin_number || null,
+                                    quantity: 1
+                                });
+                                const newQty = (parseInt(foundProduct.quantity) || 0) + 1;
+                                setScannedProduct({ ...foundProduct, quantity: newQty });
+                                setMessage({
+                                    type: 'success',
+                                    text: `✅ RECEIVED: ${foundProduct.name} — quantity updated to ${newQty} in your warehouse!`
+                                });
+                                console.log('📥 AUTO-RECEIVE SUCCESS: New quantity =', newQty);
+                                fetchBins(adminWarehouseId);
+                            } catch (receiveErr) {
+                                console.error('📥 AUTO-RECEIVE ERROR:', receiveErr);
+                                setMessage({
+                                    type: 'error',
+                                    text: `❌ Failed to receive: ${receiveErr.message}`
+                                });
+                            }
                         } else {
                             // No product found AND no pending movement
                             setNotFoundBarcode(barcode);
@@ -1065,7 +1086,7 @@ const Inventory = () => {
                                             {/* Action Button */}
                                             <button
                                                 onClick={async () => {
-                                                    alert(`Button Clicked!\nAction: ${showUnexpectedConfirm ? 'Add Unexpected' : 'Receive Expected'}\nPart: ${scannedProduct?.part_number}\nWarehouse: ${adminWarehouseId}\nQuantity: ${receiveQuantity}`);
+                                                    console.log('📥 BUTTON CLICKED:', { activeTab, showUnexpectedConfirm, pendingMovement: !!pendingMovement, adminWarehouseId });
                                                     if (activeTab === 'scan-send' && !selectedWarehouse) {
                                                         setMessage({ type: 'error', text: 'Please select a destination warehouse' });
                                                         return;

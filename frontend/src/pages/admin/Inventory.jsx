@@ -396,35 +396,16 @@ const Inventory = () => {
                     setScannedProduct(null);
                     setMessage({ type: 'warning', text: `Cannot send: Product is in ${product.warehouse_name || 'another warehouse'}, not your warehouse.` });
                 } else if (activeTab === 'scan-receive') {
-                    // RECEIVE MODE with product object: auto-receive immediately
+                    // RECEIVE MODE: Show product details, let user select bin then click Receive
                     setScannedProduct(product);
                     setPendingMovement(null);
-                    setShowUnexpectedConfirm(false);
+                    setShowUnexpectedConfirm(true);
                     setReceiveQuantity(1);
-
-                    try {
-                        console.log('📥 AUTO-RECEIVE (manual select): Adding 1 unit of', product.part_number, 'to warehouse', adminWarehouseId);
-                        await movementsAPI.addUnexpected({
-                            partNumber: product.part_number,
-                            warehouseId: adminWarehouseId,
-                            binNumber: product.bin_number || null,
-                            quantity: 1
-                        });
-                        const newQty = (parseInt(product.quantity) || 0) + 1;
-                        setScannedProduct({ ...product, quantity: newQty });
-                        setMessage({
-                            type: 'success',
-                            text: `✅ RECEIVED: ${product.name} — quantity updated to ${newQty} in your warehouse!`
-                        });
-                        console.log('📥 AUTO-RECEIVE SUCCESS: New quantity =', newQty);
-                        fetchBins(adminWarehouseId);
-                    } catch (receiveErr) {
-                        console.error('📥 AUTO-RECEIVE ERROR:', receiveErr);
-                        setMessage({
-                            type: 'error',
-                            text: `❌ Failed to receive: ${receiveErr.message}`
-                        });
-                    }
+                    setMessage({
+                        type: 'info',
+                        text: `📦 Found: ${product.name} (Qty: ${product.quantity}). Select a bin and click RECEIVE.`
+                    });
+                    console.log('📥 RECEIVE MODE: Product found, waiting for bin selection and receive click');
                 } else {
                     // SEND mode - product is in admin's warehouse
                     setScannedProduct(product);
@@ -510,37 +491,17 @@ const Inventory = () => {
                                 text: `✅ EXPECTED: ${matchedMovement.product_name || barcode} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
                             });
                         } else if (matchingProducts.length > 0) {
-                            // Product exists but no pending movement - AUTO RECEIVE
+                            // Product exists but no pending movement - show product, wait for receive click
                             const foundProduct = matchingProducts[0];
                             setScannedProduct(foundProduct);
                             setPendingMovement(null);
-                            setShowUnexpectedConfirm(false);
+                            setShowUnexpectedConfirm(true);
                             setReceiveQuantity(1);
-
-                            // AUTO-RECEIVE: Immediately add to inventory
-                            try {
-                                console.log('📥 AUTO-RECEIVE: Adding 1 unit of', foundProduct.part_number, 'to warehouse', adminWarehouseId);
-                                await movementsAPI.addUnexpected({
-                                    partNumber: foundProduct.part_number,
-                                    warehouseId: adminWarehouseId,
-                                    binNumber: foundProduct.bin_number || null,
-                                    quantity: 1
-                                });
-                                const newQty = (parseInt(foundProduct.quantity) || 0) + 1;
-                                setScannedProduct({ ...foundProduct, quantity: newQty });
-                                setMessage({
-                                    type: 'success',
-                                    text: `✅ RECEIVED: ${foundProduct.name} — quantity updated to ${newQty} in your warehouse!`
-                                });
-                                console.log('📥 AUTO-RECEIVE SUCCESS: New quantity =', newQty);
-                                fetchBins(adminWarehouseId);
-                            } catch (receiveErr) {
-                                console.error('📥 AUTO-RECEIVE ERROR:', receiveErr);
-                                setMessage({
-                                    type: 'error',
-                                    text: `❌ Failed to receive: ${receiveErr.message}`
-                                });
-                            }
+                            setMessage({
+                                type: 'info',
+                                text: `📦 Found: ${foundProduct.name} (Qty: ${foundProduct.quantity}). Select a bin and click RECEIVE.`
+                            });
+                            console.log('📥 RECEIVE MODE: Product found via search, waiting for bin selection and receive click');
                         } else {
                             // No product found AND no pending movement
                             setNotFoundBarcode(barcode);
@@ -851,8 +812,8 @@ const Inventory = () => {
     ];
 
     return (
-        <div className="inventory-page" style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-            <h1 style={{ marginBottom: '20px' }}>📦 Inventory Management</h1>
+        <div className="inventory-page" style={{ padding: '12px', maxWidth: '1200px', margin: '0 auto' }}>
+            <h1 style={{ marginBottom: '15px', fontSize: 'clamp(20px, 5vw, 28px)' }}>📦 Inventory Management</h1>
 
             {/* Floating Notification (Mobile-Friendly) */}
             <FloatingNotification
@@ -861,25 +822,26 @@ const Inventory = () => {
                 onDismiss={() => setMessage({ type: '', text: '' })}
             />
 
-            {/* Tab Navigation - Responsive */}
+            {/* Tab Navigation - Horizontally Scrollable on Mobile */}
             <div style={{
                 display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: '20px',
+                gap: '6px',
+                marginBottom: '15px',
                 borderBottom: '2px solid #e0e0e0',
-                paddingBottom: '10px',
+                paddingBottom: '8px',
                 overflowX: 'auto',
-                WebkitOverflowScrolling: 'touch'
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
             }}>
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         style={{
-                            padding: '10px 16px',
+                            padding: '10px 14px',
                             border: 'none',
-                            borderRadius: '4px 4px 0 0',
+                            borderRadius: '6px 6px 0 0',
                             cursor: 'pointer',
                             fontSize: '13px',
                             fontWeight: activeTab === tab.id ? 'bold' : 'normal',
@@ -888,7 +850,8 @@ const Inventory = () => {
                             transition: 'all 0.2s',
                             whiteSpace: 'nowrap',
                             flex: '0 0 auto',
-                            minWidth: 'fit-content'
+                            minWidth: 'fit-content',
+                            WebkitTapHighlightColor: 'transparent'
                         }}
                     >
                         {tab.label}
@@ -901,21 +864,21 @@ const Inventory = () => {
                 {/* SCAN & SEND / SCAN & RECEIVE TAB - Shows for both, behavior based on activeTab */}
                 {(activeTab === 'scan-send' || activeTab === 'scan-receive') && (
                     <div className={activeTab === 'scan-send' ? 'scan-send-tab' : 'scan-receive-tab'}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }} className="md:grid-cols-2">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             {/* Scanner Section - Mode-specific styling */}
                             <div style={{
-                                padding: '20px',
+                                padding: '15px',
                                 background: activeTab === 'scan-send' ? '#fff3e0' : '#e8f5e9',
-                                borderRadius: '8px',
+                                borderRadius: '10px',
                                 border: `2px solid ${activeTab === 'scan-send' ? '#ff9800' : '#4caf50'}`
                             }}>
-                                <h3 style={{ marginBottom: '15px', color: activeTab === 'scan-send' ? '#e65100' : '#2e7d32' }}>
+                                <h3 style={{ marginBottom: '10px', color: activeTab === 'scan-send' ? '#e65100' : '#2e7d32', fontSize: 'clamp(16px, 4vw, 20px)' }}>
                                     {activeTab === 'scan-send' ? '📤 Scan Product to SEND' : '📥 Scan Product to RECEIVE'}
                                 </h3>
-                                <p style={{ marginBottom: '15px', color: '#666', fontSize: '14px' }}>
+                                <p style={{ marginBottom: '12px', color: '#666', fontSize: '13px' }}>
                                     {activeTab === 'scan-send'
                                         ? 'Scan a product from YOUR warehouse to send to another warehouse.'
-                                        : 'Scan a product to receive. Expected items will auto-match pending shipments.'}
+                                        : 'Search or scan a product, select a bin, then click RECEIVE.'}
                                 </p>
                                 <BarcodeScanner
                                     warehouseId={adminWarehouseId}
@@ -929,11 +892,11 @@ const Inventory = () => {
 
                             {/* Scanned Product Details */}
                             <div style={{
-                                padding: '20px',
+                                padding: '15px',
                                 background: '#f5f5f5',
-                                borderRadius: '8px'
+                                borderRadius: '10px'
                             }}>
-                                <h3 style={{ marginBottom: '15px' }}>Scanned Product</h3>
+                                <h3 style={{ marginBottom: '12px', fontSize: '16px' }}>Scanned Product</h3>
 
                                 {loading && <p>Loading...</p>}
 
@@ -947,12 +910,14 @@ const Inventory = () => {
                                             labelSize="small"
                                         />
 
-                                        <div style={{ marginTop: '20px', padding: '15px', background: 'white', borderRadius: '4px' }}>
-                                            <p><strong>Name:</strong> {scannedProduct.name}</p>
-                                            <p><strong>Part #:</strong> {scannedProduct.part_number || 'N/A'}</p>
-                                            <p><strong>Price:</strong> ${parseFloat(scannedProduct.price).toFixed(2)}</p>
-                                            <p><strong>Quantity:</strong> <span style={{ color: scannedProduct.quantity > 0 ? '#4caf50' : '#f44336', fontWeight: 'bold' }}>{scannedProduct.quantity} in stock</span></p>
-                                            <p><strong>Current Location:</strong> {scannedProduct.warehouse_name || 'Not assigned'}</p>
+                                        <div style={{ marginTop: '15px', padding: '12px', background: 'white', borderRadius: '8px', fontSize: '14px' }}>
+                                            <p style={{ marginBottom: '6px' }}><strong>Name:</strong> {scannedProduct.name}</p>
+                                            <p style={{ marginBottom: '6px' }}><strong>Part #:</strong> {scannedProduct.part_number || 'N/A'}</p>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                                <p><strong>Price:</strong> ${parseFloat(scannedProduct.price).toFixed(2)}</p>
+                                                <p><strong>Qty:</strong> <span style={{ color: scannedProduct.quantity > 0 ? '#4caf50' : '#f44336', fontWeight: 'bold', fontSize: '16px' }}>{scannedProduct.quantity}</span></p>
+                                            </div>
+                                            <p style={{ marginTop: '6px' }}><strong>Location:</strong> {scannedProduct.warehouse_name || 'Not assigned'}</p>
                                             <p><strong>Bin:</strong> {scannedProduct.bin_number || 'Not assigned'}</p>
                                         </div>
 
@@ -1082,8 +1047,8 @@ const Inventory = () => {
 
                                                     {/* Bin Selector for Receive Mode */}
                                                     {adminWarehouseId && adminBins.length > 0 && (
-                                                        <div style={{ marginTop: '15px' }}>
-                                                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#2e7d32' }}>
+                                                        <div style={{ marginTop: '12px' }}>
+                                                            <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', color: '#2e7d32', fontSize: '14px' }}>
                                                                 📦 Assign to Bin:
                                                             </label>
                                                             <select
@@ -1091,10 +1056,17 @@ const Inventory = () => {
                                                                 onChange={(e) => setSelectedBin(e.target.value)}
                                                                 style={{
                                                                     width: '100%',
-                                                                    padding: '10px',
-                                                                    borderRadius: '4px',
-                                                                    border: '1px solid #4caf50',
-                                                                    backgroundColor: 'white'
+                                                                    padding: '14px 12px',
+                                                                    borderRadius: '8px',
+                                                                    border: '2px solid #4caf50',
+                                                                    backgroundColor: 'white',
+                                                                    fontSize: '16px',
+                                                                    appearance: 'none',
+                                                                    WebkitAppearance: 'none',
+                                                                    backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%234caf50\'%3e%3cpath d=\'M7 10l5 5 5-5z\'/%3e%3c/svg%3e")',
+                                                                    backgroundRepeat: 'no-repeat',
+                                                                    backgroundPosition: 'right 12px center',
+                                                                    backgroundSize: '24px'
                                                                 }}
                                                             >
                                                                 <option value="">-- Select Bin (Optional) --</option>
@@ -1117,7 +1089,7 @@ const Inventory = () => {
                                             {/* Action Button */}
                                             <button
                                                 onClick={async () => {
-                                                    console.log('📥 BUTTON CLICKED:', { activeTab, showUnexpectedConfirm, pendingMovement: !!pendingMovement, adminWarehouseId });
+                                                    console.log('📥 BUTTON CLICKED:', { activeTab, showUnexpectedConfirm, pendingMovement: !!pendingMovement, adminWarehouseId, scannedProduct: scannedProduct?.part_number });
                                                     if (activeTab === 'scan-send' && !selectedWarehouse) {
                                                         setMessage({ type: 'error', text: 'Please select a destination warehouse' });
                                                         return;
@@ -1151,7 +1123,7 @@ const Inventory = () => {
                                                             fetchMovements();
                                                             fetchBins(adminWarehouseId);
                                                         } else {
-                                                            // RECEIVE MODE: Handle expected vs unexpected
+                                                            // RECEIVE MODE: Always handle receive when product is scanned
                                                             const myWarehouse = warehouses.find(w => String(w.id) === String(adminWarehouseId));
 
                                                             if (pendingMovement) {
@@ -1163,25 +1135,27 @@ const Inventory = () => {
                                                                 });
                                                                 setMessage({
                                                                     type: 'success',
-                                                                    text: `✅ Received ${receiveQuantity} unit(s) from ${pendingMovement.from_warehouse_name}${selectedBin ? ` (Bin: ${selectedBin})` : ''}!`
+                                                                    text: `✅ Received ${receiveQuantity} unit(s) from ${pendingMovement.from_warehouse_name}${selectedBin ? ` → Bin: ${selectedBin}` : ''}!`
                                                                 });
                                                                 setPendingMovement(null);
-                                                            } else if (showUnexpectedConfirm) {
-                                                                // UNEXPECTED: Add to inventory anyway (admin confirmed)
+                                                            } else {
+                                                                // RECEIVE: Add to inventory (product found or scanned)
+                                                                console.log('📥 RECEIVING:', scannedProduct.part_number, 'qty:', receiveQuantity, 'bin:', selectedBin, 'warehouse:', adminWarehouseId);
                                                                 await movementsAPI.addUnexpected({
                                                                     partNumber: scannedProduct.part_number,
                                                                     warehouseId: adminWarehouseId,
-                                                                    binNumber: selectedBin || null,
+                                                                    binNumber: selectedBin || scannedProduct.bin_number || null,
                                                                     quantity: receiveQuantity
                                                                 });
+                                                                const newQty = (parseInt(scannedProduct.quantity) || 0) + receiveQuantity;
                                                                 setMessage({
                                                                     type: 'success',
-                                                                    text: `✅ Added ${receiveQuantity} unexpected unit(s) to ${myWarehouse?.name || 'your warehouse'}${selectedBin ? ` (Bin: ${selectedBin})` : ''}!`
+                                                                    text: `✅ Received ${receiveQuantity} unit(s) of ${scannedProduct.name} into ${myWarehouse?.name || 'your warehouse'}${selectedBin ? ` → Bin: ${selectedBin}` : ''}! New total: ${newQty}`
                                                                 });
-                                                                setShowUnexpectedConfirm(false);
                                                             }
                                                             setSelectedBin('');
                                                             setReceiveQuantity(1);
+                                                            setShowUnexpectedConfirm(false);
                                                             fetchMovements(); // Refresh movements list
                                                             fetchBins(adminWarehouseId); // Refresh warehouse inventory tables
                                                         }
@@ -1189,28 +1163,32 @@ const Inventory = () => {
                                                         setScannedProduct(null);
                                                     } catch (err) {
                                                         console.error("Action error:", err);
-                                                        setMessage({ type: 'error', text: `Failed to process product: ${err.message || 'Unknown error'}` });
+                                                        setMessage({ type: 'error', text: `❌ Failed: ${err.message || 'Unknown error'}` });
                                                     }
                                                     setLoading(false);
                                                 }}
                                                 disabled={loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !adminWarehouseId)}
                                                 style={{
                                                     width: '100%',
-                                                    padding: '15px',
-                                                    backgroundColor: activeTab === 'scan-send' ? '#ff9800' : (showUnexpectedConfirm ? '#f44336' : '#4caf50'),
+                                                    padding: '18px',
+                                                    backgroundColor: activeTab === 'scan-send' ? '#ff9800' : '#4caf50',
                                                     color: 'white',
                                                     border: 'none',
-                                                    borderRadius: '6px',
+                                                    borderRadius: '10px',
                                                     cursor: loading ? 'not-allowed' : 'pointer',
                                                     opacity: loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !adminWarehouseId) ? 0.6 : 1,
                                                     fontWeight: 'bold',
-                                                    fontSize: '16px'
+                                                    fontSize: '18px',
+                                                    letterSpacing: '0.5px',
+                                                    boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                                                    transition: 'transform 0.1s, box-shadow 0.1s',
+                                                    WebkitTapHighlightColor: 'transparent'
                                                 }}
+                                                onTouchStart={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                                                onTouchEnd={(e) => e.currentTarget.style.transform = 'scale(1)'}
                                             >
-                                                {loading ? 'Processing...' : (
-                                                    activeTab === 'scan-send' ? '📤 SEND TO WAREHOUSE' : (
-                                                        showUnexpectedConfirm ? '⚠️ CONFIRM & ADD UNEXPECTED' : '📥 RECEIVE EXPECTED SHIPMENT'
-                                                    )
+                                                {loading ? '⏳ Processing...' : (
+                                                    activeTab === 'scan-send' ? '📤 SEND TO WAREHOUSE' : '📥 RECEIVE INTO WAREHOUSE'
                                                 )}
                                             </button>
                                         </div>

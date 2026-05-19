@@ -15,6 +15,8 @@ const BarcodeScanner = ({
     height = 280,
     warehouseId = null  // Optional: filter products by warehouse
 }) => {
+    // Scan mode: 'device' (hardware barcode scanner) or 'camera' (mobile cam)
+    const [scanMode, setScanMode] = useState('device');
     const [scanning, setScanning] = useState(false);
     const [error, setError] = useState(null);
     const [manualInput, setManualInput] = useState('');
@@ -27,11 +29,72 @@ const BarcodeScanner = ({
     const [lastScannedCode, setLastScannedCode] = useState('');
     const [scanStatus, setScanStatus] = useState('');
     const [flashOn, setFlashOn] = useState(false);
-    const [flashSupported, setFlashSupported] = useState(true); // Assume supported until it fails
+    const [flashSupported, setFlashSupported] = useState(true);
+    const [deviceListening, setDeviceListening] = useState(true);
+    const [deviceBuffer, setDeviceBuffer] = useState('');
+    const [scanCount, setScanCount] = useState(0);
+    const [scanHistory, setScanHistory] = useState([]);
 
     const html5QrCodeRef = useRef(null);
     const fileInputRef = useRef(null);
     const searchTimeoutRef = useRef(null);
+    const deviceBufferRef = useRef('');
+    const deviceTimerRef = useRef(null);
+    const deviceInputRef = useRef(null);
+
+    // Eyoyo USB 2D Barcode Scanner listener
+    // USB HID scanners type characters rapidly (<50ms between keys) and end with Enter
+    // Supports: CODE_128, CODE_39, QR, PDF417, Data Matrix, EAN, UPC
+    useEffect(() => {
+        if (scanMode !== 'device' || !deviceListening) return;
+
+        const handleKeyDown = (e) => {
+            // Ignore if user is typing in the manual search input
+            const active = document.activeElement;
+            const isOurInput = deviceInputRef.current && active === deviceInputRef.current;
+            const isManualSearch = active && active.getAttribute('data-scanner-manual') === 'true';
+            if (isManualSearch) return;
+            const isOtherInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+            if (isOtherInput && !isOurInput) return;
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const scannedValue = deviceBufferRef.current.trim();
+                if (scannedValue.length >= 2) {
+                    console.log('🔫 Eyoyo Scanner:', scannedValue);
+                    setDeviceBuffer('');
+                    deviceBufferRef.current = '';
+                    setManualInput(scannedValue);
+                    setScanStatus(`✅ Scanned: ${scannedValue}`);
+                    setScanCount(prev => prev + 1);
+                    setScanHistory(prev => [{ code: scannedValue, time: new Date() }, ...prev].slice(0, 10));
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                    lookupProduct(scannedValue);
+                }
+                return;
+            }
+
+            // Only accept printable characters
+            if (e.key.length === 1) {
+                deviceBufferRef.current += e.key;
+                setDeviceBuffer(deviceBufferRef.current);
+
+                // Clear buffer if typing is too slow (human typing vs scanner)
+                // 300ms timeout to handle long 2D barcodes (PDF417, Data Matrix)
+                clearTimeout(deviceTimerRef.current);
+                deviceTimerRef.current = setTimeout(() => {
+                    deviceBufferRef.current = '';
+                    setDeviceBuffer('');
+                }, 300);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            clearTimeout(deviceTimerRef.current);
+        };
+    }, [scanMode, deviceListening]);
 
     // Supported barcode formats for product labels
     const formatsToSupport = [
@@ -429,8 +492,203 @@ const BarcodeScanner = ({
             {/* Hidden div for file scanning */}
             <div id="file-scanner-region" style={{ display: 'none' }}></div>
 
+            {/* Scan Mode Toggle */}
+            <div style={{
+                display: 'flex', justifyContent: 'center', gap: '0', marginBottom: '15px',
+                borderRadius: '10px', overflow: 'hidden', border: '2px solid #333',
+                maxWidth: '360px', margin: '0 auto 15px'
+            }}>
+                <button
+                    type="button"
+                    onClick={() => { setScanMode('device'); stopScanning(); }}
+                    style={{
+                        flex: 1, padding: '12px 16px', border: 'none', cursor: 'pointer',
+                        fontSize: '14px', fontWeight: 'bold', transition: 'all 0.2s',
+                        background: scanMode === 'device' ? 'linear-gradient(135deg, #7c3aed, #5b21b6)' : '#1e1e1e',
+                        color: scanMode === 'device' ? 'white' : '#888'
+                    }}
+                >
+                    🔫 Barcode Scanner
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { setScanMode('camera'); setDeviceListening(false); }}
+                    style={{
+                        flex: 1, padding: '12px 16px', border: 'none', cursor: 'pointer',
+                        fontSize: '14px', fontWeight: 'bold', transition: 'all 0.2s',
+                        background: scanMode === 'camera' ? 'linear-gradient(135deg, #2196F3, #1565c0)' : '#1e1e1e',
+                        color: scanMode === 'camera' ? 'white' : '#888'
+                    }}
+                >
+                    📷 Mobile Camera
+                </button>
+            </div>
+
+            {/* ===== DEVICE SCANNER MODE (Eyoyo USB 2D) ===== */}
+            {scanMode === 'device' && (
+                <div style={{
+                    padding: '20px', marginBottom: '15px',
+                    background: deviceListening
+                        ? 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(91,33,182,0.1))'
+                        : '#1a1a2e',
+                    borderRadius: '12px',
+                    border: `2px solid ${deviceListening ? '#7c3aed' : '#333'}`,
+                    transition: 'all 0.3s ease'
+                }}>
+                    <style>{`
+                        @keyframes device-pulse {
+                            0%, 100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.4); }
+                            50% { box-shadow: 0 0 0 12px rgba(124,58,237,0); }
+                        }
+                        @keyframes blink-cursor {
+                            0%, 100% { opacity: 1; }
+                            50% { opacity: 0; }
+                        }
+                        @keyframes scan-flash {
+                            0% { background: rgba(76, 175, 80, 0.3); }
+                            100% { background: transparent; }
+                        }
+                    `}</style>
+
+                    {!deviceListening ? (
+                        <>
+                            <div style={{ fontSize: '48px', marginBottom: '12px', opacity: 0.7 }}>🔫</div>
+                            <p style={{ color: '#c4b5fd', fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>
+                                Eyoyo USB 2D Scanner
+                            </p>
+                            <p style={{ color: '#888', fontSize: '13px', marginBottom: '15px' }}>
+                                Plug in your Eyoyo scanner via USB and click below to start
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeviceListening(true);
+                                    setError(null);
+                                    setScanStatus('');
+                                    setDeviceBuffer('');
+                                    deviceBufferRef.current = '';
+                                    setTimeout(() => deviceInputRef.current?.focus(), 100);
+                                }}
+                                style={{
+                                    padding: '16px 36px', border: 'none', borderRadius: '10px',
+                                    cursor: 'pointer', fontSize: '16px', fontWeight: 'bold',
+                                    background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                                    color: 'white', boxShadow: '0 4px 15px rgba(124,58,237,0.4)',
+                                    transition: 'transform 0.1s'
+                                }}
+                                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.97)'}
+                                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                                🔫 Start Listening
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            {/* Scan count badge */}
+                            {scanCount > 0 && (
+                                <div style={{
+                                    position: 'absolute', top: '10px', right: '15px',
+                                    background: '#4caf50', color: 'white', borderRadius: '20px',
+                                    padding: '4px 12px', fontSize: '12px', fontWeight: 'bold'
+                                }}>
+                                    {scanCount} scanned
+                                </div>
+                            )}
+
+                            <div style={{
+                                width: '80px', height: '80px', borderRadius: '50%', margin: '0 auto 12px',
+                                background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '36px',
+                                animation: 'device-pulse 2s infinite'
+                            }}>
+                                🔫
+                            </div>
+                            <p style={{ color: '#c4b5fd', fontSize: '16px', fontWeight: 'bold', marginBottom: '2px' }}>
+                                Eyoyo Scanner Ready
+                            </p>
+                            <p style={{ color: '#666', fontSize: '11px', marginBottom: '12px', fontFamily: 'monospace' }}>
+                                USB 2D • QR • PDF417 • Data Matrix • CODE128
+                            </p>
+                            <p style={{ color: '#888', fontSize: '13px', marginBottom: '15px' }}>
+                                Pull the trigger to scan any barcode
+                            </p>
+
+                            {/* Visual buffer indicator */}
+                            {deviceBuffer && (
+                                <div style={{
+                                    padding: '8px 16px', marginBottom: '12px',
+                                    background: 'rgba(124,58,237,0.2)', borderRadius: '6px',
+                                    fontFamily: 'monospace', fontSize: '18px', color: '#c4b5fd',
+                                    letterSpacing: '2px'
+                                }}>
+                                    {deviceBuffer}
+                                    <span style={{ animation: 'blink-cursor 0.8s infinite' }}>|</span>
+                                </div>
+                            )}
+
+                            {/* Hidden input to capture focus for scanner */}
+                            <input
+                                ref={deviceInputRef}
+                                type="text"
+                                value={deviceBuffer}
+                                onChange={() => {}}
+                                style={{
+                                    position: 'absolute', opacity: 0, width: '1px', height: '1px',
+                                    pointerEvents: 'none'
+                                }}
+                                tabIndex={-1}
+                            />
+
+                            {/* Scan History */}
+                            {scanHistory.length > 0 && (
+                                <div style={{
+                                    marginTop: '12px', marginBottom: '12px', textAlign: 'left',
+                                    maxHeight: '120px', overflowY: 'auto',
+                                    background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '8px'
+                                }}>
+                                    <p style={{ color: '#888', fontSize: '11px', marginBottom: '6px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>Recent Scans</p>
+                                    {scanHistory.map((item, i) => (
+                                        <div key={i} style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '4px 8px', fontSize: '12px',
+                                            borderBottom: i < scanHistory.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                                            animation: i === 0 ? 'scan-flash 1s ease-out' : 'none'
+                                        }}>
+                                            <span style={{ color: '#c4b5fd', fontFamily: 'monospace' }}>{item.code}</span>
+                                            <span style={{ color: '#555', fontSize: '10px' }}>
+                                                {item.time.toLocaleTimeString()}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeviceListening(false);
+                                    setDeviceBuffer('');
+                                    deviceBufferRef.current = '';
+                                    clearTimeout(deviceTimerRef.current);
+                                }}
+                                style={{
+                                    padding: '10px 24px', border: 'none', borderRadius: '8px',
+                                    cursor: 'pointer', fontSize: '13px', fontWeight: 'bold',
+                                    background: '#dc2626', color: 'white',
+                                    boxShadow: '0 2px 8px rgba(220,38,38,0.3)'
+                                }}
+                            >
+                                ⏹️ Pause Scanner
+                            </button>
+                        </>
+                    )}
+                </div>
+            )}
+
+            {/* ===== CAMERA SCANNER MODE ===== */}
             {/* Scanner Region */}
-            {showPreview && hasCamera && (
+            {scanMode === 'camera' && showPreview && hasCamera && (
                 <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center' }}>
                     <div style={{ position: 'relative', width: `${width}px`, height: scanning ? `${height}px` : '0px', transition: 'height 0.3s ease' }}>
                         <style>{`
@@ -502,7 +760,7 @@ const BarcodeScanner = ({
             )}
 
             {/* Camera Selection */}
-            {hasCamera && cameras.length > 1 && (
+            {scanMode === 'camera' && hasCamera && cameras.length > 1 && (
                 <div style={{ marginBottom: '10px' }}>
                     <select
                         value={selectedCameraId || ''}
@@ -531,7 +789,7 @@ const BarcodeScanner = ({
             )}
 
             {/* Camera Controls */}
-            {hasCamera && (
+            {scanMode === 'camera' && hasCamera && (
                 <div style={{ marginBottom: '15px' }}>
                     {!scanning ? (
                         <button
@@ -598,7 +856,7 @@ const BarcodeScanner = ({
             )}
 
             {/* Image Upload Area */}
-            <div style={{ marginBottom: '15px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {scanMode === 'camera' && <div style={{ marginBottom: '15px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px', fontWeight: 'bold' }}>OR SCAN FROM IMAGE</p>
                 <input 
                     type="file" 
@@ -615,10 +873,10 @@ const BarcodeScanner = ({
                         cursor: 'pointer'
                     }} 
                 />
-            </div>
+            </div>}
 
             {/* No Camera Message */}
-            {!hasCamera && (
+            {scanMode === 'camera' && !hasCamera && (
                 <div style={{
                     padding: '15px',
                     background: '#fff3e0',
@@ -636,6 +894,7 @@ const BarcodeScanner = ({
                     <div style={{ position: 'relative', width: '280px' }}>
                         <input
                             type="text"
+                            data-scanner-manual="true"
                             placeholder="Type part number or product name..."
                             value={manualInput}
                             onChange={handleInputChange}

@@ -44,6 +44,7 @@ import Wishlist from './pages/Wishlist'
 import NotFound from './pages/NotFound'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AdminRoute from './components/auth/AdminRoute'
+import SuperAdminGuard from './components/auth/SuperAdminGuard'
 
 function App() {
   // Check if the page was reloaded with cache busting
@@ -124,14 +125,14 @@ function App() {
                         <Route path="products/view/:id" element={<AdminProductDetail />} />
                         <Route path="barcode-generator" element={<BarcodeGeneratorPage />} />
                         <Route path="orders" element={<AdminOrders />} />
-                        <Route path="users" element={<AdminUsers />} />
+                        <Route path="users" element={<SuperAdminGuard><AdminUsers /></SuperAdminGuard>} />
                         <Route path="user-approval" element={<UserApproval />} />
-                        <Route path="analytics" element={<AdminAnalytics />} />
-                        <Route path="logs" element={<QueryLogs />} />
+                        <Route path="analytics" element={<SuperAdminGuard><AdminAnalytics /></SuperAdminGuard>} />
+                        <Route path="logs" element={<SuperAdminGuard><QueryLogs /></SuperAdminGuard>} />
                         <Route path="reviews" element={<AdminReviews />} />
-                        <Route path="logo" element={<LogoManagement />} />
+                        <Route path="logo" element={<SuperAdminGuard><LogoManagement /></SuperAdminGuard>} />
                         <Route path="inventory" element={<Inventory />} />
-                        <Route path="settings" element={<SiteSettings />} />
+                        <Route path="settings" element={<SuperAdminGuard><SiteSettings /></SuperAdminGuard>} />
                       </Route>
 
 

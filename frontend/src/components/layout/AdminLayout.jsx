@@ -71,6 +71,22 @@ const AdminLayout = () => {
               >
                 Admin Panel
               </h1>
+              {/* Role Badge */}
+              {user?.role === 'superadmin' ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-gradient-to-r from-[#B8860B] to-[#D4A84B] text-[#1a1a1a] shadow-lg shadow-[#B8860B]/20 border border-[#D4A84B]/50" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zm7-2a1 1 0 01.707.293l.707.707.707-.707a1 1 0 111.414 1.414l-.707.707.707.707a1 1 0 01-1.414 1.414l-.707-.707-.707.707a1 1 0 01-1.414-1.414l.707-.707-.707-.707A1 1 0 0112 10z" clipRule="evenodd" />
+                  </svg>
+                  Super Admin
+                </span>
+              ) : user?.role === 'admin' ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#333] text-[#A8A090] border border-[#555]" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                  </svg>
+                  Admin
+                </span>
+              ) : null}
               <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] text-gray-500 bg-[#242424] border border-[#333] px-2 py-0.5 rounded font-mono" title={`Built from commit ${typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : '?'} on ${typeof __COMMIT_DATE__ !== 'undefined' ? __COMMIT_DATE__ : '?'}`}>
                 <span className="text-[#8B2332]">⬤</span>
                 {typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'dev'}

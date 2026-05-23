@@ -22,7 +22,7 @@ const Analytics = () => {
   const loadKPIs = async () => {
     try {
       setLoading(true);
-      const kpiData = await getKPIs(30); // Last 30 days
+      const kpiData = await getKPIs(365); // Last 365 days (all recent data)
       setKpis(kpiData);
     } catch (err) {
       setError(err.message);
@@ -72,7 +72,7 @@ const Analytics = () => {
       ) : kpis && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
-            title="Total Revenue (30d)"
+            title="Total Revenue"
             value={formatCurrency(kpis.totalRevenue)}
             subtitle={`${formatNumber(kpis.totalOrders)} orders`}
             icon="💰"

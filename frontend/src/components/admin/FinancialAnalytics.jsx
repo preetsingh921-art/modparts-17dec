@@ -20,7 +20,7 @@ import { useToast } from '../../context/ToastContext';
 
 const FinancialAnalytics = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [period, setPeriod] = useState(30);
+  const [period, setPeriod] = useState(365);
   const [customDateRange, setCustomDateRange] = useState({
     startDate: '',
     endDate: '',

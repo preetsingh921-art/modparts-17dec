@@ -383,7 +383,7 @@ const ProductList = () => {
               {/* Price Range Filter with Slider */}
               <div className="mb-6 border-b pb-4">
                 <button
-                  className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
+                  className="w-full flex justify-between items-center font-semibold text-[#D4CFC0] mb-2"
                   onClick={() => toggleSection('priceRange')}
                 >
                   <span>Price Range</span>
@@ -400,8 +400,8 @@ const ProductList = () => {
                 {expandedSections.priceRange && (
                   <div className="mt-2">
                     <div className="flex justify-between mb-2">
-                      <span className="text-sm font-medium">${currentPriceRange.min}</span>
-                      <span className="text-sm font-medium">${currentPriceRange.max === 99999 ? '99999+' : currentPriceRange.max}</span>
+                      <span className="text-sm font-medium text-[#D4CFC0]">${currentPriceRange.min}</span>
+                      <span className="text-sm font-medium text-[#D4CFC0]">${currentPriceRange.max === 99999 ? '99999+' : currentPriceRange.max}</span>
                     </div>
 
                     {/* Custom Range Slider with two handles */}
@@ -445,7 +445,7 @@ const ProductList = () => {
                             }
                           }}
                           onBlur={() => handlePriceRangeApply(currentPriceRange)}
-                          className="w-full p-2 border rounded text-sm"
+                          className="w-full p-2 border rounded text-sm bg-[#333] text-white border-[#444]"
                           min={0}
                           max={currentPriceRange.max - 1}
                         />
@@ -466,7 +466,7 @@ const ProductList = () => {
                             }
                           }}
                           onBlur={() => handlePriceRangeApply(currentPriceRange)}
-                          className="w-full p-2 border rounded text-sm"
+                          className="w-full p-2 border rounded text-sm bg-[#333] text-white border-[#444]"
                           min={currentPriceRange.min + 1}
                           max={99999}
                         />
@@ -479,7 +479,7 @@ const ProductList = () => {
               {/* Availability Filter - Checkboxes */}
               <div className="mb-6 border-b pb-4">
                 <button
-                  className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
+                  className="w-full flex justify-between items-center font-semibold text-[#D4CFC0] mb-2"
                   onClick={() => toggleSection('availability')}
                 >
                   <span>Availability</span>
@@ -503,7 +503,7 @@ const ProductList = () => {
                         onChange={() => handleAvailabilityChange('inStock')}
                         className="mr-2"
                       />
-                      <label htmlFor="availability-in-stock" className="text-sm">In Stock</label>
+                      <label htmlFor="availability-in-stock" className="text-sm text-[#D4CFC0]">In Stock</label>
                     </div>
                     <div className="flex items-center">
                       <input
@@ -513,7 +513,7 @@ const ProductList = () => {
                         onChange={() => handleAvailabilityChange('outOfStock')}
                         className="mr-2"
                       />
-                      <label htmlFor="availability-out-of-stock" className="text-sm">Out of Stock</label>
+                      <label htmlFor="availability-out-of-stock" className="text-sm text-[#D4CFC0]">Out of Stock</label>
                     </div>
                   </div>
                 )}
@@ -522,7 +522,7 @@ const ProductList = () => {
               {/* Sort Options */}
               <div>
                 <button
-                  className="w-full flex justify-between items-center font-semibold text-gray-700 mb-2"
+                  className="w-full flex justify-between items-center font-semibold text-[#D4CFC0] mb-2"
                   onClick={() => toggleSection('sortOptions')}
                 >
                   <span>Sort By</span>
@@ -538,7 +538,7 @@ const ProductList = () => {
 
                 {expandedSections.sortOptions && (
                   <select
-                    className="w-full p-2 border rounded mt-2"
+                    className="w-full p-2 border rounded mt-2 bg-[#333] text-white border-[#444]"
                     value={sortOption}
                     onChange={handleSortChange}
                   >

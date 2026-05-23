@@ -93,6 +93,11 @@ const OrderDetail = () => {
     }
   };
 
+  // Calculate true total from items because DB test data might be out of sync
+  const calculatedTotal = order && order.items && order.items.length > 0 
+    ? order.items.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0)
+    : parseFloat(order?.total_amount || 0);
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -124,23 +129,16 @@ const OrderDetail = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 single-page">
-      <div className="mb-6 back-button">
-        <Link to="/orders" className="text-blue-600 hover:underline flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-          </svg>
-          Back to My Orders
-        </Link>
-      </div>
-
-      {/* Invoice header - only visible when printing */}
-      <div className="invoice-header hidden print:block">
-        <h1>INVOICE</h1>
-        <p>Yamaha RD Parts Shop</p>
-        <p>Invoice #: {order.id}</p>
-        <p>Date: {formatDate(order.created_at || Date.now())}</p>
-      </div>
+    <>
+      <div className="container mx-auto px-4 single-page print:hidden">
+        <div className="mb-6 back-button">
+          <Link to="/orders" className="text-blue-600 hover:underline flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Back to My Orders
+          </Link>
+        </div>
 
       <div className="card p-6 mb-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -170,7 +168,7 @@ const OrderDetail = () => {
           <div>
             <h2 className="text-lg font-semibold text-white mb-3">Payment Information</h2>
             <p className="text-gray-300">Method: {order.payment_method ? order.payment_method.replace('_', ' ') : 'Not specified'}</p>
-            <p className="text-gray-300">Total: ${parseFloat(order.total_amount || 0).toFixed(2)}</p>
+            <p className="text-gray-300">Total: ${calculatedTotal.toFixed(2)}</p>
           </div>
         </div>
 
@@ -244,7 +242,7 @@ const OrderDetail = () => {
             <tfoot className="bg-[#242424] print:bg-gray-50">
               <tr className="border-t border-gray-700">
                 <td colSpan="3" className="p-3 text-right font-semibold text-white">Total:</td>
-                <td className="p-3 text-right font-bold text-white">${parseFloat(order.total_amount || 0).toFixed(2)}</td>
+                <td className="p-3 text-right font-bold text-white">${calculatedTotal.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
@@ -399,12 +397,73 @@ const OrderDetail = () => {
         </div>
       </div>
 
-      {/* Invoice footer - only visible when printing */}
-      <div className="invoice-footer hidden print:block no-break">
-        <p>Thank you for your business!</p>
-        <p>For questions: support@yamahaparts.com | Generated: {formatDate(new Date())}</p>
       </div>
-    </div>
+
+      {/* Print UI - visible only during print */}
+      <div className="hidden print:block w-full text-black bg-white font-mono text-sm leading-tight"
+           style={{ maxWidth: '80mm', margin: '0 auto', padding: '10px' }}>
+        <div className="text-center mb-4 pb-2 border-b border-black border-dashed">
+          <h1 className="font-bold text-lg uppercase mb-1">Sardaarji Auto Parts</h1>
+          <p>123 Auto Parts Blvd, Suite 4</p>
+          <p>City, State, 12345</p>
+          <p>Ph: (555) 123-4567</p>
+        </div>
+        
+        <div className="mb-4">
+          <p><span className="font-bold">Order #:</span> {order.id}</p>
+          <p><span className="font-bold">Date:</span> {formatDateTime(order.created_at || Date.now())}</p>
+          <p><span className="font-bold">Status:</span> {order.status}</p>
+        </div>
+
+        <div className="mb-4 pb-2 border-b border-black border-dashed">
+          <p className="font-bold mb-1">Shipping To:</p>
+          <p>{order.shipping_address || 'No shipping address provided'}</p>
+        </div>
+
+        <div className="mb-4">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-black">
+                <th className="text-left py-1 w-1/2">Item</th>
+                <th className="text-center py-1">Qty</th>
+                <th className="text-right py-1">Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items && order.items.length > 0 ? (
+                order.items.map(item => (
+                  <tr key={item.id}>
+                    <td className="py-1 align-top pr-1">{item.product_name || 'Unknown'}</td>
+                    <td className="py-1 align-top text-center">{item.quantity || 1}</td>
+                    <td className="py-1 align-top text-right">${(parseFloat(item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="3" className="py-1 text-center">No items</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-between font-bold text-base mb-4 pt-2 border-t border-black">
+          <span>Total:</span>
+          <span>${calculatedTotal.toFixed(2)}</span>
+        </div>
+
+        <div className="mb-4 pb-2 border-b border-black border-dashed">
+          <p className="font-bold mb-1">Payment Method:</p>
+          <p>{order.payment_method ? order.payment_method.replace('_', ' ') : 'Not specified'}</p>
+        </div>
+
+        <div className="text-center mt-6 mb-2">
+          <p className="font-bold">Thank You!</p>
+          <p>Please keep this receipt</p>
+          <p>for your records.</p>
+        </div>
+      </div>
+    </>
   );
 };
 

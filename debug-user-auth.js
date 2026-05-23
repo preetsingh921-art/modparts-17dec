@@ -57,7 +57,7 @@ async function debugUserAuth() {
           email: testUser.email,
           role: testUser.role
         },
-        process.env.JWT_SECRET || 'fallback-secret',
+        process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
       
@@ -70,7 +70,7 @@ async function debugUserAuth() {
       
       // Verify the token
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         console.log('✅ JWT token verification successful');
         console.log('Decoded payload:', decoded);
         

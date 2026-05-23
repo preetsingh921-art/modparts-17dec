@@ -33,7 +33,7 @@ async function testImageUpload() {
       const jwt = require('jsonwebtoken');
       const mockToken = jwt.sign(
         { id: 1, email: 'admin@example.com', role: 'admin' }, 
-        process.env.JWT_SECRET || 'fallback-secret',
+        process.env.JWT_SECRET,
         { expiresIn: '1h' }
       );
 

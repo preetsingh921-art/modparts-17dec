@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
         role: user.role,
         warehouse_id: user.warehouse_id // Include warehouse assignment
       },
-      process.env.JWT_SECRET || 'fallback-secret',
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 

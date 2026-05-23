@@ -2,7 +2,7 @@ const db = require('../../lib/db');
 const jwt = require('jsonwebtoken');
 
 // JWT secret for token verification
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Helper function to verify JWT token and check admin role
 function verifyAdminToken(req) {

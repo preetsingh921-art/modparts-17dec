@@ -82,8 +82,8 @@ app.use((req, res, next) => {
 
   // Set specific origin instead of wildcard when credentials are used
   if (allowedOrigins.includes(origin) ||
-    (origin && origin.includes('.onrender.com')) ||
-    (origin && origin.includes('partsformyrd350.com'))) {
+    (origin && origin.endsWith('.onrender.com')) ||
+    (origin && (origin === 'https://partsformyrd350.com' || origin === 'https://www.partsformyrd350.com' || origin.endsWith('.partsformyrd350.com')))) {
     res.header('Access-Control-Allow-Origin', origin);
   } else if (process.env.NODE_ENV === 'production') {
     // In production, allow same-origin requests

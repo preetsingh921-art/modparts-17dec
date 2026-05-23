@@ -143,9 +143,25 @@ If the user asks questions about "my warehouse", "my products", or "my orders", 
         // 3. SECOND PASS (Text-to-SQL Execution)
         if (parsedResponse.actionType === 'execute_sql' && parsedResponse.sqlQuery) {
             console.log(`🔍 Executing AI SQL: ${parsedResponse.sqlQuery}`);
-            if (!parsedResponse.sqlQuery.trim().toUpperCase().startsWith('SELECT')) {
+            const queryStr = parsedResponse.sqlQuery.trim();
+            const queryUpper = queryStr.toUpperCase();
+            
+            // 1. Must start strictly with SELECT
+            if (!queryUpper.startsWith('SELECT')) {
                 throw new Error("Only SELECT queries are allowed for security.");
             }
+            
+            // 2. Prevent stacked queries (no semicolons except possibly at the very end)
+            if (queryStr.replace(/;+\s*$/, '').includes(';')) {
+                throw new Error("Stacked queries are not allowed for security.");
+            }
+            
+            // 3. Blocklist of dangerous keywords
+            const dangerousKeywords = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE|MERGE|CALL|REPLACE)\b/i;
+            if (dangerousKeywords.test(queryStr)) {
+                throw new Error("Query contains forbidden keywords.");
+            }
+
             try {
                 const dbResult = await db.query(parsedResponse.sqlQuery);
                 const rawDbStats = JSON.stringify(dbResult.rows);

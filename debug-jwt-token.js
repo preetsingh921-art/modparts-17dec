@@ -25,7 +25,7 @@ function debugJWTToken(token) {
     console.log('Token payload:', JSON.stringify(decoded, null, 2));
     
     // Now verify with the secret
-    const verified = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const verified = jwt.verify(token, process.env.JWT_SECRET);
     console.log('✅ Token verification successful');
     console.log('Verified payload:', JSON.stringify(verified, null, 2));
     
@@ -64,7 +64,7 @@ async function createTestToken() {
   
   const testToken = jwt.sign(
     testPayload,
-    process.env.JWT_SECRET || 'fallback-secret',
+    process.env.JWT_SECRET,
     { expiresIn: '24h' }
   );
   

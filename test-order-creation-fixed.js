@@ -13,7 +13,7 @@ function createTestToken() {
   
   const token = jwt.sign(
     testPayload,
-    process.env.JWT_SECRET || 'fallback-secret',
+    process.env.JWT_SECRET,
     { expiresIn: '24h' }
   );
   

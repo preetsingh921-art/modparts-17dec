@@ -29,7 +29,7 @@ async function testCartImport() {
       const jwt = require('jsonwebtoken');
       const mockToken = jwt.sign(
         { id: 1, email: 'test@example.com' }, 
-        process.env.JWT_SECRET || 'fallback-secret',
+        process.env.JWT_SECRET,
         { expiresIn: '1h' }
       );
 

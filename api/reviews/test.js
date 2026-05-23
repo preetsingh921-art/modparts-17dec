@@ -16,7 +16,7 @@ function verifyToken(req) {
   console.log('🔐 Test: JWT_SECRET available:', process.env.JWT_SECRET ? 'Yes' : 'No')
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret')
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
     console.log('✅ Test: Token verified successfully:', { id: decoded.id, email: decoded.email, role: decoded.role })
     return decoded
   } catch (error) {

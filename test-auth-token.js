@@ -28,7 +28,7 @@ async function testAuthToken() {
         require('dotenv').config();
 
         console.log('Using JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Missing');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         console.log('✅ Token is valid, user ID:', decoded.id);
         
         // Step 2: Test the review helpfulness endpoint with valid token

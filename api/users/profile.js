@@ -11,7 +11,7 @@ function verifyToken(req) {
 
   const token = authHeader.substring(7);
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    return jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
     return null;
   }

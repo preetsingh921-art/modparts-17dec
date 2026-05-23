@@ -56,7 +56,7 @@ module.exports = async function handler(req, res) {
         email: user.email, 
         role: user.role 
       },
-      process.env.JWT_SECRET || 'fallback-secret',
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     )
 

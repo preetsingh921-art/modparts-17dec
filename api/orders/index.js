@@ -77,7 +77,7 @@ module.exports = async function handler(req, res) {
       let paramCount = 1;
 
       // Filter by user role
-      if (existingUser.role !== 'admin') {
+      if (existingUser.role !== 'admin' && existingUser.role !== 'superadmin') {
         queryText += ` AND o.user_id = $${paramCount}`;
         queryParams.push(userId);
         paramCount++;

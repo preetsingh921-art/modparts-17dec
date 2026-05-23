@@ -16,8 +16,8 @@ function verifyAdminToken(req) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Check if user has admin role
-    if (decoded.role !== 'admin') {
+    // Check if user has admin or superadmin role
+    if (decoded.role !== 'admin' && decoded.role !== 'superadmin') {
       return null;
     }
 

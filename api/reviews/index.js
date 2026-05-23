@@ -273,7 +273,7 @@ async function updateReview(req, res, reviewId, body) {
     // Check role and ownership
     const userQuery = `SELECT role FROM users WHERE id = $1`;
     const userRes = await db.query(userQuery, [userId]);
-    const isAdmin = userRes.rows[0]?.role === 'admin';
+    const isAdmin = userRes.rows[0]?.role === 'admin' || userRes.rows[0]?.role === 'superadmin';
 
     const reviewQuery = `SELECT user_id FROM product_reviews WHERE id = $1`;
     const reviewRes = await db.query(reviewQuery, [reviewId]);
@@ -337,7 +337,7 @@ async function deleteReview(req, res, reviewId) {
       db.query('SELECT user_id FROM product_reviews WHERE id = $1', [reviewId])
     ]);
 
-    const isAdmin = userRes.rows[0]?.role === 'admin';
+    const isAdmin = userRes.rows[0]?.role === 'admin' || userRes.rows[0]?.role === 'superadmin';
     const review = reviewRes.rows[0];
 
     if (!review) return res.status(404).json({ success: false, message: 'Review not found' });
@@ -365,7 +365,7 @@ async function getAllReviews(req, res, page, limit, offset, status) {
 
     // Check role from DB to be safe
     const userRes = await db.query('SELECT role FROM users WHERE id = $1', [user.userId || user.id]);
-    if (userRes.rows[0]?.role !== 'admin') {
+    if (userRes.rows[0]?.role !== 'admin' && userRes.rows[0]?.role !== 'superadmin') {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 

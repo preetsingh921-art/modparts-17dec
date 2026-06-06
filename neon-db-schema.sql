@@ -94,6 +94,7 @@ CREATE TABLE public.products (
   image_url            character varying(500),
   warehouse_id         bigint,
   bin_number           character varying(20),
+  ref_no               character varying(10),
   created_at           timestamp with time zone DEFAULT now(),
   updated_at           timestamp with time zone DEFAULT now()
 );

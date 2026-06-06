@@ -4,6 +4,8 @@ import api from '../../api/config';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Pie, Doughnut, Line } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, ChartDataLabels);
 
@@ -131,21 +133,58 @@ const TableRenderer = ({ tableData }) => {
         link.click();
     };
 
+    const handleDownloadPDF = () => {
+        try {
+            const doc = new jsPDF();
+            doc.setFontSize(16);
+            doc.text("AI Assistant Report", 14, 18);
+            doc.setFontSize(9);
+            doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 25);
+            
+            const tableHeaders = columns.map(col => col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+            const tableBody = rows.map(row => columns.map(col => row[col] === null || row[col] === undefined ? '' : String(row[col])));
+            
+            autoTable(doc, {
+                head: [tableHeaders],
+                body: tableBody,
+                startY: 30,
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [139, 35, 50] } // matching #8B2332 brand color
+            });
+            
+            doc.save(`AI_Report_${Date.now()}.pdf`);
+        } catch (err) {
+            console.error('Error generating PDF:', err);
+        }
+    };
+
     return (
         <div className="min-w-[300px] max-w-full">
             {/* Header with count + download */}
             <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-gray-400">{rows.length} row{rows.length !== 1 ? 's' : ''}</span>
-                <button
-                    onClick={handleDownloadCSV}
-                    className="flex items-center gap-1 text-xs bg-[#1a1a1a] hover:bg-[#333] text-[#A8A090] hover:text-white border border-[#444] px-2.5 py-1 rounded-md transition-colors"
-                    title="Download CSV"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    CSV
-                </button>
+                <div className="flex gap-1.5">
+                    <button
+                        onClick={handleDownloadCSV}
+                        className="flex items-center gap-1 text-xs bg-[#1a1a1a] hover:bg-[#333] text-[#A8A090] hover:text-white border border-[#444] px-2.5 py-1 rounded-md transition-colors"
+                        title="Download CSV"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        CSV
+                    </button>
+                    <button
+                        onClick={handleDownloadPDF}
+                        className="flex items-center gap-1 text-xs bg-[#1a1a1a] hover:bg-[#333] text-[#A8A090] hover:text-white border border-[#444] px-2.5 py-1 rounded-md transition-colors"
+                        title="Download PDF"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        PDF
+                    </button>
+                </div>
             </div>
             {/* Scrollable table */}
             <div className="overflow-x-auto overflow-y-auto max-h-[300px] rounded-lg border border-[#444]">
@@ -195,14 +234,59 @@ const AIChatBot = () => {
     const navigate = useNavigate();
     const [expandedChart, setExpandedChart] = useState(null);
     const chartModalRef = useRef(null);
+    const [chartViewModes, setChartViewModes] = useState({}); // key: message index, value: 'chart' | 'table'
 
-    const handleDownloadChart = () => {
-        const canvas = chartModalRef.current?.querySelector('canvas');
+    const downloadChartAsPNG = (canvas) => {
         if (!canvas) return;
         const link = document.createElement('a');
         link.download = `AI_Chart_${Date.now()}.png`;
         link.href = canvas.toDataURL('image/png', 1.0);
         link.click();
+    };
+
+    const downloadChartAsPDF = (canvas, title = "AI Assistant Chart Report") => {
+        if (!canvas) return;
+        try {
+            const doc = new jsPDF('landscape');
+            doc.setFontSize(16);
+            doc.setTextColor(139, 35, 50); // Crimson brand color
+            doc.text(title, 14, 15);
+            doc.setFontSize(9);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
+            
+            const imgData = canvas.toDataURL('image/png', 1.0);
+            doc.addImage(imgData, 'PNG', 14, 28, 268, 150);
+            
+            doc.save(`AI_Chart_${Date.now()}.pdf`);
+        } catch (err) {
+            console.error('Error exporting chart PDF:', err);
+        }
+    };
+
+    const downloadChartAsCSV = (chartData) => {
+        if (!chartData || !chartData.rows || chartData.rows.length === 0) return;
+        try {
+            const rows = chartData.rows;
+            const keys = Object.keys(rows[0]);
+            const headers = keys.map(k => k.replace(/_/g, ' ').toUpperCase()).join(',');
+            const csvRows = rows.map(row => 
+                keys.map(key => {
+                    const val = row[key] === null || row[key] === undefined ? '' : String(row[key]);
+                    return val.includes(',') || val.includes('"') || val.includes('\n') 
+                        ? `"${val.replace(/"/g, '""')}"` 
+                        : val;
+                }).join(',')
+            );
+            const csv = [headers, ...csvRows].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `AI_Chart_Data_${Date.now()}.csv`;
+            link.click();
+        } catch (err) {
+            console.error('Error exporting chart CSV:', err);
+        }
     };
 
     // Initialize initial message only when opened
@@ -398,9 +482,82 @@ const AIChatBot = () => {
                                                         <TableRenderer tableData={msg.tableData} />
                                                     </div>
                                                 ) : msg.chartData ? (
-                                                    <div className="min-w-[280px] bg-white rounded-lg p-3">
-                                                        <ChartRenderer chartData={msg.chartData} onExpand={() => setExpandedChart(msg.chartData)} />
-                                                        <p className="text-xs text-gray-400 mt-1 text-center">Click chart to expand</p>
+                                                    <div className="min-w-[280px] bg-white rounded-lg p-3 text-gray-800">
+                                                        <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-150">
+                                                            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Analytics Output</span>
+                                                            <div className="flex bg-gray-100 p-0.5 rounded-md border border-gray-200">
+                                                                <button
+                                                                    onClick={() => setChartViewModes(prev => ({ ...prev, [idx]: 'chart' }))}
+                                                                    className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                                        (chartViewModes[idx] || 'chart') === 'chart' 
+                                                                            ? 'bg-white text-gray-800 shadow-sm' 
+                                                                            : 'text-gray-500 hover:text-gray-800'
+                                                                    }`}
+                                                                >
+                                                                    📊 Chart
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setChartViewModes(prev => ({ ...prev, [idx]: 'table' }))}
+                                                                    className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                                                        chartViewModes[idx] === 'table' 
+                                                                            ? 'bg-white text-gray-800 shadow-sm' 
+                                                                            : 'text-gray-500 hover:text-gray-800'
+                                                                    }`}
+                                                                >
+                                                                    📋 Table
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {(chartViewModes[idx] || 'chart') === 'chart' ? (
+                                                            <div>
+                                                                <ChartRenderer chartData={msg.chartData} onExpand={() => setExpandedChart(msg.chartData)} />
+                                                                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+                                                                    <span className="text-[10px] text-gray-400">Click to expand</span>
+                                                                    <div className="flex gap-1">
+                                                                        <button 
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const canvas = e.currentTarget.closest('.bg-white')?.querySelector('canvas');
+                                                                                downloadChartAsPNG(canvas);
+                                                                            }}
+                                                                            className="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-semibold rounded transition-colors"
+                                                                            title="Download PNG"
+                                                                        >
+                                                                            PNG
+                                                                        </button>
+                                                                        <button 
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const canvas = e.currentTarget.closest('.bg-white')?.querySelector('canvas');
+                                                                                downloadChartAsPDF(canvas, msg.content ? msg.content.substring(0, 40) : "AI Assistant Chart Report");
+                                                                            }}
+                                                                            className="px-2 py-0.5 bg-[#8B2332]/10 hover:bg-[#8B2332]/20 text-[#8B2332] text-[10px] font-semibold rounded transition-colors"
+                                                                            title="Download PDF"
+                                                                        >
+                                                                            PDF
+                                                                        </button>
+                                                                        <button 
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                downloadChartAsCSV(msg.chartData);
+                                                                            }}
+                                                                            className="px-2 py-0.5 bg-[#B8860B]/10 hover:bg-[#B8860B]/20 text-[#B8860B] text-[10px] font-semibold rounded transition-colors"
+                                                                            title="Download CSV"
+                                                                        >
+                                                                            CSV
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="overflow-hidden max-w-full">
+                                                                <TableRenderer tableData={{
+                                                                    columns: Object.keys(msg.chartData.rows?.[0] || {}),
+                                                                    rows: msg.chartData.rows || []
+                                                                }} />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ) : (
                                                     <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -540,17 +697,37 @@ const AIChatBot = () => {
                             <h3 className="text-lg font-semibold text-gray-800">📊 AI Generated Report</h3>
                             <div className="flex gap-2">
                                 <button 
-                                    onClick={handleDownloadChart}
-                                    className="px-4 py-2 bg-[#8B2332] text-white text-sm rounded-lg hover:bg-[#6d1a27] transition-colors flex items-center gap-2"
+                                    onClick={() => {
+                                        const canvas = chartModalRef.current?.querySelector('canvas');
+                                        downloadChartAsPNG(canvas);
+                                    }}
+                                    className="px-3 py-1.5 bg-gray-600 text-white text-xs font-semibold rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-1.5"
+                                    title="Download PNG"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                    Download PNG
+                                    PNG
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        const canvas = chartModalRef.current?.querySelector('canvas');
+                                        downloadChartAsPDF(canvas, "AI Assistant Chart Report");
+                                    }}
+                                    className="px-3 py-1.5 bg-[#8B2332] text-white text-xs font-semibold rounded-lg hover:bg-[#6d1a27] transition-colors flex items-center gap-1.5"
+                                    title="Download PDF"
+                                >
+                                    PDF
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        downloadChartAsCSV(expandedChart);
+                                    }}
+                                    className="px-3 py-1.5 bg-[#B8860B] text-white text-xs font-semibold rounded-lg hover:bg-[#99700a] transition-colors flex items-center gap-1.5"
+                                    title="Download CSV"
+                                >
+                                    CSV
                                 </button>
                                 <button 
                                     onClick={() => setExpandedChart(null)}
-                                    className="px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
+                                    className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-300 transition-colors"
                                 >
                                     ✕ Close
                                 </button>

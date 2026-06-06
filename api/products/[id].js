@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
       const query = `
         SELECT 
           p.id, p.name, p.description, p.condition_status, p.price, p.quantity, 
-          p.image_url, p.part_number, p.barcode, p.created_at, p.updated_at, 
+          p.image_url, p.part_number, p.barcode, p.ref_no, p.created_at, p.updated_at, 
           p.category_id,
           c.name as category_name
         FROM products p
@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
 
     } else if (req.method === 'PUT') {
       // Update product (admin only)
-      const { name, description, condition_status, price, quantity, category_id, image_url, part_number, barcode } = req.body;
+      const { name, description, condition_status, price, quantity, category_id, image_url, part_number, barcode, ref_no } = req.body;
 
       console.log('[PRODUCT UPDATE] Updating product ID:', id);
       console.log('[PRODUCT UPDATE] Data received:', { name, price, quantity, part_number, barcode });
@@ -73,8 +73,9 @@ module.exports = async function handler(req, res) {
           image_url = $7,
           part_number = $8,
           barcode = $9,
+          ref_no = $10,
           updated_at = NOW()
-        WHERE id = $10
+        WHERE id = $11
         RETURNING *
       `;
 
@@ -88,6 +89,7 @@ module.exports = async function handler(req, res) {
         image_url || null,
         part_number || null,
         generatedBarcode,
+        ref_no || null,
         id
       ];
 

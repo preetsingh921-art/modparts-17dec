@@ -72,10 +72,11 @@ const Products = () => {
     const fetchData = async (retryCount = 0) => {
       setLoading(true);
       try {
-        // Superadmin sees ALL products, regular admin sees only their warehouse
+        // Superadmin sees ALL products, regular admin sees global catalog with their local stock
         const fetchParams = { limit: 1000 };
         if (!isSuperAdmin() && user?.warehouse_id) {
           fetchParams.warehouse_id = user.warehouse_id;
+          fetchParams.global_catalog = true;
         }
         const [productsResult, categoriesData] = await Promise.all([
           getProducts(fetchParams), // Warehouse-scoped for regular admins
@@ -191,6 +192,117 @@ const Products = () => {
     }
   }, [processedProducts]);
 
+  // Synonym map for intelligent search — maps common terms to related keywords
+  // Each key is a search term that should also match products containing any of its synonyms
+  const SEARCH_SYNONYMS = useMemo(() => ({
+    'computer': ['pc', 'desktop', 'laptop', 'workstation', 'notebook', 'cpu'],
+    'pc': ['computer', 'desktop', 'laptop', 'workstation', 'notebook', 'cpu'],
+    'desktop': ['computer', 'pc', 'workstation'],
+    'laptop': ['computer', 'pc', 'notebook', 'portable'],
+    'notebook': ['laptop', 'computer', 'pc', 'portable'],
+    'monitor': ['display', 'screen', 'lcd', 'led'],
+    'display': ['monitor', 'screen', 'lcd', 'led'],
+    'screen': ['monitor', 'display', 'lcd', 'led'],
+    'keyboard': ['kb', 'keypad'],
+    'mouse': ['mice', 'pointing device', 'trackpad'],
+    'printer': ['print', 'printing'],
+    'hard drive': ['hdd', 'ssd', 'disk', 'storage', 'drive'],
+    'hdd': ['hard drive', 'disk', 'storage', 'drive'],
+    'ssd': ['solid state', 'disk', 'storage', 'drive', 'hard drive'],
+    'storage': ['hdd', 'ssd', 'disk', 'drive', 'hard drive', 'memory card', 'usb'],
+    'ram': ['memory', 'ddr', 'dimm'],
+    'memory': ['ram', 'ddr', 'dimm'],
+    'cable': ['cord', 'wire', 'connector', 'lead'],
+    'cord': ['cable', 'wire', 'connector', 'lead'],
+    'wire': ['cable', 'cord', 'connector'],
+    'charger': ['adapter', 'power supply', 'psu', 'charging'],
+    'adapter': ['charger', 'converter', 'dongle'],
+    'battery': ['cell', 'power pack', 'batt'],
+    'phone': ['mobile', 'cell', 'smartphone', 'handset', 'cellphone'],
+    'mobile': ['phone', 'cell', 'smartphone', 'handset', 'cellphone'],
+    'headphone': ['headset', 'earphone', 'earbuds', 'headphones'],
+    'headset': ['headphone', 'earphone', 'earbuds', 'headphones'],
+    'speaker': ['speakers', 'audio', 'sound'],
+    'router': ['modem', 'wifi', 'wireless', 'network', 'gateway'],
+    'modem': ['router', 'wifi', 'wireless', 'network', 'gateway'],
+    'wifi': ['wireless', 'router', 'modem', 'network'],
+    'wireless': ['wifi', 'bluetooth', 'router'],
+    'gpu': ['graphics card', 'video card', 'graphics'],
+    'graphics card': ['gpu', 'video card', 'graphics'],
+    'motherboard': ['mainboard', 'mobo', 'system board'],
+    'power supply': ['psu', 'charger', 'power unit'],
+    'psu': ['power supply', 'charger', 'power unit'],
+    'fan': ['cooler', 'cooling', 'heatsink'],
+    'cooler': ['fan', 'cooling', 'heatsink'],
+    'server': ['rack', 'host', 'blade'],
+    'switch': ['hub', 'network switch'],
+    'hub': ['switch', 'usb hub', 'network hub'],
+    'projector': ['beamer', 'projection'],
+    'scanner': ['scan', 'scanning'],
+    'webcam': ['camera', 'cam', 'web camera'],
+    'camera': ['webcam', 'cam', 'web camera'],
+    'tablet': ['ipad', 'tab', 'pad'],
+    'usb': ['thumb drive', 'flash drive', 'pendrive', 'pen drive'],
+    'engine': ['motor', 'powertrain'],
+    'motor': ['engine', 'powertrain'],
+    'brake': ['braking', 'caliper', 'disc', 'pad'],
+    'seat': ['saddle', 'seating'],
+    'wheel': ['rim', 'tire', 'tyre'],
+    'tire': ['tyre', 'wheel', 'rubber'],
+    'tyre': ['tire', 'wheel', 'rubber'],
+    'exhaust': ['muffler', 'silencer', 'pipe'],
+    'muffler': ['exhaust', 'silencer'],
+    'lamp': ['light', 'bulb', 'headlight', 'tail light'],
+    'light': ['lamp', 'bulb', 'headlight', 'tail light', 'led'],
+    'gear': ['gearbox', 'transmission', 'sprocket', 'cog'],
+    'gearbox': ['gear', 'transmission'],
+    'transmission': ['gear', 'gearbox'],
+    'clutch': ['clutch plate', 'pressure plate'],
+    'suspension': ['shock', 'strut', 'spring', 'fork'],
+    'shock': ['suspension', 'strut', 'absorber', 'damper'],
+    'carburetor': ['carb', 'carburettor'],
+    'carb': ['carburetor', 'carburettor'],
+    'gasket': ['seal', 'o-ring', 'packing'],
+    'seal': ['gasket', 'o-ring', 'packing'],
+    'bearing': ['bushing', 'bush'],
+    'chain': ['sprocket', 'drive chain'],
+    'sprocket': ['chain', 'gear', 'cog'],
+    'filter': ['air filter', 'oil filter', 'fuel filter', 'strainer'],
+    'piston': ['cylinder', 'ring'],
+    'cylinder': ['piston', 'bore', 'barrel'],
+    'tank': ['fuel tank', 'reservoir', 'container'],
+    'fender': ['mudguard', 'guard', 'wing'],
+    'mudguard': ['fender', 'guard', 'wing'],
+    'handlebar': ['handle', 'bar', 'grip'],
+    'mirror': ['rear view', 'side mirror', 'looking glass'],
+    'indicator': ['turn signal', 'blinker', 'flasher'],
+    'speedometer': ['speedo', 'gauge', 'meter', 'odometer'],
+    'gauge': ['meter', 'speedometer', 'instrument'],
+  }), []);
+
+  // Expand a search query into a list of terms to match against (original + synonyms)
+  const getExpandedSearchTerms = (query) => {
+    const queryLower = query.toLowerCase().trim();
+    if (!queryLower) return [];
+    
+    const terms = [queryLower];
+    
+    // Check each word in the query against the synonym map
+    const words = queryLower.split(/\s+/);
+    for (const word of words) {
+      if (SEARCH_SYNONYMS[word]) {
+        terms.push(...SEARCH_SYNONYMS[word]);
+      }
+    }
+    
+    // Also check the full query phrase
+    if (SEARCH_SYNONYMS[queryLower] && queryLower !== words[0]) {
+      terms.push(...SEARCH_SYNONYMS[queryLower]);
+    }
+    
+    return [...new Set(terms)]; // deduplicate
+  };
+
   // Filter products by category and search query
   const filteredProducts = useMemo(() => {
     console.log('Filtering products with selectedCategory:', selectedCategory);
@@ -205,12 +317,13 @@ const Products = () => {
       const productDesc = (product.description || '').toLowerCase();
       const productPartNumber = (product.part_number || '').toLowerCase();
       const productBarcode = (product.barcode || '').toLowerCase();
-      const searchQueryLower = searchQuery.toLowerCase();
+      const searchableText = `${productName} ${productDesc} ${productPartNumber} ${productBarcode}`;
 
-      const matchesSearch = productName.includes(searchQueryLower) ||
-        productDesc.includes(searchQueryLower) ||
-        productPartNumber.includes(searchQueryLower) ||
-        productBarcode.includes(searchQueryLower);
+      // Expand search terms with synonyms for intelligent matching
+      const expandedTerms = getExpandedSearchTerms(searchQuery);
+      const matchesSearch = expandedTerms.length === 0 || expandedTerms.some(term =>
+        searchableText.includes(term)
+      );
 
       // For debugging specific products
       if (!matchesCategory && selectedCategory !== 'all') {
@@ -219,7 +332,7 @@ const Products = () => {
 
       return matchesCategory && matchesSearch;
     });
-  }, [processedProducts, selectedCategory, searchQuery]);
+  }, [processedProducts, selectedCategory, searchQuery, SEARCH_SYNONYMS]);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -981,12 +1094,14 @@ const Products = () => {
                     </td>
                     <td className="p-4 text-center text-white">${parseFloat(product.price).toFixed(2)}</td>
                     <td className="p-4 text-center">
-                      <span className={`font-semibold ${product.quantity <= 0 ? 'text-red-400' : product.quantity <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
-                        {product.quantity}
+                      <span className={`font-semibold ${product.not_in_local_warehouse ? 'text-gray-500' : product.quantity <= 0 ? 'text-red-400' : product.quantity <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
+                        {product.not_in_local_warehouse ? '0' : product.quantity}
                       </span>
                     </td>
                     <td className="p-4 text-center">
-                      {product.warehouse_name ? (
+                      {product.not_in_local_warehouse ? (
+                        <span className="text-yellow-500 text-sm italic">Not in your warehouse</span>
+                      ) : product.warehouse_name ? (
                         <div className="text-sm">
                           <span className="text-blue-400">📍 {product.warehouse_name}</span>
                           {product.bin_number && (
@@ -1014,24 +1129,28 @@ const Products = () => {
                             <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                           </svg>
                         </Link>
-                        <Link
-                          to={`/admin/products/edit/${product.id}`}
-                          className="text-midnight-300 hover:text-midnight-100"
-                          title="Edit Product"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                          </svg>
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="text-red-400 hover:text-red-300"
-                          title="Delete Product"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        </button>
+                        {!product.not_in_local_warehouse && (
+                          <>
+                            <Link
+                              to={`/admin/products/edit/${product.id}`}
+                              className="text-midnight-300 hover:text-midnight-100"
+                              title="Edit Product"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                              </svg>
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              className="text-red-400 hover:text-red-300"
+                              title="Delete Product"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1089,12 +1208,16 @@ const Products = () => {
                     <Link to={`/admin/products/view/${product.id}`} className="text-green-400">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
                     </Link>
-                    <Link to={`/admin/products/edit/${product.id}`} className="text-midnight-300">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                    </Link>
-                    <button onClick={() => handleDelete(product.id)} className="text-red-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                    </button>
+                    {!product.not_in_local_warehouse && (
+                      <>
+                        <Link to={`/admin/products/edit/${product.id}`} className="text-midnight-300">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                        </Link>
+                        <button onClick={() => handleDelete(product.id)} className="text-red-400">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 

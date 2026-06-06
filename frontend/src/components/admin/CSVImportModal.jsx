@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 
 // Sample CSV data for the template
 const sampleCsvData = [
-  ['name', 'price', 'category_id', 'quantity', 'description', 'condition_status', 'part_number', 'barcode', 'warehouse_id', 'bin_number'],
+  ['name', 'price', 'category_id', 'quantity', 'description', 'condition_status', 'part_number', 'barcode', 'warehouse_id', 'bin_number', 'ref_no'],
   ['Universal Piston Kit', '149.99', 'Engine Parts', '10', 'High-quality universal piston kit.', 'New', 'PK-001', '123456789', '1', 'A-01'],
   ['Front Brake Caliper', '89.95', 'Brakes', '5', 'Refurbished front brake caliper.', 'Refurbished', 'BC-102', '', '1', 'B-05'],
   ['Electrical Wiring Harness', '75.50', 'Electrical', '8', 'Complete wiring harness.', 'New', 'WH-200', '', '2', 'C-10'],
@@ -23,7 +23,8 @@ const fieldAliases = {
   part_number: ['part', 'mpn', 'sku', 'number', 'pn'],
   barcode: ['barcode', 'upc', 'ean', 'isbn', 'code'],
   warehouse_id: ['warehouse', 'location', 'site'],
-  bin_number: ['bin', 'shelf', 'aisle', 'position']
+  bin_number: ['bin', 'shelf', 'aisle', 'position'],
+  ref_no: ['ref', 'reference', 'refno', 'ref_no', 'refnum']
 };
 
 const getFieldMatchScore = (header, targetField) => {
@@ -159,7 +160,7 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
 
         // Create initial mappings (smart auto-map via aliases and similarity)
         const initialMappings = {};
-        const availableFields = ['name', 'price', 'category_id', 'quantity', 'description', 'condition_status', 'part_number', 'barcode', 'warehouse_id', 'bin_number'];
+        const availableFields = ['name', 'price', 'category_id', 'quantity', 'description', 'condition_status', 'part_number', 'barcode', 'warehouse_id', 'bin_number', 'ref_no'];
         
         availableFields.forEach(field => {
           let bestMatch = null;
@@ -276,6 +277,7 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
         processedRow.barcode = processedRow.barcode || '';
         processedRow.warehouse_id = processedRow.warehouse_id || '';
         processedRow.bin_number = processedRow.bin_number || '';
+        processedRow.ref_no = processedRow.ref_no || '';
 
         return processedRow;
       });
@@ -427,6 +429,7 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
                               <option value="barcode">Barcode</option>
                               <option value="warehouse_id">Warehouse ID</option>
                               <option value="bin_number">Bin Number</option>
+                              <option value="ref_no">Ref No</option>
                             </select>
                           </th>
                         ))}

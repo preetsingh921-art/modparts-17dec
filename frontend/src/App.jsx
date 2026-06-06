@@ -36,6 +36,7 @@ import BarcodeGeneratorPage from './pages/admin/BarcodeGeneratorPage'
 import AdminAnalytics from './pages/admin/Analytics'
 import AdminReviews from './pages/admin/Reviews'
 import LogoManagement from './pages/admin/LogoManagement'
+import DatabaseSchema from './pages/admin/DatabaseSchema'
 import Inventory from './pages/admin/Inventory'
 import SiteSettings from './pages/admin/SiteSettings'
 import QueryLogs from './pages/admin/QueryLogs'
@@ -132,6 +133,7 @@ function App() {
                         <Route path="reviews" element={<AdminReviews />} />
                         <Route path="logo" element={<SuperAdminGuard><LogoManagement /></SuperAdminGuard>} />
                         <Route path="inventory" element={<Inventory />} />
+                        <Route path="schema" element={<DatabaseSchema />} />
                         <Route path="settings" element={<SuperAdminGuard><SiteSettings /></SuperAdminGuard>} />
                       </Route>
 

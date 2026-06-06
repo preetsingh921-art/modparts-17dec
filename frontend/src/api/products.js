@@ -90,6 +90,7 @@ export const getProducts = async (params = {}) => {
       sortBy = 'created_at',
       sortOrder = 'desc',
       warehouse_id = '',
+      global_catalog = false, // Add global_catalog support
       bin_number = '',  // Add bin_number support
       country = ''       // Geo-IP country filter
     } = params;
@@ -105,6 +106,7 @@ export const getProducts = async (params = {}) => {
     if (category) queryParams.append('category', category);
     if (categories) queryParams.append('categories', categories);
     if (warehouse_id) queryParams.append('warehouse_id', warehouse_id);
+    if (global_catalog) queryParams.append('global_catalog', 'true'); // Pass global_catalog to API
     if (bin_number) queryParams.append('bin_number', bin_number);  // Pass bin_number to API
     if (country) queryParams.append('country', country);            // Pass country to API
 

@@ -21,7 +21,9 @@
     "deploy:dev": "node git-deploy.js \"Development update\" develop",
     "deploy:prod": "node git-deploy.js \"Production release\" main",
     "sitemap": "node generate-sitemap.js",
-    "sitemap:preview": "node generate-sitemap.js --dry-run"
+    "sitemap:preview": "node generate-sitemap.js --dry-run",
+    "import-babbitts": "node scripts/import-babbitts-parts.js",
+    "import-babbitts:dry-run": "node scripts/import-babbitts-parts.js --dry-run"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

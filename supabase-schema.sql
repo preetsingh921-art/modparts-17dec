@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS products (
     price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
     quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
     image_url VARCHAR(255),
+    ref_no VARCHAR(10),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

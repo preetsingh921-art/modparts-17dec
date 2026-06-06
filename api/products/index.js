@@ -16,18 +16,23 @@ module.exports = async function handler(req, res) {
       const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice) : null;
       const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
       const warehouseId = req.query.warehouse_id || null; // Filter by warehouse
+      const globalCatalog = req.query.global_catalog === 'true'; // Fetch global unique catalog
+
       // Geo-IP: detect visitor country for warehouse-scoped stock routing
       const visitorCountry = req.query.country || req.headers['cf-ipcountry'] || req.headers['x-visitor-country'] || null;
 
       console.log('🔍 Products API called with filters (Neon):', {
-        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId, visitorCountry
+        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId, globalCatalog, visitorCountry
       });
 
       // Calculate offset
       const offset = (page - 1) * limit;
 
-      // Build Query - Include warehouse join
-      let queryText = `
+      const queryParams = [];
+      let paramCount = 1;
+
+      // Base Select clauses
+      let selectClause = `
         SELECT 
           p.*, 
           c.name as category_name, 
@@ -35,23 +40,49 @@ module.exports = async function handler(req, res) {
           w.name as warehouse_name,
           w.location as warehouse_location,
           w.country as warehouse_country
+      `;
+      let countSelectClause = `SELECT COUNT(*) as total_count`;
+
+      // Apply Global Catalog Modifications
+      if (globalCatalog) {
+        selectClause = `
+        SELECT DISTINCT ON (COALESCE(p.barcode, p.part_number))
+          p.*, 
+          c.name as category_name, 
+          c.description as category_description,
+          w.name as warehouse_name,
+          w.location as warehouse_location,
+          w.country as warehouse_country`;
+        countSelectClause = `SELECT COUNT(DISTINCT COALESCE(p.barcode, p.part_number)) as total_count`;
+        
+        if (warehouseId) {
+          selectClause += `,
+          COALESCE((SELECT quantity FROM products p2 WHERE COALESCE(p2.barcode, p2.part_number) = COALESCE(p.barcode, p.part_number) AND p2.warehouse_id = $${paramCount} LIMIT 1), 0) as local_quantity,
+          (SELECT id FROM products p3 WHERE COALESCE(p3.barcode, p3.part_number) = COALESCE(p.barcode, p.part_number) AND p3.warehouse_id = $${paramCount} LIMIT 1) as local_id,
+          (SELECT warehouse_id FROM products p4 WHERE COALESCE(p4.barcode, p4.part_number) = COALESCE(p.barcode, p.part_number) AND p4.warehouse_id = $${paramCount} LIMIT 1) as local_warehouse_id
+          `;
+          queryParams.push(parseInt(warehouseId));
+          paramCount++;
+        }
+      }
+
+      // Build Query - Include warehouse join
+      let queryText = `
+        ${selectClause}
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN warehouses w ON p.warehouse_id = w.id
         WHERE 1=1
       `;
       let countQueryText = `
-        SELECT COUNT(*) as total_count 
+        ${countSelectClause}
         FROM products p
         WHERE 1=1
       `;
 
-      const queryParams = [];
-      let paramCount = 1;
-
-      // Add Search Filter - search in name, description, part_number, and barcode
+      // Add Search Filter - search in name, description, part_number, barcode, and ref_no
       if (search) {
-        const searchClause = ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount} OR p.part_number ILIKE $${paramCount} OR p.barcode ILIKE $${paramCount} OR p.part_number = $${paramCount + 1})`;
+        const searchClause = ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount} OR p.part_number ILIKE $${paramCount} OR p.barcode ILIKE $${paramCount} OR p.ref_no ILIKE $${paramCount} OR p.part_number = $${paramCount + 1})`;
         queryText += searchClause;
         countQueryText += searchClause;
         queryParams.push(`%${search}%`);
@@ -99,7 +130,7 @@ module.exports = async function handler(req, res) {
       }
 
       // Add Warehouse Filter
-      if (warehouseId) {
+      if (warehouseId && !globalCatalog) {
         const warehouseClause = ` AND p.warehouse_id = $${paramCount}`;
         queryText += warehouseClause;
         countQueryText += warehouseClause;
@@ -141,7 +172,12 @@ module.exports = async function handler(req, res) {
       const safeSortBy = allowedSortColumns.includes(sortBy) ? `p.${sortBy}` : 'p.created_at';
 
       // Apply geo-priority sorting, then user's sort preference
-      queryText += ` ORDER BY ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
+      if (globalCatalog) {
+        // DISTINCT ON requires the first ORDER BY column to match the DISTINCT ON expression
+        queryText += ` ORDER BY COALESCE(p.barcode, p.part_number), ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
+      } else {
+        queryText += ` ORDER BY ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
+      }
 
       // Add Pagination
       queryText += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
@@ -171,14 +207,25 @@ module.exports = async function handler(req, res) {
       // categories: { id, name, description }
       // And frontend often maps it. 
 
-      const formattedProducts = products.map(p => ({
-        ...p,
-        categories: {
-          id: p.category_id,
-          name: p.category_name,
-          description: p.category_description
-        }
-      }));
+      const formattedProducts = products.map(p => {
+        // For global catalog view, override fields with local warehouse values if requested
+        const qty = p.local_quantity !== undefined ? parseInt(p.local_quantity) : p.quantity;
+        const prodId = p.local_id !== undefined ? (p.local_id || p.id) : p.id;
+        const wId = p.local_warehouse_id !== undefined ? p.local_warehouse_id : p.warehouse_id;
+        
+        return {
+          ...p,
+          quantity: qty,
+          id: prodId,
+          warehouse_id: wId,
+          not_in_local_warehouse: p.local_warehouse_id === null, // true if product doesn't exist in local warehouse
+          categories: {
+            id: p.category_id,
+            name: p.category_name,
+            description: p.category_description
+          }
+        };
+      });
 
       // Calculate pagination info
       const totalPages = Math.ceil(count / limit);
@@ -209,7 +256,7 @@ module.exports = async function handler(req, res) {
       const {
         name, description, condition_status, price, quantity,
         category_id, image_url, part_number, barcode,
-        warehouse_id, bin_number
+        warehouse_id, bin_number, ref_no
       } = req.body;
 
       console.log('🔍 Creating product (Neon) with data:', {
@@ -245,9 +292,9 @@ module.exports = async function handler(req, res) {
         INSERT INTO products (
           name, description, condition_status, price, quantity, 
           category_id, image_url, part_number, barcode,
-          warehouse_id, bin_number, created_at, updated_at
+          warehouse_id, bin_number, ref_no, created_at, updated_at
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
         )
         RETURNING *
       `;
@@ -263,7 +310,8 @@ module.exports = async function handler(req, res) {
         part_number || null,
         generatedBarcode,
         warehouse_id ? parseInt(warehouse_id) : null,
-        bin_number || null
+        bin_number || null,
+        ref_no || null
       ];
 
       try {

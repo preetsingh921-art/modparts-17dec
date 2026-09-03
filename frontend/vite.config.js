@@ -14,6 +14,14 @@ export default defineConfig({
     __COMMIT_DATE__: JSON.stringify(commitDate),
   },
   base: '/', // Use absolute paths
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      }
+    }
+  },
   build: {
     outDir: '../public', // Output directly to the public directory
     emptyOutDir: true,   // Empty the output directory before building

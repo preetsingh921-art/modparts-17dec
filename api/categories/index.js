@@ -1,4 +1,5 @@
 const db = require('../../lib/db');
+const { verifyAdminToken } = require('../../lib/auth');
 
 module.exports = async function handler(req, res) {
   // CORS is handled by dev-server middleware
@@ -23,6 +24,11 @@ module.exports = async function handler(req, res) {
       });
 
     } else if (req.method === 'POST') {
+      const adminUser = verifyAdminToken(req);
+      if (!adminUser) {
+        return res.status(403).json({ message: 'Admin access required to create categories' });
+      }
+
       const { name, description } = req.body;
 
       if (!name) {

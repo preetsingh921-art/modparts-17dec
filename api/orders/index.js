@@ -170,9 +170,33 @@ module.exports = async function handler(req, res) {
         await client.query('COMMIT'); // Commit Transaction
 
         console.log('✅ Order created successfully with items and stock updates');
+
+        // 5. Send order confirmation email asynchronously via Nodemailer
+        try {
+          const { sendOrderConfirmationEmail } = require('../../lib/emailService');
+          const emailOrderPayload = {
+            id: orderId,
+            email: req.body.email || existingUser.email,
+            first_name: req.body.first_name || existingUser.first_name,
+            last_name: req.body.last_name || existingUser.last_name,
+            total_amount: totalAmount,
+            shipping_address: req.body.shipping_address || updatedOrderRows[0].shipping_address,
+            payment_method: req.body.payment_method || updatedOrderRows[0].payment_method,
+            items: items.map(item => ({
+              product_id: item.product_id,
+              quantity: item.quantity,
+              price: item.price
+            }))
+          };
+          sendOrderConfirmationEmail(emailOrderPayload).catch(e => console.error('Order email error:', e.message));
+        } catch (emailErr) {
+          console.error('Failed to trigger confirmation email:', emailErr.message);
+        }
+
         res.status(201).json({
           message: 'Order created successfully',
           data: updatedOrderRows[0],
+          order: updatedOrderRows[0],
           order_id: orderId
         });
 

@@ -39,11 +39,13 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Get pending users for approval
+      // Get pending users for approval (supports both status column and is_approved boolean)
       const query = `
-        SELECT id, email, first_name, last_name, phone, address, status, created_at
+        SELECT id, email, first_name, last_name, phone, address,
+               COALESCE(status, CASE WHEN is_approved THEN 'active' ELSE 'pending_approval' END) as status,
+               is_approved, created_at
         FROM users
-        WHERE status = 'pending_approval'
+        WHERE status = 'pending_approval' OR (status IS NULL AND is_approved = false)
         ORDER BY created_at DESC
       `;
       const { rows: pendingUsers } = await db.query(query);
@@ -72,7 +74,7 @@ module.exports = async function handler(req, res) {
       }
 
       // Get user details first
-      const userCheck = await db.query('SELECT id, email, first_name, last_name, status FROM users WHERE id = $1', [user_id]);
+      const userCheck = await db.query('SELECT id, email, first_name, last_name, status, is_approved FROM users WHERE id = $1', [user_id]);
       const user = userCheck.rows[0];
 
       if (!user) {
@@ -82,6 +84,7 @@ module.exports = async function handler(req, res) {
       // Update user status
       let newStatus;
       let message;
+      const isApproved = (action === 'approve');
 
       switch (action) {
         case 'approve':
@@ -102,14 +105,15 @@ module.exports = async function handler(req, res) {
         UPDATE users
         SET 
           status = $1,
+          is_approved = $2,
           updated_at = NOW(),
-          approval_reason = $2,
-          approved_at = CASE WHEN $3 = 'approve' THEN NOW() ELSE approved_at END
-        WHERE id = $4
-        RETURNING id, email, first_name, last_name, status, approved_at
+          approval_reason = $3,
+          approved_at = CASE WHEN $4 = 'approve' THEN NOW() ELSE approved_at END
+        WHERE id = $5
+        RETURNING id, email, first_name, last_name, status, is_approved, approved_at
       `;
 
-      const { rows } = await db.query(updateQuery, [newStatus, reason || null, action, user_id]);
+      const { rows } = await db.query(updateQuery, [newStatus, isApproved, reason || null, action, user_id]);
       const updatedUser = rows[0];
 
       console.log(`✅ User ${action}d successfully:`, updatedUser.email);

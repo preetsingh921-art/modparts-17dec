@@ -1,4 +1,5 @@
 const db = require('../../lib/db');
+const { verifyAdminToken } = require('../../lib/auth');
 
 module.exports = async function handler(req, res) {
   // CORS is handled by dev-server middleware
@@ -38,6 +39,11 @@ module.exports = async function handler(req, res) {
 
     } else if (req.method === 'PUT') {
       // Update product (admin only)
+      const adminUser = verifyAdminToken(req);
+      if (!adminUser) {
+        return res.status(403).json({ message: 'Admin access required to update products' });
+      }
+
       const { name, description, condition_status, price, quantity, category_id, image_url, part_number, barcode, ref_no } = req.body;
 
       console.log('[PRODUCT UPDATE] Updating product ID:', id);
@@ -113,6 +119,11 @@ module.exports = async function handler(req, res) {
 
     } else if (req.method === 'DELETE') {
       // Delete product (admin only)
+      const adminUser = verifyAdminToken(req);
+      if (!adminUser) {
+        return res.status(403).json({ message: 'Admin access required to delete products' });
+      }
+
       const deleteQuery = 'DELETE FROM products WHERE id = $1 RETURNING id';
 
       try {

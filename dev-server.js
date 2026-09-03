@@ -38,7 +38,7 @@ const passport = require('./lib/passport-config');
 const { getRateLimiter } = require('./lib/rate-limiter');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Trust proxy for rate limiting and X-Forwarded-For headers
 // This is required for Render.com and other proxy environments
@@ -199,10 +199,10 @@ app.use('/api/*', (req, res, next) => {
 
 
 // API route handler - dynamically load API functions
-app.all('/api/*', async (req, res) => {
+app.all(['/api', '/api/*'], async (req, res) => {
   try {
-    // Extract the API path
-    const apiPath = req.path.replace('/api/', '');
+    // Extract the API path cleanly regardless of trailing slash
+    const apiPath = req.path.replace(/^\/api\/?/, '');
     console.log(`API Request: ${req.method} ${req.path}`);
     console.log('API Path:', apiPath);
 

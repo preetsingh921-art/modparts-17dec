@@ -104,49 +104,31 @@ export const fetchOrderById = async (orderId) => {
   console.log('=== FETCHING ORDER BY ID ===', orderId);
 
   try {
-    // Use the Node.js API endpoint to get all orders, then filter by ID
-    const response = await api.get('/orders');
-    console.log('Orders fetched successfully:', response.data);
+    const response = await api.get(`/orders/${orderId}`);
+    console.log('Order fetched successfully:', response.data);
 
-    // Extract orders from response
-    let orders = [];
-    if (response.data && response.data.data) {
-      orders = response.data.data;
-    } else if (Array.isArray(response.data)) {
-      orders = response.data;
-    }
-
-    // Find the specific order by ID
-    const order = orders.find(order => order.id == orderId);
-
-    if (order) {
-      console.log('Order found:', order);
-
-      // Transform the order data to match frontend expectations
-      const transformedOrder = {
-        ...order,
-        // Map order_items to items and transform the structure
-        items: (order.order_items || []).map(item => {
-          console.log('Transforming order item for single order:', item);
-          return {
-            id: item.id,
-            product_id: item.product_id,
-            quantity: item.quantity || 0,
-            price: item.price || 0,
-            // Extract product name from nested product object
-            product_name: item.product?.name || 'Unknown Product',
-            // Include other item fields if needed
-            ...item
-          };
-        })
-      };
-
-      console.log('Transformed order:', transformedOrder);
-      return transformedOrder;
-    } else {
+    const orderData = response.data?.data || response.data;
+    if (!orderData) {
       console.log('Order not found with ID:', orderId);
       return null;
     }
+
+    const transformedOrder = {
+      ...orderData,
+      items: (orderData.items || orderData.order_items || []).map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        quantity: item.quantity || 0,
+        price: item.price || 0,
+        product_name: item.product_name || item.product?.name || 'Unknown Product',
+        image_url: item.image_url || item.product?.image_url,
+        part_number: item.part_number || item.product?.part_number,
+        ...item
+      }))
+    };
+
+    console.log('Transformed order:', transformedOrder);
+    return transformedOrder;
   } catch (error) {
     console.error('Error fetching order:', error);
 
@@ -155,7 +137,6 @@ export const fetchOrderById = async (orderId) => {
       console.error('Response data:', error.response.data);
     }
 
-    // Return null on error
     return null;
   }
 };

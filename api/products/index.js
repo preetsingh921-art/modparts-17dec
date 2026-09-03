@@ -1,4 +1,5 @@
 const db = require('../../lib/db');
+const { verifyAdminToken } = require('../../lib/auth');
 
 module.exports = async function handler(req, res) {
   // CORS is handled by dev-server middleware
@@ -253,6 +254,11 @@ module.exports = async function handler(req, res) {
 
     } else if (req.method === 'POST') {
       // Create new product (admin only)
+      const adminUser = verifyAdminToken(req);
+      if (!adminUser) {
+        return res.status(403).json({ message: 'Admin access required to create products' });
+      }
+
       const {
         name, description, condition_status, price, quantity,
         category_id, image_url, part_number, barcode,

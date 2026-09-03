@@ -1,7 +1,13 @@
 const db = require('../../lib/db');
+const { verifySuperAdminToken } = require('../../lib/auth');
 
 module.exports = async function handler(req, res) {
     try {
+        const superAdminUser = verifySuperAdminToken(req);
+        if (!superAdminUser) {
+            return res.status(403).json({ message: 'SuperAdmin access required' });
+        }
+
         if (req.method === 'GET') {
             const {
                 status,

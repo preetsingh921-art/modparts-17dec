@@ -51,6 +51,16 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Check approval status
+    if (user.is_approved === false || user.status === 'pending_approval') {
+      console.log('Login blocked: User pending approval:', user.email);
+      return res.status(403).json({
+        message: 'Your account is pending admin approval. You will be able to log in once an admin approves your registration.',
+        verification_required: false,
+        status: 'pending_approval'
+      });
+    }
+
     if (user.status === 'rejected') {
       return res.status(403).json({
         message: 'Your account has been rejected.',

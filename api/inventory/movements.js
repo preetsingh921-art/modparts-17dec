@@ -54,9 +54,30 @@ module.exports = async function handler(req, res) {
             queryText += ` ORDER BY m.created_at DESC LIMIT $${paramCount}`;
             params.push(parseInt(limit));
 
-            const result = await db.query(queryText, params);
-
-            return res.json({ movements: result.rows });
+            try {
+                const result = await db.query(queryText, params);
+                return res.json({ movements: result.rows });
+            } catch (queryErr) {
+                console.warn('⚠️ Movements detailed query failed, falling back to base columns:', queryErr.message);
+                const fallbackQuery = `
+                    SELECT 
+                      m.*,
+                      p.name as product_name,
+                      p.barcode,
+                      p.part_number,
+                      fw.name as from_warehouse_name,
+                      tw.name as to_warehouse_name,
+                      cu.first_name || ' ' || cu.last_name as created_by_name
+                    FROM inventory_movements m
+                    LEFT JOIN products p ON m.product_id = p.id
+                    LEFT JOIN warehouses fw ON m.from_warehouse_id = fw.id
+                    LEFT JOIN warehouses tw ON m.to_warehouse_id = tw.id
+                    LEFT JOIN users cu ON m.created_by = cu.id
+                    ORDER BY m.created_at DESC LIMIT $1
+                `;
+                const fallbackResult = await db.query(fallbackQuery, [parseInt(limit)]);
+                return res.json({ movements: fallbackResult.rows });
+            }
         }
 
         // POST - Create movement (ship, receive, assign-bin)
@@ -255,11 +276,20 @@ module.exports = async function handler(req, res) {
                 }
 
                 // Mark movement as completed with receiver user
-                await db.query(`
-                    UPDATE inventory_movements 
-                    SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2, received_by = $3
-                    WHERE id = $1
-                `, [movement_id, bin_number, decoded.id]);
+                try {
+                    await db.query(`
+                        UPDATE inventory_movements 
+                        SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2, received_by = $3
+                        WHERE id = $1
+                    `, [movement_id, bin_number, decoded.id]);
+                } catch (updateErr) {
+                    console.warn('⚠️ Updating movement without received_by column:', updateErr.message);
+                    await db.query(`
+                        UPDATE inventory_movements 
+                        SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2
+                        WHERE id = $1
+                    `, [movement_id, bin_number]);
+                }
 
                 return res.json({
                     message: resultMessage,

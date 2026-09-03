@@ -6,7 +6,6 @@ import { useToast } from '../context/ToastContext';
 import { createOrder } from '../api/orders';
 import { getUserProfile } from '../api/auth';
 import CashOnDelivery from '../components/payment/CashOnDelivery';
-import { emailService } from '../services/emailService';
 import BankTransfer from '../components/payment/BankTransfer';
 import CheckPayment from '../components/payment/CheckPayment';
 
@@ -141,17 +140,7 @@ const Checkout = () => {
         throw new Error('Invalid response from server');
       }
 
-      // Send order confirmation email (non-blocking)
-      try {
-        console.log('📧 Sending order confirmation email for order:', response.order_id);
-        await emailService.sendOrderConfirmation(response.order);
-        console.log('✅ Order confirmation email sent successfully');
-      } catch (emailError) {
-        console.error('❌ Failed to send order confirmation email:', emailError);
-        // Don't block order completion for email failures
-      }
-
-      // Clear cart and redirect
+      // Clear cart and redirect (order confirmation email is dispatched by the server)
       await clearCart();
       success('Order placed successfully! Check your email for confirmation.');
       navigate(`/order-confirmation/${response.order_id}`);

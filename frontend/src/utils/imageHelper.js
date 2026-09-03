@@ -126,7 +126,7 @@ export const handleImageError = (event, fallbackUrl = null) => {
   }
 
   // Set a default fallback if none provided
-  const defaultFallback = '/Modparts/placeholder-image.svg';
+  const defaultFallback = '/placeholder-image.svg';
 
   // Mark the image as using a fallback to prevent infinite loops
   event.target.setAttribute('data-using-fallback', 'true');

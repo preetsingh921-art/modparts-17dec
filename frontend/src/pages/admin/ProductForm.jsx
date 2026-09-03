@@ -8,6 +8,7 @@ import { processImageUrl, handleImageError } from '../../utils/imageHelper';
 import { InlineLoader } from '../../components/ui/LoadingSpinner';
 import PlaceholderImage from '../../components/ui/PlaceholderImage';
 import InlineBarcode from '../../components/ui/InlineBarcode';
+import WebImageSearchModal from '../../components/admin/WebImageSearchModal';
 import api from '../../api/config';
 
 const ProductForm = () => {
@@ -29,6 +30,7 @@ const ProductForm = () => {
     condition_status: 'New',
     quantity: '0', // Default quantity is 0 - stock only increases when received via scan
     image_url: '',
+    images: [],
     part_number: prefilledPartNumber,
     barcode: prefilledPartNumber, // Also use as barcode
     warehouse_id: user?.warehouse_id || '' // Auto-select admin's warehouse
@@ -42,7 +44,59 @@ const ProductForm = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
   const fileInputRef = useRef(null);
   const [aiCategorySuggestion, setAiCategorySuggestion] = useState(null); // AI category suggestion
+  const [isWebSearchOpen, setIsWebSearchOpen] = useState(false);
   const [aiCategoryLoading, setAiCategoryLoading] = useState(false);
+
+  // Multi-image helper functions
+  const addImages = (newUrls) => {
+    setFormData(prev => {
+      const existing = Array.isArray(prev.images) && prev.images.length > 0 
+        ? prev.images 
+        : (prev.image_url ? [prev.image_url] : []);
+      const combined = [...existing];
+      for (const u of newUrls) {
+        if (u && !combined.includes(u)) {
+          combined.push(u);
+        }
+      }
+      return {
+        ...prev,
+        images: combined,
+        image_url: combined[0] || ''
+      };
+    });
+    if (newUrls.length > 0 && !imagePreview) {
+      setImagePreview(newUrls[0]);
+    }
+  };
+
+  const setPrimaryImage = (index) => {
+    setFormData(prev => {
+      const imgs = [...(prev.images || [])];
+      if (index >= 0 && index < imgs.length) {
+        const [target] = imgs.splice(index, 1);
+        imgs.unshift(target);
+      }
+      setImagePreview(imgs[0] || '');
+      return {
+        ...prev,
+        images: imgs,
+        image_url: imgs[0] || ''
+      };
+    });
+  };
+
+  const removeImage = (index) => {
+    setFormData(prev => {
+      const imgs = (prev.images || []).filter((_, i) => i !== index);
+      setImagePreview(imgs[0] || '');
+      return {
+        ...prev,
+        images: imgs,
+        image_url: imgs[0] || ''
+      };
+    });
+  };
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -97,6 +151,10 @@ const ProductForm = () => {
       setLoading(true);
       try {
         const data = await getProductById(id);
+        const productImages = Array.isArray(data.images) && data.images.length > 0
+          ? data.images
+          : (data.image_url ? [data.image_url] : []);
+
         setFormData({
           name: data.name,
           description: data.description,
@@ -104,14 +162,16 @@ const ProductForm = () => {
           category_id: data.category_id ? String(data.category_id) : '',
           condition_status: data.condition_status,
           quantity: data.quantity,
-          image_url: data.image_url || '',
+          image_url: data.image_url || productImages[0] || '',
+          images: productImages,
           part_number: data.part_number || '',
           barcode: data.barcode || ''
         });
 
-        // Set image preview if image_url exists
-        if (data.image_url) {
-          setImagePreview(data.image_url);
+        // Set image preview
+        const mainImg = productImages[0] || data.image_url || '';
+        if (mainImg) {
+          setImagePreview(mainImg);
         }
       } catch (err) {
         setError(err.message || 'Failed to load product');
@@ -227,22 +287,19 @@ const ProductForm = () => {
       // Log the form data before submission
       console.log('Submitting product data:', formData);
 
-      // Make sure the image URL is properly formatted
-      let imageUrl = formData.image_url;
-
-      // Ensure we have a valid image URL
-      if (imageUrl) {
-        console.log('Using image URL:', imageUrl);
-      } else {
-        console.log('No image URL provided');
-      }
+      // Ensure we have a valid primary image URL and images array
+      const allImages = Array.isArray(formData.images) && formData.images.length > 0
+        ? formData.images
+        : (formData.image_url ? [formData.image_url] : []);
+      const primaryImageUrl = allImages[0] || formData.image_url || null;
 
       // Prepare the product data with proper type conversions
       const productData = {
         ...formData,
         price: parseFloat(formData.price),
         quantity: parseInt(formData.quantity),
-        image_url: imageUrl,
+        image_url: primaryImageUrl,
+        images: allImages,
         part_number: formData.part_number || null,
         barcode: formData.barcode || null
       };
@@ -575,6 +632,28 @@ const ProductForm = () => {
                   </p>
                 </div>
 
+                {/* Web Search Section */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-amber-900 text-sm flex items-center gap-1.5">
+                      <span>🌐</span> Find Images on the Web
+                    </span>
+                    <span className="text-[11px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-medium">
+                      Auto-Finder
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-800 mb-3">
+                    Search parts catalogs and vintage archives for authentic OEM photos, then copy them directly to your server.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsWebSearchOpen(true)}
+                    className="w-full bg-amber-800 hover:bg-amber-900 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 shadow-sm transition-colors text-sm"
+                  >
+                    <span>🔍</span> Search Web for Part Image
+                  </button>
+                </div>
+
                 {/* URL Section */}
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <label className="block text-gray-700 mb-2 font-medium">🔗 Or Enter Image URL</label>
@@ -584,36 +663,118 @@ const ProductForm = () => {
                     value={formData.image_url}
                     onChange={handleChange}
                     className="w-full p-2 border rounded"
-                    placeholder="https://example.com/image.jpg"
+                    placeholder="https://example.com/image.jpg or /images/products/..."
                   />
                   <p className="text-sm text-gray-600 mt-1">
-                    Enter a direct URL to an image file
+                    Enter a direct URL or local path to an image file
                   </p>
                 </div>
               </div>
 
+              {/* Multi-Image Gallery Manager */}
               <div>
-                {imagePreview ? (
-                  <div className="border-2 border-green-300 rounded-lg p-4 bg-green-50">
-                    <p className="text-sm font-semibold mb-2 text-green-800">🖼️ Image Preview:</p>
-                    <div className="w-full h-48 bg-white border rounded overflow-hidden">
+                {(formData.images && formData.images.length > 0) || imagePreview ? (
+                  <div className="border-2 border-green-300 rounded-lg p-4 bg-green-50/50 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-green-900 flex items-center gap-1.5">
+                        <span>🖼️</span> Product Images ({formData.images?.length || (imagePreview ? 1 : 0)})
+                      </p>
+                      <span className="text-[11px] bg-green-200 text-green-900 px-2 py-0.5 rounded-full font-medium">
+                        ⭐ First is Cover
+                      </span>
+                    </div>
+
+                    {/* Main Active Preview */}
+                    <div className="relative w-full h-52 bg-white border rounded-lg overflow-hidden shadow-sm flex items-center justify-center">
                       <PlaceholderImage
-                        src={processImageUrl(imagePreview)}
+                        src={processImageUrl(imagePreview || formData.images?.[0])}
                         alt="Product preview"
                         className="object-contain w-full h-full"
                         placeholderText="Image Loading..."
                       />
+                      <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">
+                        Preview
+                      </span>
                     </div>
-                    <p className="text-xs text-green-600 mt-2">
-                      ✅ Image loaded successfully
-                    </p>
+
+                    {/* Thumbnails Strip */}
+                    {formData.images && formData.images.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-700 mb-1.5">
+                          Gallery Thumbnails (click to view, star to make cover):
+                        </p>
+                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                          {formData.images.map((imgUrl, idx) => {
+                            const isMain = idx === 0;
+                            const isCurrentlyPreviewed = imagePreview === imgUrl;
+
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() => setImagePreview(imgUrl)}
+                                className={`group relative aspect-square bg-white border-2 rounded-md overflow-hidden cursor-pointer transition-all ${
+                                  isCurrentlyPreviewed
+                                    ? 'border-amber-600 ring-2 ring-amber-400'
+                                    : 'border-gray-200 hover:border-gray-400'
+                                }`}
+                              >
+                                <img
+                                  src={processImageUrl(imgUrl)}
+                                  alt={`Thumbnail ${idx + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+
+                                {/* Index / Cover Badge */}
+                                <span
+                                  className={`absolute top-1 left-1 text-[9px] font-bold px-1 rounded ${
+                                    isMain
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-black/60 text-white'
+                                  }`}
+                                >
+                                  {isMain ? '★ Cover' : `#${idx + 1}`}
+                                </span>
+
+                                {/* Controls on hover */}
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 p-1">
+                                  {!isMain && (
+                                    <button
+                                      type="button"
+                                      title="Set as Main Cover"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPrimaryImage(idx);
+                                      }}
+                                      className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] p-1 rounded font-bold"
+                                    >
+                                      ★
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    title="Remove this image"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeImage(idx);
+                                    }}
+                                    className="bg-red-600 hover:bg-red-700 text-white text-[10px] p-1 rounded font-bold"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex items-center justify-center h-48 bg-gray-50">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex items-center justify-center h-52 bg-gray-50">
                     <div className="text-center">
                       <div className="text-4xl mb-2">📷</div>
-                      <p className="text-gray-500 font-medium">No image preview</p>
-                      <p className="text-sm text-gray-400">Upload an image or enter a URL to see preview</p>
+                      <p className="text-gray-600 font-medium text-sm">No images attached yet</p>
+                      <p className="text-xs text-gray-400 mt-1">Use "Search Web" above to find & select images</p>
                     </div>
                   </div>
                 )}
@@ -642,6 +803,21 @@ const ProductForm = () => {
           </div>
         </form>
       </div>
+
+      {/* Web Image Search Modal */}
+      <WebImageSearchModal
+        isOpen={isWebSearchOpen}
+        onClose={() => setIsWebSearchOpen(false)}
+        initialQuery={`Yamaha RD350 ${formData.part_number || ''} ${formData.name || ''}`.trim()}
+        partNumber={formData.part_number}
+        productId={id}
+        onSelectImages={(newUrls) => {
+          addImages(newUrls);
+        }}
+        onSelectImage={(newUrl) => {
+          addImages([newUrl]);
+        }}
+      />
     </div>
   );
 };

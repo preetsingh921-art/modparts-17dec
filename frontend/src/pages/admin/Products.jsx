@@ -16,6 +16,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import InlineBarcode from '../../components/ui/InlineBarcode';
 import BarcodeScanner from '../../components/inventory/BarcodeScanner';
 import { printBulkBarcodeLabels, BROTHER_TAPE_PRESETS, getSavedLabelSettings, saveLabelSettings } from '../../utils/barcodeUtils';
+import WebImageSearchModal from '../../components/admin/WebImageSearchModal';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -57,6 +58,7 @@ const Products = () => {
   const [labelConfig, setLabelConfig] = useState(() => getSavedLabelSettings());
   const [rememberSettings, setRememberSettings] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
+  const [imageSearchProduct, setImageSearchProduct] = useState(null);
   const [searchParams] = useSearchParams();
 
   // Sync state with URL if available (used by AI Assistant navigation)
@@ -1061,14 +1063,21 @@ const Products = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center">
-                        <div className="w-12 h-12 mr-3">
+                        <div
+                          className="w-12 h-12 mr-3 relative group cursor-pointer"
+                          title="Click to search web image"
+                          onClick={() => setImageSearchProduct(product)}
+                        >
                           <PlaceholderImage
                             src={processImageUrl(product.image_url)}
                             alt={product.name}
-                            className="w-full h-full object-cover rounded"
+                            className="w-full h-full object-cover rounded border border-gray-700"
                             placeholderText="No Image"
                             showIcon={false}
                           />
+                          <div className="absolute inset-0 bg-amber-900 bg-opacity-75 rounded opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-[10px] text-white font-semibold text-center p-0.5">
+                            🔍 Find
+                          </div>
                         </div>
                         <div>
                           <p className="font-semibold text-white">{product.name}</p>
@@ -1129,6 +1138,14 @@ const Products = () => {
                             <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                           </svg>
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => setImageSearchProduct(product)}
+                          className="text-amber-400 hover:text-amber-300 transition-colors"
+                          title="Search & Copy Web Image"
+                        >
+                          <span className="text-base leading-none">📷</span>
+                        </button>
                         {!product.not_in_local_warehouse && (
                           <>
                             <Link
@@ -1270,6 +1287,31 @@ const Products = () => {
         <div className="mt-4 text-sm text-midnight-400">
           Showing {indexOfFirstProduct + 1} to {Math.min(indexOfLastProduct, filteredProducts.length)} of {filteredProducts.length} products
         </div>
+      )}
+
+      {/* Web Image Search Modal */}
+      {imageSearchProduct && (
+        <WebImageSearchModal
+          isOpen={!!imageSearchProduct}
+          onClose={() => setImageSearchProduct(null)}
+          initialQuery={`Yamaha RD350 ${imageSearchProduct.part_number || ''} ${imageSearchProduct.name || ''}`.trim()}
+          partNumber={imageSearchProduct.part_number}
+          productId={imageSearchProduct.id}
+          onSelectImages={(newUrls) => {
+            setProducts(prev =>
+              prev.map(p =>
+                p.id === imageSearchProduct.id
+                  ? { ...p, image_url: newUrls[0] || p.image_url, images: newUrls }
+                  : p
+              )
+            );
+          }}
+          onSelectImage={(newUrl) => {
+            setProducts(prev =>
+              prev.map(p => (p.id === imageSearchProduct.id ? { ...p, image_url: newUrl } : p))
+            );
+          }}
+        />
       )}
     </div>
   );

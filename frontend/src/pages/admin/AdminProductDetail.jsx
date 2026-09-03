@@ -18,6 +18,7 @@ const AdminProductDetail = () => {
     const barcodeRef = useRef(null);
 
     const [product, setProduct] = useState(null);
+    const [activeImage, setActiveImage] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showShareMenu, setShowShareMenu] = useState(false);
@@ -28,6 +29,10 @@ const AdminProductDetail = () => {
             try {
                 const data = await getProductById(id);
                 setProduct(data);
+                const initialImg = Array.isArray(data.images) && data.images.length > 0
+                    ? data.images[0]
+                    : data.image_url;
+                setActiveImage(initialImg || null);
             } catch (err) {
                 console.error('Error fetching product:', err);
                 setError(err.message || 'Failed to load product');
@@ -291,16 +296,48 @@ const AdminProductDetail = () => {
             {/* Main Content */}
             <div className="bg-midnight-900 border border-midnight-700 rounded-lg overflow-hidden">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-                    {/* Product Image */}
-                    <div className="bg-midnight-800 rounded-lg overflow-hidden">
-                        <div className="h-64 lg:h-80">
+                    {/* Product Image & Gallery */}
+                    <div className="bg-midnight-800 rounded-lg p-4 flex flex-col justify-between">
+                        <div className="h-64 lg:h-80 bg-midnight-950 rounded-lg overflow-hidden flex items-center justify-center p-2">
                             <PlaceholderImage
-                                src={processImageUrl(product.image_url)}
+                                src={processImageUrl(activeImage || product.image_url)}
                                 alt={product.name}
                                 className="w-full h-full object-contain"
                                 placeholderText="No Image Available"
                             />
                         </div>
+
+                        {/* Additional Images Strip */}
+                        {Array.isArray(product.images) && product.images.length > 1 && (
+                            <div className="mt-3 pt-3 border-t border-midnight-700">
+                                <p className="text-xs text-midnight-300 mb-2 font-medium">
+                                    Product Photos ({product.images.length}):
+                                </p>
+                                <div className="flex gap-2 overflow-x-auto pb-1">
+                                    {product.images.map((img, idx) => {
+                                        const isSelected = (activeImage || product.image_url) === img;
+                                        return (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => setActiveImage(img)}
+                                                className={`w-14 h-14 rounded-md overflow-hidden border-2 flex-shrink-0 bg-midnight-900 transition-all ${
+                                                    isSelected
+                                                        ? 'border-amber-500 ring-2 ring-amber-500/50 scale-105'
+                                                        : 'border-midnight-600 opacity-70 hover:opacity-100 hover:border-midnight-400'
+                                                }`}
+                                            >
+                                                <img
+                                                    src={processImageUrl(img)}
+                                                    alt={`${product.name} view ${idx + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Product Info */}

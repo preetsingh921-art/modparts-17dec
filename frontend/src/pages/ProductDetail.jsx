@@ -22,6 +22,7 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
+  const [activeImage, setActiveImage] = useState(null);
 
   // Handle cart errors
   useEffect(() => {
@@ -36,6 +37,10 @@ const ProductDetail = () => {
       try {
         const data = await getProductById(id);
         setProduct(data);
+        const initialImg = Array.isArray(data.images) && data.images.length > 0
+          ? data.images[0]
+          : data.image_url;
+        setActiveImage(initialImg || null);
       } catch (error) {
         console.error('Error fetching product:', error);
         setError(error.message || 'Failed to load product');
@@ -131,13 +136,49 @@ const ProductDetail = () => {
 
       <div className="bg-[#242424] border border-[#333] rounded-lg overflow-hidden">
         <div className="md:flex">
-          <div className="md:w-1/2 h-64 md:h-auto bg-[#333]">
-            <PlaceholderImage
-              src={processImageUrl(product.image_url)}
-              alt={product.name}
-              className="w-full h-full object-contain"
-              placeholderText="No Image Available"
-            />
+          {/* Product Image Gallery */}
+          <div className="md:w-1/2 p-5 bg-[#2a2a2a] flex flex-col justify-between border-b md:border-b-0 md:border-r border-[#333]">
+            {/* Main Active Image */}
+            <div className="w-full h-80 sm:h-96 bg-[#1e1e1e] rounded-lg border border-[#3a3a3a] overflow-hidden flex items-center justify-center p-3 shadow-inner">
+              <PlaceholderImage
+                src={processImageUrl(activeImage || product.image_url)}
+                alt={product.name}
+                className="w-full h-full object-contain"
+                placeholderText="No Image Available"
+              />
+            </div>
+
+            {/* Multiple Images Thumbnail Strip */}
+            {Array.isArray(product.images) && product.images.length > 1 && (
+              <div className="mt-4 pt-3 border-t border-[#3a3a3a]">
+                <p className="text-xs text-[#a0a0a0] mb-2 font-medium flex items-center gap-1">
+                  <span>📸</span> Additional Photos ({product.images.length}):
+                </p>
+                <div className="flex gap-2.5 overflow-x-auto pb-2">
+                  {product.images.map((img, idx) => {
+                    const isSelected = (activeImage || product.image_url) === img;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveImage(img)}
+                        className={`w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0 bg-[#1e1e1e] transition-all ${
+                          isSelected
+                            ? 'border-[#B8860B] ring-2 ring-[#B8860B]/50 scale-105 shadow-md'
+                            : 'border-[#444] opacity-75 hover:opacity-100 hover:border-[#666]'
+                        }`}
+                      >
+                        <img
+                          src={processImageUrl(img)}
+                          alt={`${product.name} view ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="md:w-1/2 p-6">

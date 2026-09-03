@@ -16,7 +16,9 @@ module.exports = async function handler(req, res) {
       const query = `
         SELECT 
           p.id, p.name, p.description, p.condition_status, p.price, p.quantity, 
-          p.image_url, p.part_number, p.barcode, p.ref_no, p.created_at, p.updated_at, 
+          p.image_url, 
+          COALESCE(p.images, CASE WHEN p.image_url IS NOT NULL AND p.image_url != '' THEN json_build_array(p.image_url)::jsonb ELSE '[]'::jsonb END) as images,
+          p.part_number, p.barcode, p.ref_no, p.created_at, p.updated_at, 
           p.category_id,
           c.name as category_name
         FROM products p
@@ -44,7 +46,7 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ message: 'Admin access required to update products' });
       }
 
-      const { name, description, condition_status, price, quantity, category_id, image_url, part_number, barcode, ref_no } = req.body;
+      const { name, description, condition_status, price, quantity, category_id, image_url, images, part_number, barcode, ref_no } = req.body;
 
       console.log('[PRODUCT UPDATE] Updating product ID:', id);
       console.log('[PRODUCT UPDATE] Data received:', { name, price, quantity, part_number, barcode });
@@ -67,6 +69,15 @@ module.exports = async function handler(req, res) {
         generatedBarcode = null;
       }
 
+      // Format images array
+      let formattedImages = [];
+      if (Array.isArray(images) && images.length > 0) {
+        formattedImages = images.filter(Boolean);
+      } else if (image_url) {
+        formattedImages = [image_url];
+      }
+      const primaryImageUrl = formattedImages[0] || image_url || null;
+
       const updateQuery = `
         UPDATE products 
         SET 
@@ -77,11 +88,12 @@ module.exports = async function handler(req, res) {
           quantity = $5,
           category_id = $6,
           image_url = $7,
-          part_number = $8,
-          barcode = $9,
-          ref_no = $10,
+          images = $8::jsonb,
+          part_number = $9,
+          barcode = $10,
+          ref_no = $11,
           updated_at = NOW()
-        WHERE id = $11
+        WHERE id = $12
         RETURNING *
       `;
 
@@ -92,7 +104,8 @@ module.exports = async function handler(req, res) {
         parseFloat(price),
         parseInt(quantity),
         category_id ? parseInt(category_id) : null,
-        image_url || null,
+        primaryImageUrl,
+        JSON.stringify(formattedImages),
         part_number || null,
         generatedBarcode,
         ref_no || null,

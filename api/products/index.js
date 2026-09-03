@@ -261,7 +261,7 @@ module.exports = async function handler(req, res) {
 
       const {
         name, description, condition_status, price, quantity,
-        category_id, image_url, part_number, barcode,
+        category_id, image_url, images, part_number, barcode,
         warehouse_id, bin_number, ref_no
       } = req.body;
 
@@ -293,14 +293,22 @@ module.exports = async function handler(req, res) {
         generatedBarcode = `${initials}-${Date.now().toString(36).toUpperCase()}`;
       }
 
+      // Format images array
+      let formattedImages = [];
+      if (Array.isArray(images) && images.length > 0) {
+        formattedImages = images.filter(Boolean);
+      } else if (image_url) {
+        formattedImages = [image_url];
+      }
+      const primaryImageUrl = formattedImages[0] || image_url || null;
 
       const insertQuery = `
         INSERT INTO products (
           name, description, condition_status, price, quantity, 
-          category_id, image_url, part_number, barcode,
+          category_id, image_url, images, part_number, barcode,
           warehouse_id, bin_number, ref_no, created_at, updated_at
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+          $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, NOW(), NOW()
         )
         RETURNING *
       `;
@@ -312,7 +320,8 @@ module.exports = async function handler(req, res) {
         parseFloat(price),
         finalQuantity,
         category_id ? parseInt(category_id) : null,
-        image_url || null,
+        primaryImageUrl,
+        JSON.stringify(formattedImages),
         part_number || null,
         generatedBarcode,
         warehouse_id ? parseInt(warehouse_id) : null,

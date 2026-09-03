@@ -156,6 +156,26 @@ async function runTests() {
     }
   });
 
+  // 10. Test Security: GET /api/admin/search-image without admin token
+  await test('api/admin/search-image.js GET rejects unauthenticated caller with 403', async () => {
+    const handler = require('../api/admin/search-image');
+    const { req, res } = mockReqRes({ method: 'GET', query: { query: 'test' } });
+    await handler(req, res);
+    if (res.statusCode !== 403) {
+      throw new Error(`Expected 403, got ${res.statusCode}`);
+    }
+  });
+
+  // 11. Test Security: POST /api/admin/search-image without admin token
+  await test('api/admin/search-image.js POST rejects unauthenticated caller with 403', async () => {
+    const handler = require('../api/admin/search-image');
+    const { req, res } = mockReqRes({ method: 'POST', body: { image_urls: ['http://example.com/1.jpg'] } });
+    await handler(req, res);
+    if (res.statusCode !== 403) {
+      throw new Error(`Expected 403, got ${res.statusCode}`);
+    }
+  });
+
   console.log(`\n🏁 Test Results: ${passed} Passed, ${failed} Failed`);
   process.exit(failed > 0 ? 1 : 0);
 }

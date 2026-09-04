@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 
-const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
+const UserFormModal = ({ isOpen, onClose, onSave, user, warehouses = [] }) => {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -13,7 +13,8 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
     city: '',
     state: '',
     zip_code: '',
-    role: 'customer'
+    role: 'customer',
+    warehouse_id: ''
   });
   
   const [errors, setErrors] = useState({});
@@ -35,7 +36,8 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
           city: user.city || '',
           state: user.state || '',
           zip_code: user.zip_code || '',
-          role: user.role || 'customer'
+          role: user.role || 'customer',
+          warehouse_id: user.warehouse_id || ''
         });
       } else {
         // Add mode - reset form
@@ -50,7 +52,8 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
           city: '',
           state: '',
           zip_code: '',
-          role: 'customer'
+          role: 'customer',
+          warehouse_id: ''
         });
       }
       setErrors({});
@@ -132,7 +135,8 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
         city: formData.city,
         state: formData.state,
         zip_code: formData.zip_code,
-        role: formData.role
+        role: formData.role,
+        warehouse_id: (formData.role === 'admin' || formData.role === 'superadmin') ? (formData.warehouse_id || null) : null
       };
       
       // Only include password if it's provided
@@ -321,8 +325,33 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
           >
             <option value="customer">Customer</option>
             <option value="admin">Admin</option>
+            <option value="superadmin">Superadmin</option>
           </select>
         </div>
+
+        {(formData.role === 'admin' || formData.role === 'superadmin') && (
+          <div>
+            <label className="block text-sm font-medium text-midnight-200 mb-1">
+              Assigned Warehouse
+            </label>
+            <select
+              name="warehouse_id"
+              value={formData.warehouse_id || ''}
+              onChange={handleChange}
+              className="w-full p-2.5 bg-midnight-800 border border-midnight-700 rounded text-white focus:outline-none focus:border-midnight-500"
+            >
+              <option value="">-- No Warehouse Assigned --</option>
+              {warehouses.map(w => (
+                <option key={w.id} value={w.id}>
+                  {w.name} {w.location ? `(${w.location})` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-midnight-400 mt-1">
+              Admin will be responsible for inventory operations and receiving shipments for this warehouse.
+            </p>
+          </div>
+        )}
         
         <div className="flex justify-end space-x-2 pt-4 border-t border-midnight-700">
           <button

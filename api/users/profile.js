@@ -49,9 +49,10 @@ module.exports = async function handler(req, res) {
 
     } else if (req.method === 'PUT') {
       // Update user profile
-      const {
+      let {
         first_name,
         last_name,
+        name,
         address,
         city,
         state,
@@ -60,6 +61,13 @@ module.exports = async function handler(req, res) {
         current_password,
         new_password
       } = req.body;
+
+      // If unified name is provided without first_name/last_name, split it
+      if (name && first_name === undefined && last_name === undefined) {
+        const parts = name.trim().split(/\s+/);
+        first_name = parts[0] || '';
+        last_name = parts.slice(1).join(' ') || '';
+      }
 
       // Get current user to verify password if changing it, or just for existence check
       const userCheck = await db.query('SELECT password FROM users WHERE id = $1', [userId]);

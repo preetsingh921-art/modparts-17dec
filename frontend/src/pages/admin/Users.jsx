@@ -7,12 +7,14 @@ import useConfirm from '../../hooks/useConfirm';
 import UserFormModal from '../../components/admin/UserFormModal';
 import UserViewModal from '../../components/admin/UserViewModal';
 import { getUsers, createUser, updateUser, deleteUser } from '../../api/users';
+import { warehouseAPI } from '../../api/inventory';
 import ProgressBar from '../../components/ui/ProgressBar';
 import { exportToPDF, exportToXLSX } from '../../utils/exportUtils';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,21 +61,33 @@ const Users = () => {
       setError(null); // Reset error state
 
       try {
-        const data = await getUsers();
-        // Check if data is an array (successful response)
-        if (Array.isArray(data)) {
-          setUsers(data);
-        } else if (data && data.message) {
-          // If we got a message property, it's probably an error
-          setError(data.message);
-          setUsers([]);
+        const [userData, whData] = await Promise.allSettled([
+          getUsers(),
+          warehouseAPI.getAll()
+        ]);
+
+        if (userData.status === 'fulfilled') {
+          const data = userData.value;
+          if (Array.isArray(data)) {
+            setUsers(data);
+          } else if (data && data.message) {
+            setError(data.message);
+            setUsers([]);
+          } else {
+            setError('Received unexpected data format from server');
+            setUsers([]);
+          }
         } else {
-          // Unexpected response format
-          setError('Received unexpected data format from server');
+          console.error('Error fetching users:', userData.reason);
+          setError(userData.reason?.message || 'Failed to load users');
           setUsers([]);
         }
+
+        if (whData.status === 'fulfilled') {
+          setWarehouses(whData.value?.warehouses || []);
+        }
       } catch (err) {
-        console.error('Error fetching users:', err);
+        console.error('Error fetching users/warehouses:', err);
         setError(err.message || 'Failed to load users');
         setUsers([]);
       } finally {
@@ -478,6 +492,7 @@ const Users = () => {
           onClose={() => setIsModalOpen(false)}
           onSave={handleSaveUser}
           user={editingUser}
+          warehouses={warehouses}
         />
 
         {/* User View Modal */}
@@ -627,6 +642,7 @@ const Users = () => {
                   <th className="text-left p-4 text-white min-w-[200px]">Name</th>
                   <th className="text-left p-4 text-white min-w-[200px]">Email</th>
                   <th className="text-center p-4 text-white min-w-[100px]">Role</th>
+                  <th className="text-center p-4 text-white min-w-[140px]">Warehouse</th>
                   <th className="text-center p-4 text-white min-w-[100px]">Status</th>
                   <th className="text-center p-4 text-white min-w-[120px]">Actions</th>
                 </tr>
@@ -651,10 +667,23 @@ const Users = () => {
                     <td className="p-4 text-midnight-200">{user.email}</td>
                     <td className="p-4 text-center">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        user.role === 'admin' ? 'bg-emerald-950/80 border border-emerald-700 text-emerald-300' : 'bg-slate-800 border border-slate-600 text-slate-300'
+                        user.role === 'admin' ? 'bg-emerald-950/80 border border-emerald-700 text-emerald-300' :
+                        user.role === 'superadmin' ? 'bg-amber-950/80 border border-amber-700 text-amber-300' :
+                        'bg-slate-800 border border-slate-600 text-slate-300'
                       }`}>
                         {user.role}
                       </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      {user.warehouse_name ? (
+                        <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-950/80 border border-blue-700 text-blue-300" title={`Warehouse ID: ${user.warehouse_id}`}>
+                          📍 {user.warehouse_name}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-midnight-500 italic">
+                          {user.role === 'admin' ? 'Unassigned' : '-'}
+                        </span>
+                      )}
                     </td>
                     <td className="p-4 text-center">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -748,7 +777,7 @@ const Users = () => {
                           {user.role}
                         </span>
                       </div>
-                      <div className="mt-2 flex items-center space-x-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                           user.status === 'active' ? 'bg-emerald-950/80 border border-emerald-700 text-emerald-300' :
                           user.status === 'blocked' ? 'bg-red-950/80 border border-red-700 text-red-300' :
@@ -757,6 +786,11 @@ const Users = () => {
                         }`}>
                           {user.status || 'active'}
                         </span>
+                        {user.warehouse_name && (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-950/80 border border-blue-700 text-blue-300">
+                            📍 {user.warehouse_name}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -47,10 +47,12 @@ module.exports = async (req, res) => {
       console.log('🔍 Admin fetching all users (Neon)...');
 
       const query = `
-        SELECT id, email, first_name, last_name, role, is_approved, 
-               created_at, phone, address, city, state, zip_code
-        FROM users
-        ORDER BY created_at DESC
+        SELECT u.id, u.email, u.first_name, u.last_name, u.role, u.is_approved, 
+               u.created_at, u.phone, u.address, u.city, u.state, u.zip_code,
+               u.warehouse_id, w.name as warehouse_name
+        FROM users u
+        LEFT JOIN warehouses w ON u.warehouse_id = w.id
+        ORDER BY u.created_at DESC
       `;
 
       const { rows: users } = await db.query(query);
@@ -71,7 +73,7 @@ module.exports = async (req, res) => {
 
     } else if (req.method === 'POST') {
       // Create new user
-      const { email, password, first_name, last_name, role = 'customer', phone, address, city, state, zip_code } = req.body;
+      let { email, password, first_name, last_name, name, role = 'customer', phone, address, city, state, zip_code, warehouse_id } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({
@@ -80,34 +82,47 @@ module.exports = async (req, res) => {
         });
       }
 
+      if (name && !first_name && !last_name) {
+        const parts = name.trim().split(/\s+/);
+        first_name = parts[0] || '';
+        last_name = parts.slice(1).join(' ') || '';
+      }
+
       console.log('👤 Admin creating new user:', email);
 
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const insertQuery = `
-        INSERT INTO users (email, password, first_name, last_name, role, phone, address, city, state, zip_code, is_approved, email_verified, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, true, NOW(), NOW())
-        RETURNING id, email, first_name, last_name, role, phone, address, city, state, zip_code, is_approved, created_at
+        INSERT INTO users (email, password, first_name, last_name, role, phone, address, city, state, zip_code, warehouse_id, is_approved, email_verified, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, true, NOW(), NOW())
+        RETURNING id, email, first_name, last_name, role, phone, address, city, state, zip_code, warehouse_id, is_approved, created_at
       `;
 
       const { rows } = await db.query(insertQuery, [
         email, hashedPassword, first_name || null, last_name || null, role,
-        phone || null, address || null, city || null, state || null, zip_code || null
+        phone || null, address || null, city || null, state || null, zip_code || null,
+        warehouse_id ? parseInt(warehouse_id) : null
       ]);
 
       const user = rows[0];
       console.log('✅ User created successfully:', user.id);
 
+      let warehouseName = null;
+      if (user.warehouse_id) {
+        const whResult = await db.query('SELECT name FROM warehouses WHERE id = $1', [user.warehouse_id]);
+        warehouseName = whResult.rows[0]?.name || null;
+      }
+
       return res.status(201).json({
         success: true,
         message: 'User created successfully',
-        data: { ...user, status: user.is_approved ? 'active' : 'pending_approval' }
+        data: { ...user, warehouse_name: warehouseName, status: user.is_approved ? 'active' : 'pending_approval' }
       });
 
     } else if (req.method === 'PUT') {
       // Update user
-      const { id, email, first_name, last_name, role, phone, address, city, state, zip_code, status } = req.body;
+      let { id, email, first_name, last_name, name, role, phone, address, city, state, zip_code, status, warehouse_id, password } = req.body;
 
       if (!id) {
         return res.status(400).json({
@@ -117,6 +132,12 @@ module.exports = async (req, res) => {
       }
 
       console.log('📝 Admin updating user:', id);
+
+      if (name && first_name === undefined && last_name === undefined) {
+        const parts = name.trim().split(/\s+/);
+        first_name = parts[0] || '';
+        last_name = parts.slice(1).join(' ') || '';
+      }
 
       // Build dynamic update query
       const updates = [];
@@ -132,6 +153,15 @@ module.exports = async (req, res) => {
       if (city !== undefined) { updates.push(`city = $${idx++}`); values.push(city); }
       if (state !== undefined) { updates.push(`state = $${idx++}`); values.push(state); }
       if (zip_code !== undefined) { updates.push(`zip_code = $${idx++}`); values.push(zip_code); }
+      if (warehouse_id !== undefined) {
+        updates.push(`warehouse_id = $${idx++}`);
+        values.push(warehouse_id ? parseInt(warehouse_id) : null);
+      }
+      if (password && password.trim().length > 0) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        updates.push(`password = $${idx++}`);
+        values.push(hashedPassword);
+      }
 
       // Handle status -> is_approved mapping
       if (status) {
@@ -154,7 +184,7 @@ module.exports = async (req, res) => {
         UPDATE users 
         SET ${updates.join(', ')} 
         WHERE id = $${idx}
-        RETURNING id, email, first_name, last_name, role, phone, address, city, state, zip_code, is_approved, created_at, updated_at
+        RETURNING id, email, first_name, last_name, role, phone, address, city, state, zip_code, warehouse_id, is_approved, created_at, updated_at
       `;
 
       const { rows } = await db.query(updateQuery, values);
@@ -169,10 +199,16 @@ module.exports = async (req, res) => {
       const user = rows[0];
       console.log('✅ User updated successfully:', user.id);
 
+      let warehouseName = null;
+      if (user.warehouse_id) {
+        const whResult = await db.query('SELECT name FROM warehouses WHERE id = $1', [user.warehouse_id]);
+        warehouseName = whResult.rows[0]?.name || null;
+      }
+
       return res.status(200).json({
         success: true,
         message: 'User updated successfully',
-        data: { ...user, status: user.is_approved ? 'active' : 'pending_approval' }
+        data: { ...user, warehouse_name: warehouseName, status: user.is_approved ? 'active' : 'pending_approval' }
       });
 
     } else if (req.method === 'DELETE') {

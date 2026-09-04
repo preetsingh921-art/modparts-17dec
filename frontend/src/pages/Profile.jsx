@@ -302,11 +302,9 @@ const Profile = () => {
                       name="first_name"
                       value={formData.first_name}
                       onChange={handleChange}
-                      className="w-full p-2 border border-[#444] rounded bg-[#1e1e1e] text-[#888] cursor-not-allowed"
-                      readOnly
-                      title="Name cannot be changed"
+                      className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
+                      placeholder="Enter first name"
                     />
-                    <p className="text-xs text-[#A8A090] mt-1">Name cannot be changed</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Last Name</label>
@@ -315,11 +313,9 @@ const Profile = () => {
                       name="last_name"
                       value={formData.last_name}
                       onChange={handleChange}
-                      className="w-full p-2 border border-[#444] rounded bg-[#1e1e1e] text-[#888] cursor-not-allowed"
-                      readOnly
-                      title="Name cannot be changed"
+                      className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
+                      placeholder="Enter last name"
                     />
-                    <p className="text-xs text-[#A8A090] mt-1">Name cannot be changed</p>
                   </div>
                 </div>
 

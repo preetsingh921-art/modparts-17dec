@@ -13,6 +13,7 @@ module.exports = async function handler(req, res) {
                     SELECT w.*, 
                         (SELECT COUNT(*) FROM bins WHERE warehouse_id = w.id) as bin_count,
                         (SELECT COUNT(*) FROM products WHERE warehouse_id = w.id) as product_count,
+                        (SELECT COALESCE(SUM(quantity), 0) FROM products WHERE warehouse_id = w.id) as total_units,
                         u.email as admin_email,
                         u.first_name as admin_first_name,
                         u.last_name as admin_last_name
@@ -32,6 +33,7 @@ module.exports = async function handler(req, res) {
                     SELECT w.*, 
                         (SELECT COUNT(*) FROM bins WHERE warehouse_id = w.id) as bin_count,
                         (SELECT COUNT(*) FROM products WHERE warehouse_id = w.id) as product_count,
+                        (SELECT COALESCE(SUM(quantity), 0) FROM products WHERE warehouse_id = w.id) as total_units,
                         u.id as admin_id,
                         u.email as admin_email,
                         u.first_name as admin_first_name,

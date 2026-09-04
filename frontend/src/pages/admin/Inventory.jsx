@@ -11,6 +11,7 @@ import FloatingNotification from '../../components/ui/FloatingNotification';
  */
 const Inventory = () => {
     const { user } = useAuth();
+    const isSuperAdmin = user?.role === 'superadmin';
     const adminWarehouseId = user?.warehouse_id;
     const [activeTab, setActiveTab] = useState('scan-send');
     const [warehouses, setWarehouses] = useState([]);
@@ -23,6 +24,13 @@ const Inventory = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [newBin, setNewBin] = useState({ bin_number: '', description: '', capacity: 100 });
+
+    // Effective warehouse: superadmin operates on selectedWarehouse (or first warehouse), admin operates on assigned warehouse
+    const effectiveWarehouseId = isSuperAdmin
+        ? (selectedWarehouse ? String(selectedWarehouse) : (warehouses[0]?.id ? String(warehouses[0]?.id) : null))
+        : (adminWarehouseId ? String(adminWarehouseId) : null);
+
+    const activeWarehouseObj = warehouses.find(w => String(w.id) === String(effectiveWarehouseId));
 
     // Warehouse CRUD state
     const [showWarehouseForm, setShowWarehouseForm] = useState(false);
@@ -154,49 +162,55 @@ const Inventory = () => {
         fetchAdminUsers();
     }, []);
 
+    // Refresh bins when effectiveWarehouseId changes
     useEffect(() => {
-        // Use selectedWarehouse if set, otherwise use adminWarehouseId
-        const warehouseToFetch = selectedWarehouse || adminWarehouseId;
-        if (warehouseToFetch) {
-            fetchBins(warehouseToFetch);
+        if (effectiveWarehouseId) {
+            fetchBins(effectiveWarehouseId);
         }
-    }, [selectedWarehouse, adminWarehouseId]);
+    }, [effectiveWarehouseId]);
 
-    // Fetch bins for admin's assigned warehouse (for receive mode)
+    // Fetch bins for operating warehouse (for receive mode assignment)
     useEffect(() => {
         const fetchAdminBins = async () => {
-            if (adminWarehouseId) {
+            if (effectiveWarehouseId) {
                 try {
-                    const data = await binAPI.getAll(adminWarehouseId);
+                    const data = await binAPI.getAll(effectiveWarehouseId);
                     setAdminBins(data.bins || []);
                 } catch (error) {
                     console.error('Error fetching admin bins:', error);
                 }
+            } else {
+                setAdminBins([]);
             }
         };
         fetchAdminBins();
-    }, [adminWarehouseId]);
+    }, [effectiveWarehouseId]);
 
-    // Auto-load bin inventory when warehouse-inventory tab is active
+    // Auto-load inventory when warehouse-inventory tab is active
     useEffect(() => {
-        if (activeTab === 'warehouse-inventory' && adminWarehouseId && binInventory.length === 0 && !binInventoryLoading) {
-            fetchBinInventory(adminWarehouseId, '');
+        if (activeTab === 'warehouse-inventory' && effectiveWarehouseId) {
+            fetchBinInventory(effectiveWarehouseId, binInventorySearch);
+            fetchProductInventory(effectiveWarehouseId, binInventorySearch);
         }
-    }, [activeTab, adminWarehouseId]);
+    }, [activeTab, effectiveWarehouseId]);
 
     // Auto-load bins when bin-management tab is active
     useEffect(() => {
-        if (activeTab === 'bin-management' && adminWarehouseId) {
-            fetchBins(adminWarehouseId);
+        if (activeTab === 'bin-management' && effectiveWarehouseId) {
+            fetchBins(effectiveWarehouseId);
         }
-    }, [activeTab, adminWarehouseId]);
+    }, [activeTab, effectiveWarehouseId]);
 
     const fetchWarehouses = async () => {
         try {
             const data = await warehouseAPI.getAll();
-            setWarehouses(data.warehouses || []);
-            if (data.warehouses?.length > 0 && !selectedWarehouse) {
-                setSelectedWarehouse(data.warehouses[0].id);
+            const whList = data.warehouses || [];
+            setWarehouses(whList);
+            if (whList.length > 0 && !selectedWarehouse) {
+                const defaultWh = (adminWarehouseId && whList.find(w => String(w.id) === String(adminWarehouseId)))
+                    ? String(adminWarehouseId)
+                    : String(whList[0].id);
+                setSelectedWarehouse(defaultWh);
             }
         } catch (error) {
             console.error('Error fetching warehouses:', error);
@@ -220,6 +234,7 @@ const Inventory = () => {
     };
 
     const fetchBins = async (warehouseId) => {
+        if (!warehouseId) return;
         try {
             const data = await binAPI.getAll(warehouseId);
             setBins(data.bins || []);
@@ -230,10 +245,9 @@ const Inventory = () => {
 
     const fetchMovements = async () => {
         try {
-            // Filter by admin's warehouse - show only movements where admin is sender or receiver
             const params = { status: 'in_transit' };
-            if (adminWarehouseId) {
-                params.warehouse_id = adminWarehouseId;
+            if (!isSuperAdmin && effectiveWarehouseId) {
+                params.warehouse_id = effectiveWarehouseId;
             }
             const data = await movementsAPI.getAll(params);
             setMovements(data.movements || []);
@@ -391,10 +405,10 @@ const Inventory = () => {
         try {
             // If product is already provided by scanner, use it directly
             if (product) {
-                // For SEND mode, verify product is in admin's warehouse
-                if (activeTab === 'scan-send' && adminWarehouseId && String(product.warehouse_id) !== String(adminWarehouseId)) {
+                // For SEND mode, verify product is in operating warehouse
+                if (activeTab === 'scan-send' && effectiveWarehouseId && String(product.warehouse_id) !== String(effectiveWarehouseId)) {
                     setScannedProduct(null);
-                    setMessage({ type: 'warning', text: `Cannot send: Product is in ${product.warehouse_name || 'another warehouse'}, not your warehouse.` });
+                    setMessage({ type: 'warning', text: `Cannot send: Product is in ${product.warehouse_name || 'another warehouse'}, not your active warehouse.` });
                 } else if (activeTab === 'scan-receive') {
                     // RECEIVE MODE: Show product details, let user select bin then click Receive
                     setScannedProduct(product);
@@ -407,7 +421,7 @@ const Inventory = () => {
                     });
                     console.log('📥 RECEIVE MODE: Product found, waiting for bin selection and receive click');
                 } else {
-                    // SEND mode - product is in admin's warehouse
+                    // SEND mode - product is in operating warehouse
                     setScannedProduct(product);
                     setSendQuantity(1);
                     setMessage({ type: 'success', text: `Found: ${product.name} (Qty: ${product.quantity})` });
@@ -418,7 +432,7 @@ const Inventory = () => {
 
                 // Search without warehouse filter so we can find the product regardless of location
                 const searchParams = { search: barcode, limit: 50 };
-                console.log('🔍 SEARCH DEBUG:', { adminWarehouseId, searchParams, userWarehouseId: user?.warehouse_id });
+                console.log('🔍 SEARCH DEBUG:', { effectiveWarehouseId, searchParams, userWarehouseId: user?.warehouse_id });
                 const result = await productsModule.getProducts(searchParams);
                 const products = result.products || result;
                 console.log('🔍 SEARCH RESULTS:', products?.length, 'products found');
@@ -430,11 +444,11 @@ const Inventory = () => {
                     p.name?.toLowerCase().includes(barcode.toLowerCase())
                 ) || [];
 
-                // Sort so that the product in the admin's warehouse is FIRST
-                if (matchingProducts.length > 1) {
+                // Sort so that the product in the operating warehouse is FIRST
+                if (matchingProducts.length > 1 && effectiveWarehouseId) {
                     matchingProducts.sort((a, b) => {
-                        if (String(a.warehouse_id) === String(adminWarehouseId)) return -1;
-                        if (String(b.warehouse_id) === String(adminWarehouseId)) return 1;
+                        if (String(a.warehouse_id) === String(effectiveWarehouseId)) return -1;
+                        if (String(b.warehouse_id) === String(effectiveWarehouseId)) return 1;
                         return 0;
                     });
                 }
@@ -446,30 +460,30 @@ const Inventory = () => {
 
                 if (matchingProducts.length > 0) {
                     if (activeTab === 'scan-send') {
-                        // SEND MODE: Find product specifically in admin's warehouse
+                        // SEND MODE: Find product specifically in operating warehouse
                         const productInMyWarehouse = matchingProducts.find(p =>
-                            String(p.warehouse_id) === String(adminWarehouseId)
+                            String(p.warehouse_id) === String(effectiveWarehouseId)
                         );
 
                         if (productInMyWarehouse) {
                             setScannedProduct(productInMyWarehouse);
                             setSendQuantity(1);
-                            setMessage({ type: 'success', text: `Found: ${productInMyWarehouse.name} (Qty: ${productInMyWarehouse.quantity} in your warehouse)` });
+                            setMessage({ type: 'success', text: `Found: ${productInMyWarehouse.name} (Qty: ${productInMyWarehouse.quantity} in active warehouse)` });
                         } else {
-                            // Product exists but not in admin's warehouse
+                            // Product exists but not in operating warehouse
                             const otherLocations = matchingProducts.map(p => p.warehouse_name || `Warehouse ${p.warehouse_id}`).join(', ');
                             setScannedProduct(null);
-                            setMessage({ type: 'warning', text: `Product not in your warehouse. Found in: ${otherLocations}. Switch to RECEIVE mode to add copies.` });
+                            setMessage({ type: 'warning', text: `Product not in active warehouse (${activeWarehouseObj?.name || 'Selected'}). Found in: ${otherLocations}. Switch to RECEIVE mode or change operating warehouse.` });
                         }
                     } else {
                         // RECEIVE MODE: Check pending movements FIRST, then look for products
 
-                        // Search for pending movement by barcode/part_number destined to admin's warehouse
+                        // Search for pending movement by barcode/part_number destined to operating warehouse
                         const matchedMovement = movements.find(m =>
                             (m.part_number === barcode || m.barcode === barcode ||
                                 m.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
                                 m.barcode?.toLowerCase().includes(barcode.toLowerCase())) &&
-                            String(m.to_warehouse_id) === String(adminWarehouseId) &&
+                            String(m.to_warehouse_id) === String(effectiveWarehouseId) &&
                             m.status === 'in_transit'
                         );
 
@@ -518,7 +532,7 @@ const Inventory = () => {
                             (m.part_number === barcode || m.barcode === barcode ||
                                 m.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
                                 m.barcode?.toLowerCase().includes(barcode.toLowerCase())) &&
-                            String(m.to_warehouse_id) === String(adminWarehouseId) &&
+                            String(m.to_warehouse_id) === String(effectiveWarehouseId) &&
                             m.status === 'in_transit'
                         );
 
@@ -570,7 +584,8 @@ const Inventory = () => {
         try {
             const result = await movementsAPI.receive({
                 barcode: scannedProduct.barcode,
-                binNumber: binNumber
+                binNumber: binNumber,
+                warehouseId: effectiveWarehouseId
             });
 
             setMessage({ type: 'success', text: result.message });
@@ -584,8 +599,7 @@ const Inventory = () => {
 
     const handleCreateBin = async (e) => {
         e.preventDefault();
-        // Use adminWarehouseId for bin creation (user's assigned warehouse)
-        const warehouseToUse = adminWarehouseId || selectedWarehouse;
+        const warehouseToUse = effectiveWarehouseId || selectedWarehouse;
         if (!warehouseToUse || !newBin.bin_number) {
             setMessage({ type: 'error', text: 'Warehouse not assigned or bin number missing' });
             return;
@@ -601,7 +615,6 @@ const Inventory = () => {
             if (result.bin) {
                 setMessage({ type: 'success', text: `Bin "${result.bin.bin_number}" created successfully` });
                 setNewBin({ bin_number: '', description: '', capacity: 100 });
-                // Await the bins refresh to ensure list is updated before hiding loading
                 await fetchBins(warehouseToUse);
             } else {
                 setMessage({ type: 'error', text: result.message || 'Failed to create bin' });
@@ -620,7 +633,7 @@ const Inventory = () => {
         try {
             const productsModule = await import('../../api/products');
             const result = await productsModule.getProducts({
-                warehouse_id: adminWarehouseId,
+                warehouse_id: effectiveWarehouseId,
                 bin_number: bin.bin_number,
                 limit: 100
             });
@@ -653,7 +666,7 @@ const Inventory = () => {
             if (result.bin) {
                 setMessage({ type: 'success', text: `Bin renamed to "${result.bin.bin_number}"` });
                 setShowEditBinModal(false);
-                await fetchBins(adminWarehouseId);
+                if (effectiveWarehouseId) await fetchBins(effectiveWarehouseId);
             } else {
                 setMessage({ type: 'error', text: result.message || 'Failed to update bin' });
             }
@@ -672,7 +685,7 @@ const Inventory = () => {
             setMessage({ type: 'success', text: 'Bin deleted successfully' });
             setShowEditBinModal(false);
             setSelectedBinOverlay(null);
-            await fetchBins(adminWarehouseId);
+            if (effectiveWarehouseId) await fetchBins(effectiveWarehouseId);
         } catch (error) {
             setMessage({ type: 'error', text: 'Error deleting bin: ' + error.message });
         }
@@ -699,7 +712,6 @@ const Inventory = () => {
         setLoading(true);
         try {
             const productsModule = await import('../../api/products');
-            // Update product's bin_number - pass id inside productData
             const result = await productsModule.updateProduct({
                 id: shiftData.product.id,
                 bin_number: shiftData.toBin
@@ -707,11 +719,10 @@ const Inventory = () => {
             if (result.product || result.id || result.name) {
                 setMessage({ type: 'success', text: `Moved ${shiftData.quantity} items to bin ${shiftData.toBin}` });
                 setShowShiftModal(false);
-                // Refresh bin products
                 if (selectedBinOverlay) {
                     handleBinClick(selectedBinOverlay);
                 }
-                await fetchBins(adminWarehouseId);
+                if (effectiveWarehouseId) await fetchBins(effectiveWarehouseId);
             } else {
                 setMessage({ type: 'error', text: result.message || 'Failed to shift product' });
             }
@@ -812,8 +823,18 @@ const Inventory = () => {
     ];
 
     return (
-        <div className="inventory-page" style={{ padding: '12px', maxWidth: '1200px', margin: '0 auto' }}>
-            <h1 style={{ marginBottom: '15px', fontSize: 'clamp(20px, 5vw, 28px)' }}>📦 Inventory Management</h1>
+        <div className="inventory-page" style={{ padding: '16px', maxWidth: '1300px', margin: '0 auto', color: '#f8fafc' }}>
+            {/* Header Title */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+                <h1 style={{ margin: 0, fontSize: 'clamp(22px, 5vw, 30px)', fontWeight: 'bold', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>📦 Inventory Management</span>
+                </h1>
+                {isSuperAdmin && (
+                    <span style={{ padding: '5px 12px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: '8px', color: '#fbbf24', fontSize: '12px', fontWeight: 'bold' }}>
+                        ⚡ Superadmin Central Control
+                    </span>
+                )}
+            </div>
 
             {/* Floating Notification (Mobile-Friendly) */}
             <FloatingNotification
@@ -822,66 +843,220 @@ const Inventory = () => {
                 onDismiss={() => setMessage({ type: '', text: '' })}
             />
 
-            {/* Tab Navigation - Horizontally Scrollable on Mobile */}
+            {/* Superadmin Operating Warehouse Switcher Banner */}
+            {isSuperAdmin ? (
+                <div style={{
+                    marginBottom: '20px',
+                    padding: '16px 20px',
+                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95))',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '15px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            color: '#fbbf24',
+                            fontWeight: 'bold',
+                            fontSize: '13px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                        }}>
+                            <span>⚡ OPERATING AS:</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <select
+                                value={effectiveWarehouseId || ''}
+                                onChange={(e) => {
+                                    setSelectedWarehouse(e.target.value);
+                                    if (activeTab === 'warehouse-inventory') {
+                                        fetchBinInventory(e.target.value, binInventorySearch);
+                                        fetchProductInventory(e.target.value, binInventorySearch);
+                                    }
+                                }}
+                                style={{
+                                    padding: '9px 16px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #f59e0b',
+                                    background: '#0f172a',
+                                    color: '#f8fafc',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    outline: 'none',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
+                                }}
+                            >
+                                {warehouses.map(w => (
+                                    <option key={w.id} value={w.id}>
+                                        {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
+                                        {w.name} ({w.code || w.id})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Warehouse stats pills */}
+                    {activeWarehouseObj && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <div style={{ padding: '6px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '8px', fontSize: '13px', color: '#34d399' }}>
+                                <span style={{ color: '#94a3b8', marginRight: '6px' }}>Total Units:</span>
+                                <strong>{activeWarehouseObj.total_units || 0}</strong>
+                            </div>
+                            <div style={{ padding: '6px 12px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: '8px', fontSize: '13px', color: '#fbbf24' }}>
+                                <span style={{ color: '#94a3b8', marginRight: '6px' }}>Unique Parts:</span>
+                                <strong>{activeWarehouseObj.product_count || 0}</strong>
+                            </div>
+                            <div style={{ padding: '6px 12px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '8px', fontSize: '13px', color: '#60a5fa' }}>
+                                <span style={{ color: '#94a3b8', marginRight: '6px' }}>Active Bins:</span>
+                                <strong>{activeWarehouseObj.bin_count || 0}</strong>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                /* Regular Admin Assigned Warehouse Banner */
+                <div style={{
+                    marginBottom: '20px',
+                    padding: '12px 18px',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(71, 85, 105, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1', fontSize: '14px' }}>
+                        <span>🏢 Assigned Warehouse:</span>
+                        <strong style={{ color: '#f8fafc' }}>
+                            {activeWarehouseObj?.name || 'Assigned Warehouse'}
+                            {activeWarehouseObj?.code ? ` (${activeWarehouseObj.code})` : ''}
+                        </strong>
+                        {activeWarehouseObj?.city && (
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>
+                                • 📍 {activeWarehouseObj.city}, {activeWarehouseObj.state || activeWarehouseObj.country}
+                            </span>
+                        )}
+                    </div>
+                    {activeWarehouseObj && (
+                        <div style={{ display: 'flex', gap: '12px', fontSize: '13px' }}>
+                            <span style={{ color: '#34d399' }}>📦 Units: <strong>{activeWarehouseObj.total_units || 0}</strong></span>
+                            <span style={{ color: '#fbbf24' }}>🔧 Parts: <strong>{activeWarehouseObj.product_count || 0}</strong></span>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Tab Navigation - Modern Industrial Segment Control */}
             <div style={{
                 display: 'flex',
-                gap: '6px',
-                marginBottom: '15px',
-                borderBottom: '2px solid #e0e0e0',
-                paddingBottom: '8px',
+                gap: '8px',
+                marginBottom: '22px',
+                background: 'rgba(15, 23, 42, 0.85)',
+                padding: '6px',
+                borderRadius: '12px',
+                border: '1px solid rgba(51, 65, 85, 0.7)',
                 overflowX: 'auto',
                 WebkitOverflowScrolling: 'touch',
                 scrollbarWidth: 'none',
                 msOverflowStyle: 'none'
             }}>
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        style={{
-                            padding: '10px 14px',
-                            border: 'none',
-                            borderRadius: '6px 6px 0 0',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: activeTab === tab.id ? 'bold' : 'normal',
-                            backgroundColor: activeTab === tab.id ? '#1976d2' : '#f5f5f5',
-                            color: activeTab === tab.id ? 'white' : '#333',
-                            transition: 'all 0.2s',
-                            whiteSpace: 'nowrap',
-                            flex: '0 0 auto',
-                            minWidth: 'fit-content',
-                            WebkitTapHighlightColor: 'transparent'
-                        }}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
+                {tabs.map(tab => {
+                    const isActive = activeTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            style={{
+                                padding: '10px 18px',
+                                border: isActive ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid transparent',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: isActive ? '600' : '500',
+                                background: isActive
+                                    ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))'
+                                    : 'transparent',
+                                color: isActive ? '#fbbf24' : '#94a3b8',
+                                transition: 'all 0.15s ease-in-out',
+                                whiteSpace: 'nowrap',
+                                flex: '0 0 auto',
+                                boxShadow: isActive ? '0 2px 10px rgba(245, 158, 11, 0.2)' : 'none',
+                                WebkitTapHighlightColor: 'transparent',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Tab Content */}
             <div className="tab-content">
-                {/* SCAN & SEND / SCAN & RECEIVE TAB - Shows for both, behavior based on activeTab */}
+                {/* SCAN & SEND / SCAN & RECEIVE TAB */}
                 {(activeTab === 'scan-send' || activeTab === 'scan-receive') && (
                     <div className={activeTab === 'scan-send' ? 'scan-send-tab' : 'scan-receive-tab'}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            {/* Scanner Section - Mode-specific styling */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            {/* Scanner Section - Industrial Dark Frame */}
                             <div style={{
-                                padding: '15px',
-                                background: activeTab === 'scan-send' ? '#fff3e0' : '#e8f5e9',
-                                borderRadius: '10px',
-                                border: `2px solid ${activeTab === 'scan-send' ? '#ff9800' : '#4caf50'}`
+                                padding: '22px',
+                                background: 'linear-gradient(145deg, #111827 0%, #0b0f17 100%)',
+                                borderRadius: '14px',
+                                border: activeTab === 'scan-send'
+                                    ? '1px solid rgba(245, 158, 11, 0.4)'
+                                    : '1px solid rgba(16, 185, 129, 0.4)',
+                                boxShadow: activeTab === 'scan-send'
+                                    ? '0 4px 25px rgba(245, 158, 11, 0.08)'
+                                    : '0 4px 25px rgba(16, 185, 129, 0.08)'
                             }}>
-                                <h3 style={{ marginBottom: '10px', color: activeTab === 'scan-send' ? '#e65100' : '#2e7d32', fontSize: 'clamp(16px, 4vw, 20px)' }}>
-                                    {activeTab === 'scan-send' ? '📤 Scan Product to SEND' : '📥 Scan Product to RECEIVE'}
-                                </h3>
-                                <p style={{ marginBottom: '12px', color: '#666', fontSize: '13px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
+                                    <h3 style={{
+                                        margin: 0,
+                                        color: activeTab === 'scan-send' ? '#fbbf24' : '#34d399',
+                                        fontSize: 'clamp(17px, 4vw, 21px)',
+                                        fontWeight: 'bold',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}>
+                                        {activeTab === 'scan-send' ? '📤 Scan Product to SEND' : '📥 Scan Product to RECEIVE'}
+                                    </h3>
+                                    <span style={{
+                                        padding: '5px 12px',
+                                        borderRadius: '6px',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        background: activeTab === 'scan-send' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                        border: activeTab === 'scan-send' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                                        color: activeTab === 'scan-send' ? '#fcd34d' : '#6ee7b7'
+                                    }}>
+                                        {activeTab === 'scan-send'
+                                            ? `SOURCE: ${activeWarehouseObj?.name || 'Active Warehouse'}`
+                                            : `DESTINATION: ${activeWarehouseObj?.name || 'Active Warehouse'}`}
+                                    </span>
+                                </div>
+                                <p style={{ marginBottom: '16px', color: '#94a3b8', fontSize: '13px' }}>
                                     {activeTab === 'scan-send'
-                                        ? 'Scan a product from YOUR warehouse to send to another warehouse.'
-                                        : 'Search or scan a product, select a bin, then click RECEIVE.'}
+                                        ? 'Scan a product located in the active warehouse to dispatch a transfer to another branch.'
+                                        : 'Search or scan an incoming or stock product, select a destination bin, then confirm reception.'}
                                 </p>
                                 <BarcodeScanner
-                                    warehouseId={adminWarehouseId}
+                                    warehouseId={effectiveWarehouseId}
                                     onScan={(barcode, product) => {
                                         setTransferAction(activeTab === 'scan-send' ? 'send' : 'receive');
                                         handleScan(barcode, product);
@@ -892,13 +1067,16 @@ const Inventory = () => {
 
                             {/* Scanned Product Details */}
                             <div style={{
-                                padding: '15px',
-                                background: '#f5f5f5',
-                                borderRadius: '10px'
+                                padding: '22px',
+                                background: 'linear-gradient(145deg, #0f172a 0%, #1e293b 100%)',
+                                borderRadius: '14px',
+                                border: '1px solid rgba(51, 65, 85, 0.6)'
                             }}>
-                                <h3 style={{ marginBottom: '12px', fontSize: '16px' }}>Scanned Product</h3>
+                                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#cbd5e1', fontWeight: 'bold' }}>
+                                    🔍 Scanned Product Identification
+                                </h3>
 
-                                {loading && <p>Loading...</p>}
+                                {loading && <p style={{ color: '#fbbf24' }}>Loading identification details...</p>}
 
                                 {scannedProduct ? (
                                     <div>
@@ -910,54 +1088,97 @@ const Inventory = () => {
                                             labelSize="small"
                                         />
 
-                                        <div style={{ marginTop: '15px', padding: '12px', background: 'white', borderRadius: '8px', fontSize: '14px' }}>
-                                            <p style={{ marginBottom: '6px' }}><strong>Name:</strong> {scannedProduct.name}</p>
-                                            <p style={{ marginBottom: '6px' }}><strong>Part #:</strong> {scannedProduct.part_number || 'N/A'}</p>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                <p><strong>Price:</strong> ${parseFloat(scannedProduct.price).toFixed(2)}</p>
-                                                <p><strong>Qty:</strong> <span style={{ color: scannedProduct.quantity > 0 ? '#4caf50' : '#f44336', fontWeight: 'bold', fontSize: '16px' }}>{scannedProduct.quantity}</span></p>
+                                        <div style={{
+                                            marginTop: '16px',
+                                            padding: '16px',
+                                            background: '#0b0f17',
+                                            borderRadius: '10px',
+                                            border: '1px solid rgba(71, 85, 105, 0.4)',
+                                            fontSize: '14px'
+                                        }}>
+                                            <p style={{ margin: '0 0 8px 0', color: '#f8fafc', fontSize: '16px', fontWeight: '600' }}>
+                                                {scannedProduct.name}
+                                            </p>
+                                            <p style={{ margin: '0 0 8px 0', color: '#94a3b8' }}>
+                                                <strong style={{ color: '#cbd5e1' }}>Part #:</strong>{' '}
+                                                <span style={{ color: '#fbbf24', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                                    {scannedProduct.part_number || 'N/A'}
+                                                </span>
+                                            </p>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '8px' }}>
+                                                <p style={{ margin: 0, color: '#94a3b8' }}>
+                                                    <strong style={{ color: '#cbd5e1' }}>Price:</strong> ${parseFloat(scannedProduct.price || 0).toFixed(2)}
+                                                </p>
+                                                <p style={{ margin: 0, color: '#94a3b8' }}>
+                                                    <strong style={{ color: '#cbd5e1' }}>Available Stock:</strong>{' '}
+                                                    <span style={{
+                                                        color: scannedProduct.quantity > 0 ? '#34d399' : '#f87171',
+                                                        fontWeight: 'bold',
+                                                        fontSize: '16px',
+                                                        padding: '2px 8px',
+                                                        background: scannedProduct.quantity > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                        borderRadius: '6px'
+                                                    }}>
+                                                        {scannedProduct.quantity}
+                                                    </span>
+                                                </p>
                                             </div>
-                                            <p style={{ marginTop: '6px' }}><strong>Location:</strong> {scannedProduct.warehouse_name || 'Not assigned'}</p>
-                                            <p><strong>Bin:</strong> {scannedProduct.bin_number || 'Not assigned'}</p>
+                                            <p style={{ margin: '0 0 6px 0', color: '#94a3b8' }}>
+                                                <strong style={{ color: '#cbd5e1' }}>Current Location:</strong> {scannedProduct.warehouse_name || 'Not assigned'}
+                                            </p>
+                                            <p style={{ margin: 0, color: '#94a3b8' }}>
+                                                <strong style={{ color: '#cbd5e1' }}>Current Bin:</strong> {scannedProduct.bin_number || 'Not assigned'}
+                                            </p>
                                         </div>
 
                                         {/* Mode-specific Actions Section */}
-                                        <div style={{ marginTop: '20px', padding: '15px', background: activeTab === 'scan-send' ? '#fff3e0' : '#e8f5e9', borderRadius: '8px', border: `1px solid ${activeTab === 'scan-send' ? '#ff9800' : '#4caf50'}` }}>
-                                            <h4 style={{ marginBottom: '15px', color: activeTab === 'scan-send' ? '#e65100' : '#2e7d32' }}>
-                                                {activeTab === 'scan-send' ? '📤 Send to Warehouse' : '📥 Receive at Your Warehouse'}
+                                        <div style={{
+                                            marginTop: '20px',
+                                            padding: '18px',
+                                            background: activeTab === 'scan-send' ? 'rgba(245, 158, 11, 0.05)' : 'rgba(16, 185, 129, 0.05)',
+                                            borderRadius: '10px',
+                                            border: activeTab === 'scan-send' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)'
+                                        }}>
+                                            <h4 style={{ margin: '0 0 14px 0', color: activeTab === 'scan-send' ? '#fbbf24' : '#34d399', fontSize: '15px', fontWeight: 'bold' }}>
+                                                {activeTab === 'scan-send' ? '📤 Dispatch Transfer to Branch' : '📥 Confirm Reception into Warehouse'}
                                             </h4>
 
                                             {/* Only show detect location for SEND mode */}
                                             {activeTab === 'scan-send' && (
-                                                <div style={{ marginBottom: '15px' }}>
+                                                <div style={{ marginBottom: '16px' }}>
                                                     <button
                                                         onClick={detectUserLocation}
                                                         style={{
-                                                            padding: '10px 15px',
-                                                            backgroundColor: '#9c27b0',
+                                                            padding: '10px 16px',
+                                                            backgroundColor: '#7c3aed',
                                                             color: 'white',
                                                             border: 'none',
-                                                            borderRadius: '6px',
+                                                            borderRadius: '8px',
                                                             cursor: 'pointer',
-                                                            fontWeight: 'bold',
+                                                            fontWeight: '600',
+                                                            fontSize: '13px',
                                                             width: '100%',
-                                                            marginBottom: '10px'
+                                                            marginBottom: '10px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '8px'
                                                         }}
                                                     >
-                                                        📍 Detect My Location & Find Nearest Warehouse
+                                                        <span>📍 Detect GPS Location & Find Nearest Warehouse</span>
                                                     </button>
 
                                                     {/* Show nearest warehouse info */}
                                                     {nearestWarehouse && (
                                                         <div style={{
-                                                            padding: '10px',
-                                                            background: '#e8f5e9',
-                                                            borderRadius: '4px',
+                                                            padding: '10px 14px',
+                                                            background: 'rgba(16, 185, 129, 0.15)',
+                                                            borderRadius: '6px',
                                                             marginBottom: '10px',
-                                                            border: '1px solid #4caf50'
+                                                            border: '1px solid rgba(16, 185, 129, 0.3)'
                                                         }}>
-                                                            <strong style={{ color: '#2e7d32' }}>✅ Nearest: {nearestWarehouse.name}</strong>
-                                                            <span style={{ marginLeft: '10px', color: '#666' }}>
+                                                            <strong style={{ color: '#34d399' }}>✅ Nearest Warehouse: {nearestWarehouse.name}</strong>
+                                                            <span style={{ marginLeft: '10px', color: '#94a3b8', fontSize: '13px' }}>
                                                                 ({nearestWarehouse.distance} km away)
                                                             </span>
                                                         </div>
@@ -965,11 +1186,12 @@ const Inventory = () => {
 
                                                     {locationError && (
                                                         <div style={{
-                                                            padding: '10px',
-                                                            background: '#ffebee',
-                                                            borderRadius: '4px',
-                                                            color: '#c62828',
-                                                            fontSize: '13px'
+                                                            padding: '10px 14px',
+                                                            background: 'rgba(239, 68, 68, 0.15)',
+                                                            borderRadius: '6px',
+                                                            color: '#f87171',
+                                                            fontSize: '13px',
+                                                            border: '1px solid rgba(239, 68, 68, 0.3)'
                                                         }}>
                                                             ⚠️ {locationError}
                                                         </div>
@@ -977,28 +1199,32 @@ const Inventory = () => {
                                                 </div>
                                             )}
 
-                                            {/* Warehouse Selection - Only show dropdown for SEND tab */}
+                                            {/* Warehouse Selection for SEND */}
                                             {activeTab === 'scan-send' ? (
-                                                <div style={{ marginBottom: '15px' }}>
-                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                                                        Destination Warehouse:
+                                                <div style={{ marginBottom: '18px' }}>
+                                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#cbd5e1', fontSize: '13px' }}>
+                                                        Destination Branch Warehouse:
                                                     </label>
                                                     <select
                                                         value={selectedWarehouse}
                                                         onChange={(e) => setSelectedWarehouse(e.target.value)}
                                                         style={{
                                                             width: '100%',
-                                                            padding: '10px',
-                                                            borderRadius: '4px',
-                                                            border: '1px solid #ddd',
-                                                            background: 'white'
+                                                            padding: '12px 14px',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid #475569',
+                                                            background: '#0b0f17',
+                                                            color: '#f8fafc',
+                                                            fontSize: '14px',
+                                                            outline: 'none'
                                                         }}
                                                     >
-                                                        <option value="">-- Select Warehouse --</option>
+                                                        <option value="">-- Select Destination Warehouse --</option>
                                                         {warehouses
-                                                            .filter(w => w.id !== scannedProduct?.warehouse_id)
+                                                            .filter(w => String(w.id) !== String(scannedProduct?.warehouse_id))
                                                             .map(w => (
                                                                 <option key={w.id} value={w.id}>
+                                                                    {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
                                                                     {w.name} {w.location ? `(${w.location})` : ''}
                                                                     {nearestWarehouse && nearestWarehouse.id === w.id ? ' ⭐ NEAREST' : ''}
                                                                 </option>
@@ -1006,70 +1232,73 @@ const Inventory = () => {
                                                         }
                                                     </select>
 
-                                                    {/* Remaining Stock Display (qty input removed - each scan = 1 item) */}
-                                                    <div style={{ marginTop: '15px', padding: '15px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '8px', border: '1px solid #B8860B' }}>
+                                                    {/* Remaining Stock Display */}
+                                                    <div style={{
+                                                        marginTop: '16px',
+                                                        padding: '14px 18px',
+                                                        background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid rgba(245, 158, 11, 0.3)'
+                                                    }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                                             <div>
-                                                                <span style={{ color: '#B8860B', fontWeight: 'bold', fontSize: '14px' }}>📦 Stock in Warehouse:</span>
+                                                                <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>📦 Stock at Origin:</span>
                                                             </div>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                                                <span style={{ color: '#4caf50', fontWeight: 'bold', fontSize: '24px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <span style={{ color: '#34d399', fontWeight: 'bold', fontSize: '22px' }}>
                                                                     {scannedProduct?.quantity || 0}
                                                                 </span>
-                                                                <span style={{ color: '#F5F0E1', fontSize: '12px' }}>remaining</span>
+                                                                <span style={{ color: '#94a3b8', fontSize: '12px' }}>units available</span>
                                                             </div>
                                                         </div>
-                                                        <div style={{ marginTop: '10px', fontSize: '12px', color: '#888' }}>
-                                                            💡 Each scan sends 1 item. Scan same product again to send more.
+                                                        <div style={{ marginTop: '8px', fontSize: '12px', color: '#94a3b8' }}>
+                                                            💡 1 unit will be deducted from source and dispatched in-transit to destination.
                                                         </div>
                                                     </div>
                                                 </div>
                                             ) : (
+                                                /* RECEIVE MODE: Warehouse info & Bin Selector */
                                                 <div style={{
-                                                    marginBottom: '15px',
-                                                    padding: '15px',
-                                                    backgroundColor: '#e8f5e9',
+                                                    marginBottom: '18px',
+                                                    padding: '14px 18px',
+                                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
                                                     borderRadius: '8px',
-                                                    border: '1px solid #4caf50'
+                                                    border: '1px solid rgba(16, 185, 129, 0.3)'
                                                 }}>
-                                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#2e7d32' }}>
-                                                        🏢 Receiving at Your Warehouse:
+                                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#34d399', fontSize: '13px' }}>
+                                                        🏢 Receiving Into Operating Warehouse:
                                                     </label>
-                                                    {adminWarehouseId ? (
-                                                        <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#1b5e20' }}>
-                                                            {warehouses.find(w => String(w.id) === String(adminWarehouseId))?.name || 'Your assigned warehouse'}
+                                                    {effectiveWarehouseId ? (
+                                                        <p style={{ margin: 0, fontSize: '17px', fontWeight: 'bold', color: '#f8fafc' }}>
+                                                            {warehouses.find(w => String(w.id) === String(effectiveWarehouseId))?.name || 'Active Warehouse'}
                                                         </p>
                                                     ) : (
-                                                        <p style={{ margin: 0, color: '#c62828' }}>
-                                                            ⚠️ No warehouse assigned to your account. Contact administrator.
+                                                        <p style={{ margin: 0, color: '#f87171' }}>
+                                                            ⚠️ No warehouse selected or assigned. Please choose an operating warehouse above.
                                                         </p>
                                                     )}
 
                                                     {/* Bin Selector for Receive Mode */}
-                                                    {adminWarehouseId && adminBins.length > 0 && (
-                                                        <div style={{ marginTop: '12px' }}>
-                                                            <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', color: '#2e7d32', fontSize: '14px' }}>
-                                                                📦 Assign to Bin:
+                                                    {effectiveWarehouseId && adminBins.length > 0 && (
+                                                        <div style={{ marginTop: '14px' }}>
+                                                            <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#cbd5e1', fontSize: '13px' }}>
+                                                                📦 Destination Bin Rack (Optional):
                                                             </label>
                                                             <select
                                                                 value={selectedBin}
                                                                 onChange={(e) => setSelectedBin(e.target.value)}
                                                                 style={{
                                                                     width: '100%',
-                                                                    padding: '14px 12px',
+                                                                    padding: '12px 14px',
                                                                     borderRadius: '8px',
-                                                                    border: '2px solid #4caf50',
-                                                                    backgroundColor: 'white',
-                                                                    fontSize: '16px',
-                                                                    appearance: 'none',
-                                                                    WebkitAppearance: 'none',
-                                                                    backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%234caf50\'%3e%3cpath d=\'M7 10l5 5 5-5z\'/%3e%3c/svg%3e")',
-                                                                    backgroundRepeat: 'no-repeat',
-                                                                    backgroundPosition: 'right 12px center',
-                                                                    backgroundSize: '24px'
+                                                                    border: '1px solid #10b981',
+                                                                    backgroundColor: '#0b0f17',
+                                                                    color: '#f8fafc',
+                                                                    fontSize: '14px',
+                                                                    outline: 'none'
                                                                 }}
                                                             >
-                                                                <option value="">-- Select Bin (Optional) --</option>
+                                                                <option value="">-- Assign to Bin (Optional) --</option>
                                                                 {adminBins.map(bin => (
                                                                     <option key={bin.id} value={bin.bin_number}>
                                                                         {bin.bin_number} {bin.description ? `(${bin.description})` : ''}
@@ -1078,60 +1307,56 @@ const Inventory = () => {
                                                             </select>
                                                         </div>
                                                     )}
-                                                    {adminWarehouseId && adminBins.length === 0 && (
-                                                        <p style={{ marginTop: '10px', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>
-                                                            No bins configured for this warehouse. Product will be received without bin assignment.
+                                                    {effectiveWarehouseId && adminBins.length === 0 && (
+                                                        <p style={{ marginTop: '10px', fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                                            No bins configured for this warehouse. Product will be received into warehouse stock.
                                                         </p>
                                                     )}
                                                 </div>
                                             )}
 
-                                            {/* Action Button */}
+                                            {/* Action Execution Button */}
                                             <button
                                                 onClick={async () => {
-                                                    console.log('📥 BUTTON CLICKED:', { activeTab, showUnexpectedConfirm, pendingMovement: !!pendingMovement, adminWarehouseId, scannedProduct: scannedProduct?.part_number });
                                                     if (activeTab === 'scan-send' && !selectedWarehouse) {
                                                         setMessage({ type: 'error', text: 'Please select a destination warehouse' });
                                                         return;
                                                     }
-                                                    if (activeTab === 'scan-receive' && !adminWarehouseId) {
-                                                        setMessage({ type: 'error', text: 'No warehouse assigned to your account. Contact administrator.' });
+                                                    if (activeTab === 'scan-receive' && !effectiveWarehouseId) {
+                                                        setMessage({ type: 'error', text: 'No operating warehouse selected. Please choose a warehouse.' });
                                                         return;
                                                     }
                                                     setLoading(true);
                                                     try {
                                                         if (activeTab === 'scan-send') {
-                                                            // Validate stock (at least 1 available)
                                                             if (scannedProduct.quantity < 1) {
                                                                 setMessage({ type: 'error', text: `Cannot send - no stock available (0 remaining).` });
                                                                 setLoading(false);
                                                                 return;
                                                             }
-                                                            // Send: each scan sends exactly 1 item
                                                             await movementsAPI.ship(
                                                                 [scannedProduct.id],
                                                                 scannedProduct.warehouse_id,
                                                                 selectedWarehouse,
                                                                 `Shipped 1 via barcode scan`,
-                                                                1  // Always send 1 per scan
+                                                                1
                                                             );
-                                                            const destWarehouse = warehouses.find(w => String(w.id) === selectedWarehouse);
+                                                            const destWarehouse = warehouses.find(w => String(w.id) === String(selectedWarehouse));
                                                             setMessage({
                                                                 type: 'success',
                                                                 text: `✅ 1 unit shipped to ${destWarehouse?.name || 'destination'}! (${scannedProduct.quantity - 1} remaining)`
                                                             });
                                                             fetchMovements();
-                                                            fetchBins(adminWarehouseId);
+                                                            fetchWarehouses();
+                                                            if (effectiveWarehouseId) fetchBins(effectiveWarehouseId);
                                                         } else {
-                                                            // RECEIVE MODE: Always handle receive when product is scanned
-                                                            const myWarehouse = warehouses.find(w => String(w.id) === String(adminWarehouseId));
+                                                            const myWarehouse = warehouses.find(w => String(w.id) === String(effectiveWarehouseId));
 
                                                             if (pendingMovement) {
-                                                                // EXPECTED: Complete the movement
                                                                 await movementsAPI.receive({
                                                                     movementId: pendingMovement.id,
                                                                     binNumber: selectedBin || null,
-                                                                    warehouseId: adminWarehouseId
+                                                                    warehouseId: effectiveWarehouseId
                                                                 });
                                                                 setMessage({
                                                                     type: 'success',
@@ -1139,27 +1364,25 @@ const Inventory = () => {
                                                                 });
                                                                 setPendingMovement(null);
                                                             } else {
-                                                                // RECEIVE: Add to inventory (product found or scanned)
-                                                                console.log('📥 RECEIVING:', scannedProduct.part_number, 'qty:', receiveQuantity, 'bin:', selectedBin, 'warehouse:', adminWarehouseId);
                                                                 await movementsAPI.addUnexpected({
                                                                     partNumber: scannedProduct.part_number,
-                                                                    warehouseId: adminWarehouseId,
+                                                                    warehouseId: effectiveWarehouseId,
                                                                     binNumber: selectedBin || scannedProduct.bin_number || null,
                                                                     quantity: receiveQuantity
                                                                 });
                                                                 const newQty = (parseInt(scannedProduct.quantity) || 0) + receiveQuantity;
                                                                 setMessage({
                                                                     type: 'success',
-                                                                    text: `✅ Received ${receiveQuantity} unit(s) of ${scannedProduct.name} into ${myWarehouse?.name || 'your warehouse'}${selectedBin ? ` → Bin: ${selectedBin}` : ''}! New total: ${newQty}`
+                                                                    text: `✅ Received ${receiveQuantity} unit(s) of ${scannedProduct.name} into ${myWarehouse?.name || 'warehouse'}${selectedBin ? ` → Bin: ${selectedBin}` : ''}! New total: ${newQty}`
                                                                 });
                                                             }
                                                             setSelectedBin('');
                                                             setReceiveQuantity(1);
                                                             setShowUnexpectedConfirm(false);
-                                                            fetchMovements(); // Refresh movements list
-                                                            fetchBins(adminWarehouseId); // Refresh warehouse inventory tables
+                                                            fetchMovements();
+                                                            fetchWarehouses();
+                                                            if (effectiveWarehouseId) fetchBins(effectiveWarehouseId);
                                                         }
-                                                        // Refresh product data
                                                         setScannedProduct(null);
                                                     } catch (err) {
                                                         console.error("Action error:", err);
@@ -1167,51 +1390,53 @@ const Inventory = () => {
                                                     }
                                                     setLoading(false);
                                                 }}
-                                                disabled={loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !adminWarehouseId)}
+                                                disabled={loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId)}
                                                 style={{
                                                     width: '100%',
-                                                    padding: '18px',
-                                                    backgroundColor: activeTab === 'scan-send' ? '#ff9800' : '#4caf50',
+                                                    padding: '16px',
+                                                    background: activeTab === 'scan-send'
+                                                        ? 'linear-gradient(135deg, #d97706, #b45309)'
+                                                        : 'linear-gradient(135deg, #059669, #047857)',
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '10px',
-                                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                                    opacity: loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !adminWarehouseId) ? 0.6 : 1,
+                                                    cursor: loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 'not-allowed' : 'pointer',
+                                                    opacity: loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 0.6 : 1,
                                                     fontWeight: 'bold',
-                                                    fontSize: '18px',
+                                                    fontSize: '17px',
                                                     letterSpacing: '0.5px',
-                                                    boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-                                                    transition: 'transform 0.1s, box-shadow 0.1s',
+                                                    boxShadow: activeTab === 'scan-send'
+                                                        ? '0 4px 15px rgba(217, 119, 6, 0.4)'
+                                                        : '0 4px 15px rgba(5, 150, 105, 0.4)',
+                                                    transition: 'all 0.15s',
                                                     WebkitTapHighlightColor: 'transparent'
                                                 }}
-                                                onTouchStart={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
-                                                onTouchEnd={(e) => e.currentTarget.style.transform = 'scale(1)'}
                                             >
-                                                {loading ? '⏳ Processing...' : (
-                                                    activeTab === 'scan-send' ? '📤 SEND TO WAREHOUSE' : '📥 RECEIVE INTO WAREHOUSE'
+                                                {loading ? '⏳ Processing Transaction...' : (
+                                                    activeTab === 'scan-send' ? '📤 DISPATCH 1 UNIT TO DESTINATION' : '📥 RECEIVE 1 UNIT INTO WAREHOUSE'
                                                 )}
                                             </button>
                                         </div>
                                     </div>
                                 ) : notFoundBarcode ? (
-                                    /* Product Not Found - Show Add Options */
+                                    /* Product Not Found - Dark Styled Options */
                                     <div style={{
                                         padding: '20px',
-                                        background: '#fff3e0',
-                                        border: '1px solid #ffb74d',
-                                        borderRadius: '8px'
+                                        background: 'rgba(245, 158, 11, 0.1)',
+                                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                                        borderRadius: '10px'
                                     }}>
-                                        <h4 style={{ color: '#e65100', marginBottom: '15px' }}>
-                                            ⚠️ Product Not Found
+                                        <h4 style={{ color: '#fbbf24', margin: '0 0 12px 0', fontSize: '16px' }}>
+                                            ⚠️ Product Not Found in Catalog
                                         </h4>
-                                        <p style={{ marginBottom: '10px', color: '#333' }}>
+                                        <p style={{ margin: '0 0 12px 0', color: '#cbd5e1' }}>
                                             <strong>Scanned Barcode:</strong>
-                                            <span style={{ fontFamily: 'monospace', marginLeft: '10px', padding: '4px 8px', background: '#fff', borderRadius: '4px' }}>
+                                            <span style={{ fontFamily: 'monospace', marginLeft: '10px', padding: '4px 10px', background: '#0b0f17', border: '1px solid #475569', borderRadius: '4px', color: '#f8fafc' }}>
                                                 {notFoundBarcode}
                                             </span>
                                         </p>
-                                        <p style={{ color: '#666', marginBottom: '20px' }}>
-                                            This product is not in the inventory. Choose an action:
+                                        <p style={{ color: '#94a3b8', margin: '0 0 16px 0', fontSize: '13px' }}>
+                                            This barcode is not registered in the catalog yet. Choose an action:
                                         </p>
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1220,12 +1445,14 @@ const Inventory = () => {
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
+                                                    justifyContent: 'center',
                                                     padding: '12px 20px',
-                                                    backgroundColor: '#4caf50',
+                                                    backgroundColor: '#10b981',
                                                     color: 'white',
                                                     textDecoration: 'none',
                                                     borderRadius: '8px',
-                                                    fontWeight: 'bold'
+                                                    fontWeight: 'bold',
+                                                    fontSize: '14px'
                                                 }}
                                             >
                                                 ➕ Create New Product (with barcode pre-filled)
@@ -1238,24 +1465,23 @@ const Inventory = () => {
                                                 }}
                                                 style={{
                                                     padding: '12px 20px',
-                                                    backgroundColor: '#e0e0e0',
-                                                    color: '#333',
+                                                    backgroundColor: '#334155',
+                                                    color: '#f8fafc',
                                                     border: 'none',
                                                     borderRadius: '8px',
-                                                    cursor: 'pointer'
+                                                    cursor: 'pointer',
+                                                    fontWeight: '500',
+                                                    fontSize: '14px'
                                                 }}
                                             >
                                                 ✖️ Cancel / Scan Another
                                             </button>
                                         </div>
-
-                                        <div style={{ marginTop: '20px', padding: '15px', background: 'white', borderRadius: '6px', fontSize: '14px', color: '#666' }}>
-                                            <strong style={{ color: '#1976d2' }}>💡 Tip:</strong> If this is an existing product that should be in inventory,
-                                            check if the part number or barcode is entered correctly in the product details.
-                                        </div>
                                     </div>
                                 ) : (
-                                    <p style={{ color: '#666' }}>Scan a barcode to see product details</p>
+                                    <p style={{ color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>
+                                        Scan a barcode above or search by part number to display identification details.
+                                    </p>
                                 )}
                             </div>
                         </div>
@@ -1493,87 +1719,244 @@ const Inventory = () => {
                     </div>
                 )}
 
-                {/* WAREHOUSE INVENTORY TAB - Shows products in current warehouse binwise */}
+                {/* WAREHOUSE INVENTORY TAB - Multi-Warehouse Matrix & Bin/Product Catalog */}
                 {activeTab === 'warehouse-inventory' && (
                     <div className="warehouse-inventory-tab">
-                        <div style={{ marginBottom: '20px', padding: '20px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '12px', border: '1px solid #B8860B' }}>
-                            <strong style={{ color: '#B8860B', fontFamily: "'Oswald', sans-serif", fontSize: '18px' }}>📦 Your Warehouse:</strong>
-                            <span style={{ marginLeft: '10px', color: '#F5F0E1', fontSize: '18px' }}>{warehouses.find(w => String(w.id) === String(adminWarehouseId))?.name || 'Not assigned'}</span>
+                        {/* All Warehouses Inventory Matrix */}
+                        <div style={{ marginBottom: '28px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>🏭 All Warehouses Inventory Matrix</span>
+                                    </h3>
+                                    <p style={{ margin: '4px 0 0 0', color: '#94a3b8', fontSize: '13px' }}>
+                                        Full stock overview across all branches. Click any warehouse card to inspect its complete parts and bins.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        fetchWarehouses();
+                                        if (effectiveWarehouseId) {
+                                            fetchBinInventory(effectiveWarehouseId, binInventorySearch);
+                                            fetchProductInventory(effectiveWarehouseId, binInventorySearch);
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '7px 14px',
+                                        background: 'rgba(51, 65, 85, 0.6)',
+                                        border: '1px solid #475569',
+                                        borderRadius: '6px',
+                                        color: '#cbd5e1',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    🔄 Refresh Matrix
+                                </button>
+                            </div>
+
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                gap: '16px'
+                            }}>
+                                {warehouses.map(w => {
+                                    const isCurrent = String(w.id) === String(effectiveWarehouseId);
+                                    return (
+                                        <div
+                                            key={w.id}
+                                            onClick={() => {
+                                                setSelectedWarehouse(String(w.id));
+                                                fetchBins(w.id);
+                                                fetchBinInventory(w.id, binInventorySearch);
+                                                fetchProductInventory(w.id, binInventorySearch);
+                                            }}
+                                            style={{
+                                                padding: '18px',
+                                                borderRadius: '12px',
+                                                background: isCurrent
+                                                    ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))'
+                                                    : 'linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.5))',
+                                                border: isCurrent
+                                                    ? '2px solid #f59e0b'
+                                                    : '1px solid rgba(51, 65, 85, 0.6)',
+                                                boxShadow: isCurrent ? '0 4px 20px rgba(245, 158, 11, 0.2)' : 'none',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                gap: '12px'
+                                            }}
+                                        >
+                                            <div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '16px', color: isCurrent ? '#fbbf24' : '#f8fafc' }}>
+                                                        {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
+                                                        {w.name}
+                                                    </div>
+                                                    <span style={{
+                                                        fontSize: '11px',
+                                                        fontFamily: 'monospace',
+                                                        padding: '2px 8px',
+                                                        background: isCurrent ? 'rgba(245, 158, 11, 0.2)' : 'rgba(51, 65, 85, 0.5)',
+                                                        color: isCurrent ? '#fbbf24' : '#94a3b8',
+                                                        borderRadius: '4px',
+                                                        border: isCurrent ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid #475569'
+                                                    }}>
+                                                        {w.code || `WH-${w.id}`}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '12px' }}>
+                                                    📍 {w.city ? `${w.city}, ${w.state || w.country || ''}` : (w.address || 'Address unlisted')}
+                                                </div>
+                                            </div>
+
+                                            {/* Metrics row */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px' }}>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Units</div>
+                                                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#34d399' }}>{w.total_units || 0}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Parts</div>
+                                                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fbbf24' }}>{w.product_count || 0}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Bins</div>
+                                                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#60a5fa' }}>{w.bin_count || 0}</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Footer / Selector indicator */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#94a3b8' }}>
+                                                <span>👤 {w.admin_first_name ? `${w.admin_first_name} ${w.admin_last_name || ''}` : (w.admin_email || 'Unassigned')}</span>
+                                                <span style={{
+                                                    color: isCurrent ? '#fbbf24' : '#64748b',
+                                                    fontWeight: isCurrent ? 'bold' : 'normal'
+                                                }}>
+                                                    {isCurrent ? '● Active' : 'Inspect →'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
 
-                        {/* Warehouse selector only for Superadmin */}
-                        {user?.role === 'superadmin' && (
-                            <div style={{ marginBottom: '20px' }}>
-                                <label style={{ marginRight: '10px', color: '#F5F0E1' }}>View Other Warehouse:</label>
+                        {/* Selected Warehouse Deep Dive Section */}
+                        <div style={{
+                            marginBottom: '20px',
+                            padding: '16px 20px',
+                            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95))',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '12px'
+                        }}>
+                            <div>
+                                <strong style={{ color: '#fbbf24', fontSize: '16px' }}>
+                                    📦 Inspected Warehouse:
+                                </strong>
+                                <span style={{ marginLeft: '10px', color: '#f8fafc', fontSize: '16px', fontWeight: 'bold' }}>
+                                    {activeWarehouseObj?.name || 'Not selected'} {activeWarehouseObj?.code ? `(${activeWarehouseObj.code})` : ''}
+                                </span>
+                            </div>
+
+                            {/* Warehouse selector for quickly changing warehouse */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <label style={{ color: '#94a3b8', fontSize: '13px' }}>Switch Warehouse:</label>
                                 <select
-                                    value={selectedWarehouse || adminWarehouseId || ''}
-                                    onChange={(e) => setSelectedWarehouse(e.target.value)}
-                                    style={{ padding: '8px', borderRadius: '4px', border: '1px solid #B8860B', backgroundColor: '#1a1a1a', color: '#F5F0E1' }}
+                                    value={effectiveWarehouseId || ''}
+                                    onChange={(e) => {
+                                        setSelectedWarehouse(e.target.value);
+                                        fetchBins(e.target.value);
+                                        fetchBinInventory(e.target.value, binInventorySearch);
+                                        fetchProductInventory(e.target.value, binInventorySearch);
+                                    }}
+                                    style={{
+                                        padding: '8px 14px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #f59e0b',
+                                        backgroundColor: '#0f172a',
+                                        color: '#f8fafc',
+                                        fontSize: '13px',
+                                        outline: 'none'
+                                    }}
                                 >
                                     {warehouses.map(w => (
-                                        <option key={w.id} value={w.id}>{w.name}</option>
+                                        <option key={w.id} value={w.id}>
+                                            {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
+                                            {w.name} ({w.code || w.id})
+                                        </option>
                                     ))}
                                 </select>
                             </div>
-                        )}
+                        </div>
 
                         {/* Bin/Product View Toggle */}
                         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                            <span style={{ color: '#B8860B', fontWeight: 'bold' }}>View:</span>
+                            <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>View Catalog:</span>
                             <button
                                 onClick={() => {
                                     setInventoryViewMode('bin');
-                                    if (adminWarehouseId) fetchBinInventory(adminWarehouseId, binInventorySearch);
+                                    if (effectiveWarehouseId) fetchBinInventory(effectiveWarehouseId, binInventorySearch);
                                 }}
                                 style={{
-                                    padding: '10px 20px',
+                                    padding: '9px 18px',
                                     borderRadius: '6px',
-                                    border: inventoryViewMode === 'bin' ? '2px solid #B8860B' : '1px solid #555',
-                                    background: inventoryViewMode === 'bin' ? 'linear-gradient(135deg, #B8860B, #8B6914)' : '#1a1a1a',
-                                    color: inventoryViewMode === 'bin' ? '#1a1a1a' : '#888',
+                                    border: inventoryViewMode === 'bin' ? '2px solid #f59e0b' : '1px solid #475569',
+                                    background: inventoryViewMode === 'bin' ? 'linear-gradient(135deg, #d97706, #b45309)' : '#1e293b',
+                                    color: inventoryViewMode === 'bin' ? '#ffffff' : '#94a3b8',
                                     cursor: 'pointer',
                                     fontWeight: 'bold',
-                                    fontFamily: "'Oswald', sans-serif"
+                                    fontSize: '13px'
                                 }}
                             >
-                                📦 By Bin
+                                📦 By Bin Rack
                             </button>
                             <button
                                 onClick={() => {
                                     setInventoryViewMode('product');
-                                    if (adminWarehouseId) fetchProductInventory(adminWarehouseId, binInventorySearch);
+                                    if (effectiveWarehouseId) fetchProductInventory(effectiveWarehouseId, binInventorySearch);
                                 }}
                                 style={{
-                                    padding: '10px 20px',
+                                    padding: '9px 18px',
                                     borderRadius: '6px',
-                                    border: inventoryViewMode === 'product' ? '2px solid #B8860B' : '1px solid #555',
-                                    background: inventoryViewMode === 'product' ? 'linear-gradient(135deg, #B8860B, #8B6914)' : '#1a1a1a',
-                                    color: inventoryViewMode === 'product' ? '#1a1a1a' : '#888',
+                                    border: inventoryViewMode === 'product' ? '2px solid #f59e0b' : '1px solid #475569',
+                                    background: inventoryViewMode === 'product' ? 'linear-gradient(135deg, #d97706, #b45309)' : '#1e293b',
+                                    color: inventoryViewMode === 'product' ? '#ffffff' : '#94a3b8',
                                     cursor: 'pointer',
                                     fontWeight: 'bold',
-                                    fontFamily: "'Oswald', sans-serif"
+                                    fontSize: '13px'
                                 }}
                             >
-                                🔧 By Product
+                                🔧 By Product & Part#
                             </button>
                         </div>
 
                         {/* Note about bin creation */}
-                        <div style={{ marginBottom: '15px', padding: '12px', background: 'rgba(184, 134, 11, 0.1)', borderRadius: '8px', border: '1px dashed #B8860B' }}>
-                            <span style={{ color: '#888', fontSize: '12px' }}>💡 To create or manage bins, go to the </span>
+                        <div style={{ marginBottom: '20px', padding: '12px 16px', background: 'rgba(245, 158, 11, 0.08)', borderRadius: '8px', border: '1px dashed rgba(245, 158, 11, 0.4)' }}>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>💡 To configure or rename bins for this warehouse, switch to the </span>
                             <button
                                 onClick={() => setActiveTab('bin-management')}
-                                style={{ background: 'none', border: 'none', color: '#B8860B', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px' }}
+                                style={{ background: 'none', border: 'none', color: '#fbbf24', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px', fontWeight: 'bold' }}
                             >
                                 Bin Management
                             </button>
-                            <span style={{ color: '#888', fontSize: '12px' }}> tab</span>
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}> tab</span>
                         </div>
 
                         {/* BIN VIEW MODE */}
                         {inventoryViewMode === 'bin' && (
                             <>
-                                {/* Bins Grid - Clickable to view products */}
+                                {/* Bins Grid */}
                                 <div style={{
                                     display: 'grid',
                                     gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
@@ -1584,81 +1967,88 @@ const Inventory = () => {
                                             key={bin.id}
                                             onClick={() => handleBinClick(bin)}
                                             style={{
-                                                padding: '20px',
-                                                background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
-                                                border: '2px solid #B8860B',
-                                                borderRadius: '12px',
+                                                padding: '18px 14px',
+                                                background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                borderRadius: '10px',
                                                 textAlign: 'center',
                                                 cursor: 'pointer',
-                                                transition: 'transform 0.2s, box-shadow 0.2s'
+                                                transition: 'transform 0.15s, box-shadow 0.15s'
                                             }}
-                                            onMouseOver={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(184, 134, 11, 0.4)'; }}
-                                            onMouseOut={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(245, 158, 11, 0.2)'; }}
+                                            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
                                         >
-                                            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#B8860B', fontFamily: "'Oswald', sans-serif" }}>
+                                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#fbbf24' }}>
                                                 {bin.bin_number}
                                             </div>
-                                            <div style={{ fontSize: '14px', color: '#4caf50', marginTop: '8px', fontWeight: 'bold' }}>
+                                            <div style={{ fontSize: '13px', color: '#34d399', marginTop: '6px', fontWeight: 'bold' }}>
                                                 {bin.product_count || 0} items
                                             </div>
                                             {bin.description && (
-                                                <div style={{ fontSize: '11px', color: '#888', marginTop: '5px' }}>
+                                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
                                                     {bin.description}
                                                 </div>
                                             )}
-                                            <div style={{ fontSize: '10px', color: '#555', marginTop: '8px' }}>
-                                                Click to view products
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px' }}>
+                                                Click to view contents
                                             </div>
                                         </div>
                                     ))}
+                                    {bins.length === 0 && (
+                                        <div style={{ gridColumn: '1 / -1', padding: '30px', textAlign: 'center', color: '#94a3b8', background: '#0f172a', borderRadius: '10px', border: '1px solid #334155' }}>
+                                            No bins configured for this warehouse. Use Bin Management to create bin racks.
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Bin Inventory Table - Gold/Mustard Theme */}
-                                <div style={{ marginTop: '30px', padding: '25px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '12px', border: '1px solid #B8860B' }}>
-                                    <h4 style={{ marginBottom: '20px', color: '#B8860B', fontFamily: "'Oswald', sans-serif", fontSize: '18px' }}>📋 Products by Bin</h4>
+                                {/* Bin Inventory Table */}
+                                <div style={{ marginTop: '28px', padding: '22px', background: 'linear-gradient(145deg, #0f172a, #1e293b)', borderRadius: '12px', border: '1px solid rgba(51, 65, 85, 0.6)' }}>
+                                    <h4 style={{ margin: '0 0 16px 0', color: '#fbbf24', fontSize: '17px', fontWeight: 'bold' }}>
+                                        📋 Products by Bin Rack
+                                    </h4>
 
                                     {/* Live Search */}
-                                    <div style={{ marginBottom: '15px' }}>
+                                    <div style={{ marginBottom: '16px' }}>
                                         <input
                                             type="text"
-                                            placeholder="🔍 Search by part number, name, or bin (live search)..."
+                                            placeholder="🔍 Search by part number, name, or bin (instant live search)..."
                                             value={binInventorySearch}
                                             onChange={(e) => {
                                                 setBinInventorySearch(e.target.value);
-                                                // Live search - trigger on every change
-                                                if (adminWarehouseId) {
-                                                    fetchBinInventory(adminWarehouseId, e.target.value);
+                                                if (effectiveWarehouseId) {
+                                                    fetchBinInventory(effectiveWarehouseId, e.target.value);
                                                 }
                                             }}
                                             style={{
                                                 width: '100%',
-                                                padding: '12px 15px',
-                                                borderRadius: '6px',
-                                                border: '1px solid #B8860B',
-                                                background: '#1a1a1a',
-                                                color: '#F5F0E1',
-                                                fontSize: '14px'
+                                                padding: '12px 16px',
+                                                borderRadius: '8px',
+                                                border: '1px solid #475569',
+                                                background: '#0b0f17',
+                                                color: '#f8fafc',
+                                                fontSize: '14px',
+                                                outline: 'none'
                                             }}
                                         />
                                     </div>
 
                                     {/* Loading state while auto-fetching */}
-                                    {binInventory.length === 0 && !binInventoryLoading && adminWarehouseId && (
-                                        <div style={{ textAlign: 'center', padding: '30px', color: '#B8860B' }}>
-                                            Loading inventory...
+                                    {binInventoryLoading && (
+                                        <div style={{ textAlign: 'center', padding: '30px', color: '#fbbf24' }}>
+                                            Loading inventory data...
                                         </div>
                                     )}
 
                                     {/* Gross Total Summary */}
-                                    {binInventory.length > 0 && (
-                                        <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(184, 134, 11, 0.15)', borderRadius: '8px', border: '1px solid #B8860B', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                                            <div style={{ color: '#F5F0E1' }}>
-                                                <span style={{ fontSize: '14px' }}>Total Bins:</span>
-                                                <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#B8860B', fontSize: '18px' }}>{binInventory.length}</span>
+                                    {!binInventoryLoading && binInventory.length > 0 && (
+                                        <div style={{ marginBottom: '16px', padding: '14px 18px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                                            <div style={{ color: '#cbd5e1', fontSize: '14px' }}>
+                                                <span>Active Bins:</span>
+                                                <span style={{ marginLeft: '8px', fontWeight: 'bold', color: '#fbbf24', fontSize: '16px' }}>{binInventory.length}</span>
                                             </div>
-                                            <div style={{ color: '#F5F0E1' }}>
-                                                <span style={{ fontSize: '14px' }}>Gross Total Items:</span>
-                                                <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#4caf50', fontSize: '20px' }}>
+                                            <div style={{ color: '#cbd5e1', fontSize: '14px' }}>
+                                                <span>Total In-Stock Units:</span>
+                                                <span style={{ marginLeft: '8px', fontWeight: 'bold', color: '#34d399', fontSize: '18px' }}>
                                                     {binInventory.reduce((sum, item) => sum + (parseInt(item.total_quantity) || 0), 0)}
                                                 </span>
                                             </div>
@@ -1666,71 +2056,76 @@ const Inventory = () => {
                                     )}
 
                                     {/* Table */}
-                                    {binInventoryLoading ? (
-                                        <p style={{ textAlign: 'center', padding: '30px', color: '#B8860B' }}>Loading inventory...</p>
-                                    ) : binInventory.length > 0 ? (
+                                    {!binInventoryLoading && binInventory.length > 0 ? (
                                         <div style={{ overflowX: 'auto' }}>
                                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                                                 <thead>
-                                                    <tr style={{ background: 'rgba(184, 134, 11, 0.3)' }}>
-                                                        <th style={{ padding: '14px', textAlign: 'left', color: '#B8860B', fontFamily: "'Oswald', sans-serif", borderBottom: '2px solid #B8860B' }}>Bin</th>
-                                                        <th style={{ padding: '14px', textAlign: 'left', color: '#B8860B', fontFamily: "'Oswald', sans-serif", borderBottom: '2px solid #B8860B' }}>Part Numbers</th>
-                                                        <th style={{ padding: '14px', textAlign: 'right', color: '#B8860B', fontFamily: "'Oswald', sans-serif", borderBottom: '2px solid #B8860B' }}>Total Items</th>
+                                                    <tr style={{ background: 'rgba(30, 41, 59, 0.8)' }}>
+                                                        <th style={{ padding: '12px 14px', textAlign: 'left', color: '#fbbf24', borderBottom: '1px solid #475569' }}>Bin</th>
+                                                        <th style={{ padding: '12px 14px', textAlign: 'left', color: '#fbbf24', borderBottom: '1px solid #475569' }}>Part Numbers</th>
+                                                        <th style={{ padding: '12px 14px', textAlign: 'right', color: '#fbbf24', borderBottom: '1px solid #475569' }}>Total Items</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {binInventory.map((item, idx) => (
-                                                        <tr key={idx} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
-                                                            <td style={{ padding: '14px', fontWeight: 'bold', color: '#B8860B' }}>{item.bin_number || 'No Bin'}</td>
-                                                            <td style={{ padding: '14px', maxWidth: '400px', wordBreak: 'break-word', color: '#F5F0E1' }}>{item.part_numbers}</td>
-                                                            <td style={{ padding: '14px', textAlign: 'right', fontWeight: 'bold', color: '#4caf50', fontSize: '16px' }}>{item.total_quantity}</td>
+                                                        <tr key={idx} style={{ borderBottom: '1px solid rgba(51, 65, 85, 0.4)', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
+                                                            <td style={{ padding: '12px 14px', fontWeight: 'bold', color: '#fbbf24' }}>{item.bin_number || 'No Bin'}</td>
+                                                            <td style={{ padding: '12px 14px', maxWidth: '400px', wordBreak: 'break-word', color: '#f8fafc' }}>{item.part_numbers}</td>
+                                                            <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 'bold', color: '#34d399', fontSize: '15px' }}>{item.total_quantity}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
                                             </table>
                                         </div>
-                                    ) : null}
+                                    ) : !binInventoryLoading && (
+                                        <p style={{ textAlign: 'center', padding: '30px', color: '#94a3b8', margin: 0 }}>
+                                            No bin records found for this warehouse matching search criteria.
+                                        </p>
+                                    )}
                                 </div>
                             </>
                         )}
 
                         {/* PRODUCT VIEW MODE */}
                         {inventoryViewMode === 'product' && (
-                            <div style={{ padding: '25px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '12px', border: '1px solid #B8860B' }}>
-                                <h4 style={{ marginBottom: '20px', color: '#B8860B', fontFamily: "'Oswald', sans-serif", fontSize: '18px' }}>🔧 Products in Warehouse</h4>
+                            <div style={{ padding: '22px', background: 'linear-gradient(145deg, #0f172a, #1e293b)', borderRadius: '12px', border: '1px solid rgba(51, 65, 85, 0.6)' }}>
+                                <h4 style={{ margin: '0 0 16px 0', color: '#fbbf24', fontSize: '17px', fontWeight: 'bold' }}>
+                                    🔧 Products in Warehouse
+                                </h4>
 
                                 {/* Live Search for Products */}
-                                <div style={{ marginBottom: '15px' }}>
+                                <div style={{ marginBottom: '16px' }}>
                                     <input
                                         type="text"
-                                        placeholder="🔍 Search products..."
+                                        placeholder="🔍 Search products by part#, name..."
                                         value={binInventorySearch}
                                         onChange={(e) => {
                                             setBinInventorySearch(e.target.value);
-                                            if (adminWarehouseId) fetchProductInventory(adminWarehouseId, e.target.value);
+                                            if (effectiveWarehouseId) fetchProductInventory(effectiveWarehouseId, e.target.value);
                                         }}
                                         style={{
                                             width: '100%',
-                                            padding: '12px 15px',
-                                            borderRadius: '6px',
-                                            border: '1px solid #B8860B',
-                                            background: '#1a1a1a',
-                                            color: '#F5F0E1',
-                                            fontSize: '14px'
+                                            padding: '12px 16px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #475569',
+                                            background: '#0b0f17',
+                                            color: '#f8fafc',
+                                            fontSize: '14px',
+                                            outline: 'none'
                                         }}
                                     />
                                 </div>
 
                                 {/* Product Summary */}
-                                {productInventory.length > 0 && (
-                                    <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(184, 134, 11, 0.15)', borderRadius: '8px', border: '1px solid #B8860B', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                                        <div style={{ color: '#F5F0E1' }}>
-                                            <span style={{ fontSize: '14px' }}>Total Products:</span>
-                                            <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#B8860B', fontSize: '18px' }}>{productInventory.length}</span>
+                                {!productInventoryLoading && productInventory.length > 0 && (
+                                    <div style={{ marginBottom: '16px', padding: '14px 18px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                                        <div style={{ color: '#cbd5e1', fontSize: '14px' }}>
+                                            <span>Unique Products:</span>
+                                            <span style={{ marginLeft: '8px', fontWeight: 'bold', color: '#fbbf24', fontSize: '16px' }}>{productInventory.length}</span>
                                         </div>
-                                        <div style={{ color: '#F5F0E1' }}>
-                                            <span style={{ fontSize: '14px' }}>Total Stock:</span>
-                                            <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#4caf50', fontSize: '20px' }}>
+                                        <div style={{ color: '#cbd5e1', fontSize: '14px' }}>
+                                            <span>Total In-Stock Units:</span>
+                                            <span style={{ marginLeft: '8px', fontWeight: 'bold', color: '#34d399', fontSize: '18px' }}>
                                                 {productInventory.reduce((sum, p) => sum + (parseInt(p.quantity) || 0), 0)}
                                             </span>
                                         </div>
@@ -1739,34 +2134,34 @@ const Inventory = () => {
 
                                 {/* Products Table */}
                                 {productInventoryLoading ? (
-                                    <p style={{ textAlign: 'center', padding: '30px', color: '#B8860B' }}>Loading products...</p>
+                                    <p style={{ textAlign: 'center', padding: '30px', color: '#fbbf24' }}>Loading products...</p>
                                 ) : productInventory.length > 0 ? (
                                     <div style={{ overflowX: 'auto' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                                             <thead>
-                                                <tr style={{ background: 'rgba(184, 134, 11, 0.3)' }}>
-                                                    <th style={{ padding: '14px', textAlign: 'left', color: '#B8860B', borderBottom: '2px solid #B8860B' }}>Part Number</th>
-                                                    <th style={{ padding: '14px', textAlign: 'left', color: '#B8860B', borderBottom: '2px solid #B8860B' }}>Name</th>
-                                                    <th style={{ padding: '14px', textAlign: 'left', color: '#B8860B', borderBottom: '2px solid #B8860B' }}>Bin</th>
-                                                    <th style={{ padding: '14px', textAlign: 'right', color: '#B8860B', borderBottom: '2px solid #B8860B' }}>Qty</th>
-                                                    <th style={{ padding: '14px', textAlign: 'right', color: '#B8860B', borderBottom: '2px solid #B8860B' }}>Price</th>
+                                                <tr style={{ background: 'rgba(30, 41, 59, 0.8)' }}>
+                                                    <th style={{ padding: '12px 14px', textAlign: 'left', color: '#fbbf24', borderBottom: '1px solid #475569' }}>Part Number</th>
+                                                    <th style={{ padding: '12px 14px', textAlign: 'left', color: '#fbbf24', borderBottom: '1px solid #475569' }}>Product Name</th>
+                                                    <th style={{ padding: '12px 14px', textAlign: 'left', color: '#fbbf24', borderBottom: '1px solid #475569' }}>Bin</th>
+                                                    <th style={{ padding: '12px 14px', textAlign: 'right', color: '#fbbf24', borderBottom: '1px solid #475569' }}>Stock Qty</th>
+                                                    <th style={{ padding: '12px 14px', textAlign: 'right', color: '#fbbf24', borderBottom: '1px solid #475569' }}>Price</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {productInventory.map((p, idx) => (
-                                                    <tr key={p.id} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
-                                                        <td style={{ padding: '14px', fontWeight: 'bold', color: '#B8860B' }}>{p.part_number || '-'}</td>
-                                                        <td style={{ padding: '14px', color: '#F5F0E1' }}>{p.name}</td>
-                                                        <td style={{ padding: '14px', color: '#888' }}>{p.bin_number || 'No Bin'}</td>
-                                                        <td style={{ padding: '14px', textAlign: 'right', fontWeight: 'bold', color: '#4caf50', fontSize: '16px' }}>{p.quantity}</td>
-                                                        <td style={{ padding: '14px', textAlign: 'right', color: '#F5F0E1' }}>${parseFloat(p.price || 0).toFixed(2)}</td>
+                                                    <tr key={p.id} style={{ borderBottom: '1px solid rgba(51, 65, 85, 0.4)', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
+                                                        <td style={{ padding: '12px 14px', fontWeight: 'bold', color: '#fbbf24', fontFamily: 'monospace' }}>{p.part_number || '-'}</td>
+                                                        <td style={{ padding: '12px 14px', color: '#f8fafc' }}>{p.name}</td>
+                                                        <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{p.bin_number || 'No Bin'}</td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 'bold', color: '#34d399', fontSize: '15px' }}>{p.quantity}</td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'right', color: '#f8fafc' }}>${parseFloat(p.price || 0).toFixed(2)}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     </div>
                                 ) : (
-                                    <p style={{ textAlign: 'center', padding: '30px', color: '#888' }}>No products. Click "By Product" to load.</p>
+                                    <p style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>No products found in this warehouse.</p>
                                 )}
                             </div>
                         )}

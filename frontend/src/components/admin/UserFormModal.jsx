@@ -158,7 +158,7 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-midnight-200 mb-1">
               First Name *
             </label>
             <input
@@ -166,15 +166,15 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
               name="first_name"
               value={formData.first_name}
               onChange={handleChange}
-              className={`w-full p-2 border rounded ${errors.first_name ? 'border-red-500' : 'border-gray-300'}`}
+              className={`w-full p-2.5 bg-midnight-800 border rounded text-white focus:outline-none focus:border-midnight-500 ${errors.first_name ? 'border-red-500' : 'border-midnight-700'}`}
             />
             {errors.first_name && (
-              <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>
+              <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>
             )}
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-midnight-200 mb-1">
               Last Name *
             </label>
             <input
@@ -182,16 +182,16 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
               name="last_name"
               value={formData.last_name}
               onChange={handleChange}
-              className={`w-full p-2 border rounded ${errors.last_name ? 'border-red-500' : 'border-gray-300'}`}
+              className={`w-full p-2.5 bg-midnight-800 border rounded text-white focus:outline-none focus:border-midnight-500 ${errors.last_name ? 'border-red-500' : 'border-midnight-700'}`}
             />
             {errors.last_name && (
-              <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>
+              <p className="text-red-400 text-xs mt-1">{errors.last_name}</p>
             )}
           </div>
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-midnight-200 mb-1">
             Email Address *
           </label>
           <input
@@ -199,16 +199,16 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
             name="email"
             value={formData.email}
             onChange={handleChange}
-            className={`w-full p-2 border rounded ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+            className={`w-full p-2.5 bg-midnight-800 border rounded text-white focus:outline-none focus:border-midnight-500 ${errors.email ? 'border-red-500' : 'border-midnight-700'}`}
           />
           {errors.email && (
-            <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+            <p className="text-red-400 text-xs mt-1">{errors.email}</p>
           )}
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-midnight-200 mb-1">
               Password {!user && '*'}
             </label>
             <input
@@ -216,16 +216,16 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className={`w-full p-2 border rounded ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
+              className={`w-full p-2.5 bg-midnight-800 border rounded text-white placeholder-midnight-400 focus:outline-none focus:border-midnight-500 ${errors.password ? 'border-red-500' : 'border-midnight-700'}`}
               placeholder={user ? 'Leave blank to keep current' : ''}
             />
             {errors.password && (
-              <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+              <p className="text-red-400 text-xs mt-1">{errors.password}</p>
             )}
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-midnight-200 mb-1">
               Confirm Password {!user && '*'}
             </label>
             <input
@@ -233,17 +233,17 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
               name="confirm_password"
               value={formData.confirm_password}
               onChange={handleChange}
-              className={`w-full p-2 border rounded ${errors.confirm_password ? 'border-red-500' : 'border-gray-300'}`}
+              className={`w-full p-2.5 bg-midnight-800 border rounded text-white placeholder-midnight-400 focus:outline-none focus:border-midnight-500 ${errors.confirm_password ? 'border-red-500' : 'border-midnight-700'}`}
               placeholder={user ? 'Leave blank to keep current' : ''}
             />
             {errors.confirm_password && (
-              <p className="text-red-500 text-xs mt-1">{errors.confirm_password}</p>
+              <p className="text-red-400 text-xs mt-1">{errors.confirm_password}</p>
             )}
           </div>
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-midnight-200 mb-1">
             Phone Number
           </label>
           <input
@@ -251,12 +251,12 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
             name="phone"
             value={formData.phone}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded"
+            className="w-full p-2.5 bg-midnight-800 border border-midnight-700 rounded text-white focus:outline-none focus:border-midnight-500"
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-midnight-200 mb-1">
             Address
           </label>
           <textarea
@@ -264,13 +264,13 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
             value={formData.address}
             onChange={handleChange}
             rows="3"
-            className="w-full p-2 border border-gray-300 rounded"
+            className="w-full p-2.5 bg-midnight-800 border border-midnight-700 rounded text-white focus:outline-none focus:border-midnight-500"
           ></textarea>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-midnight-200 mb-1">
               City
             </label>
             <input
@@ -278,12 +278,12 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
               name="city"
               value={formData.city}
               onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded"
+              className="w-full p-2.5 bg-midnight-800 border border-midnight-700 rounded text-white focus:outline-none focus:border-midnight-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-midnight-200 mb-1">
               State
             </label>
             <input
@@ -291,12 +291,12 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
               name="state"
               value={formData.state}
               onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded"
+              className="w-full p-2.5 bg-midnight-800 border border-midnight-700 rounded text-white focus:outline-none focus:border-midnight-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-midnight-200 mb-1">
               ZIP Code
             </label>
             <input
@@ -304,38 +304,38 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }) => {
               name="zip_code"
               value={formData.zip_code}
               onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded"
+              className="w-full p-2.5 bg-midnight-800 border border-midnight-700 rounded text-white focus:outline-none focus:border-midnight-500"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-midnight-200 mb-1">
             Role
           </label>
           <select
             name="role"
             value={formData.role}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded"
+            className="w-full p-2.5 bg-midnight-800 border border-midnight-700 rounded text-white focus:outline-none focus:border-midnight-500"
           >
             <option value="customer">Customer</option>
             <option value="admin">Admin</option>
           </select>
         </div>
         
-        <div className="flex justify-end space-x-2 pt-4">
+        <div className="flex justify-end space-x-2 pt-4 border-t border-midnight-700">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
+            className="px-4 py-2 bg-midnight-800 border border-midnight-700 rounded text-midnight-200 hover:bg-midnight-700 font-medium text-sm transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 bg-midnight-700 text-midnight-50 rounded hover:bg-midnight-600 disabled:opacity-50 font-medium text-sm transition-colors"
           >
             {isSubmitting ? 'Saving...' : 'Save User'}
           </button>

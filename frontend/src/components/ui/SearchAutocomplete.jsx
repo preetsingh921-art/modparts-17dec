@@ -208,18 +208,18 @@ const SearchAutocomplete = ({
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 card border border-slate-600 shadow-lg z-50 max-h-80 overflow-y-auto"
+          className="absolute top-full left-0 right-0 bg-[#242424] border border-[#444] rounded-b-lg shadow-2xl z-50 max-h-80 overflow-y-auto"
         >
           {suggestions.map((product, index) => (
             <div
               key={product.searchKey}
-              className={`p-3 cursor-pointer border-b border-slate-600 last:border-b-0 hover:bg-slate-700 text-slate-100 ${
-                index === selectedIndex ? 'bg-emerald-600' : ''
+              className={`p-3 cursor-pointer border-b border-[#333] last:border-b-0 hover:bg-[#333] text-[#F5F0E1] transition-colors ${
+                index === selectedIndex ? 'bg-[#8B2332]' : ''
               }`}
               onClick={() => handleSuggestionClick(product)}
             >
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gray-200 rounded flex-shrink-0">
+                <div className="w-10 h-10 bg-[#1e1e1e] border border-[#333] rounded flex-shrink-0">
                   {product.image_url ? (
                     <img
                       src={product.image_url}
@@ -238,14 +238,14 @@ const SearchAutocomplete = ({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-[#F5F0E1] truncate">
                     {product.name}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-[#D4AF37] font-semibold">
                     ${parseFloat(product.price).toFixed(2)}
                   </p>
                   {product.quantity <= 0 && (
-                    <p className="text-xs text-red-500">Out of stock</p>
+                    <p className="text-xs text-red-400">Out of stock</p>
                   )}
                 </div>
               </div>

@@ -559,9 +559,9 @@ const ProductList = () => {
               (priceRange.min !== 0 || priceRange.max !== 1000) ||
               availabilityFilters.inStock ||
               availabilityFilters.outOfStock) && (
-                <div className="bg-gray-100 p-3 rounded mb-4">
+                <div className="bg-[#242424] border border-[#333] p-3 rounded-lg mb-4">
                   <div className="flex flex-wrap gap-2 items-center">
-                    <span className="text-sm font-semibold text-gray-700">Active Filters:</span>
+                    <span className="text-sm font-semibold text-[#D4CFC0]">Active Filters:</span>
 
                     {/* Category filters */}
                     {selectedCategories.length > 0 && (
@@ -576,11 +576,11 @@ const ProductList = () => {
                           console.log(`Found category:`, category);
 
                           return category ? (
-                            <span key={strCatId} className="bg-emerald-600 text-emerald-100 text-xs px-2 py-1 rounded-full flex items-center">
+                            <span key={strCatId} className="bg-emerald-800/80 border border-emerald-700/60 text-emerald-200 text-xs px-2 py-1 rounded-full flex items-center">
                               {category.name}
                               <button
                                 onClick={() => handleCategoryCheckboxChange(strCatId)}
-                                className="ml-1 text-emerald-100 hover:text-white"
+                                className="ml-1 text-emerald-200 hover:text-white"
                               >
                                 ×
                               </button>
@@ -592,7 +592,7 @@ const ProductList = () => {
 
                     {/* Price range filters */}
                     {(priceRange.min > 0 || priceRange.max < 99999) && (
-                      <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
+                      <span className="bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs px-2 py-1 rounded-full flex items-center">
                         Price: ${priceRange.min} - ${priceRange.max === 99999 ? 'Any' : priceRange.max}
                         <button
                           onClick={() => {
@@ -601,7 +601,7 @@ const ProductList = () => {
                             setPriceRange(defaultRange);
                             setCurrentPriceRange(defaultRange);
                           }}
-                          className="ml-1 text-green-800 hover:text-green-900"
+                          className="ml-1 text-emerald-300 hover:text-white"
                           title="Clear price filter"
                         >
                           ×
@@ -613,22 +613,22 @@ const ProductList = () => {
                     {(availabilityFilters.inStock || availabilityFilters.outOfStock) && (
                       <div className="flex flex-wrap gap-1">
                         {availabilityFilters.inStock && (
-                          <span className="bg-emerald-600 text-emerald-100 text-xs px-2 py-1 rounded-full flex items-center">
+                          <span className="bg-emerald-800/80 border border-emerald-700/60 text-emerald-200 text-xs px-2 py-1 rounded-full flex items-center">
                             In Stock
                             <button
                               onClick={() => handleAvailabilityChange('inStock')}
-                              className="ml-1 text-emerald-100 hover:text-white"
+                              className="ml-1 text-emerald-200 hover:text-white"
                             >
                               ×
                             </button>
                           </span>
                         )}
                         {availabilityFilters.outOfStock && (
-                          <span className="bg-slate-600 text-slate-100 text-xs px-2 py-1 rounded-full flex items-center">
+                          <span className="bg-[#333] border border-[#555] text-[#D4CFC0] text-xs px-2 py-1 rounded-full flex items-center">
                             Out of Stock
                             <button
                               onClick={() => handleAvailabilityChange('outOfStock')}
-                              className="ml-1 text-slate-100 hover:text-white"
+                              className="ml-1 text-[#D4CFC0] hover:text-white"
                             >
                               ×
                             </button>
@@ -639,7 +639,7 @@ const ProductList = () => {
 
                     <button
                       onClick={clearAllFilters}
-                      className="text-xs text-red-600 hover:text-red-800 ml-auto"
+                      className="text-xs text-red-400 hover:text-red-300 ml-auto"
                     >
                       Clear All Filters
                     </button>

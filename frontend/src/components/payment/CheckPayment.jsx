@@ -54,56 +54,56 @@ const CheckPayment = ({ amount, onSuccess, customerInfo }) => {
         </div>
       </div>
 
-      <div className="bg-white border rounded-lg p-4">
-        <h4 className="font-semibold mb-3">Payment Details</h4>
+      <div className="bg-[#242424] border border-[#3d3d3d] rounded-lg p-4 text-[#F5F0E1]">
+        <h4 className="font-semibold mb-3 text-[#F5F0E1]">Payment Details</h4>
         <div className="space-y-2">
           <div className="flex justify-between">
-            <span>Order Number:</span>
-            <span className="font-bold">{orderNumber}</span>
+            <span className="text-[#A8A090]">Order Number:</span>
+            <span className="font-bold text-[#F5F0E1]">{orderNumber}</span>
           </div>
           <div className="flex justify-between">
-            <span>Amount to Pay:</span>
-            <span className="font-bold text-lg">${amount.toFixed(2)}</span>
+            <span className="text-[#A8A090]">Amount to Pay:</span>
+            <span className="font-bold text-lg text-[#F5F0E1]">${amount.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Make Check Payable To:</span>
-            <span className="font-medium">{mailingAddress.company}</span>
+            <span className="text-[#A8A090]">Make Check Payable To:</span>
+            <span className="font-medium text-[#F5F0E1]">{mailingAddress.company}</span>
           </div>
         </div>
       </div>
 
-      <div className="bg-white border rounded-lg p-4">
+      <div className="bg-[#242424] border border-[#3d3d3d] rounded-lg p-4 text-[#F5F0E1]">
         <div className="flex justify-between items-start mb-3">
-          <h4 className="font-semibold">Mailing Address</h4>
+          <h4 className="font-semibold text-[#F5F0E1]">Mailing Address</h4>
           <button 
             onClick={copyAddress}
-            className="text-blue-600 hover:text-blue-800 text-sm"
+            className="text-[#D4AF37] hover:text-white text-sm"
           >
             📋 Copy Address
           </button>
         </div>
-        <div className="bg-gray-50 p-3 rounded border-l-4 border-blue-500">
-          <p className="font-medium">{mailingAddress.company}</p>
+        <div className="bg-[#1a1a1a] p-3 rounded border-l-4 border-[#8B2332] text-[#D4CFC0]">
+          <p className="font-medium text-[#F5F0E1]">{mailingAddress.company}</p>
           <p>{mailingAddress.address}</p>
           <p>{mailingAddress.city}, {mailingAddress.state} {mailingAddress.zipCode}</p>
           <p>{mailingAddress.country}</p>
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-800 mb-2">Check Writing Instructions:</h4>
-        <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-          <li>Write check for exactly <strong>${amount.toFixed(2)}</strong></li>
-          <li>Make payable to: <strong>{mailingAddress.company}</strong></li>
-          <li>Write order number <strong>{orderNumber}</strong> in memo line</li>
+      <div className="bg-blue-950/40 border border-blue-800/60 rounded-lg p-4">
+        <h4 className="font-semibold text-blue-300 mb-2">Check Writing Instructions:</h4>
+        <ol className="text-sm text-blue-200/90 space-y-1 list-decimal list-inside">
+          <li>Write check for exactly <strong className="text-white">${amount.toFixed(2)}</strong></li>
+          <li>Make payable to: <strong className="text-white">{mailingAddress.company}</strong></li>
+          <li>Write order number <strong className="text-white">{orderNumber}</strong> in memo line</li>
           <li>Include your name and order details in the envelope</li>
           <li>Mail to the address above</li>
         </ol>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h4 className="font-semibold text-yellow-800 mb-2">Important Notes:</h4>
-        <ul className="text-sm text-yellow-700 space-y-1">
+      <div className="bg-amber-950/40 border border-amber-800/60 rounded-lg p-4">
+        <h4 className="font-semibold text-amber-300 mb-2">Important Notes:</h4>
+        <ul className="text-sm text-amber-200/90 space-y-1">
           <li>• Processing begins when check is received and clears</li>
           <li>• Allow 7-10 business days for check processing</li>
           <li>• Returned checks incur a $25 fee</li>
@@ -112,9 +112,9 @@ const CheckPayment = ({ amount, onSuccess, customerInfo }) => {
         </ul>
       </div>
 
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h4 className="font-semibold text-green-800 mb-2">What to Include in Envelope:</h4>
-        <ul className="text-sm text-green-700 space-y-1">
+      <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-lg p-4">
+        <h4 className="font-semibold text-emerald-300 mb-2">What to Include in Envelope:</h4>
+        <ul className="text-sm text-emerald-200/90 space-y-1">
           <li>✓ Check or money order for ${amount.toFixed(2)}</li>
           <li>✓ Order number: {orderNumber}</li>
           <li>✓ Your name: {customerInfo.firstName} {customerInfo.lastName}</li>
@@ -129,9 +129,9 @@ const CheckPayment = ({ amount, onSuccess, customerInfo }) => {
           id="check-terms"
           checked={confirmed}
           onChange={(e) => setConfirmed(e.target.checked)}
-          className="h-4 w-4 text-emerald-400"
+          className="h-4 w-4 text-emerald-500 rounded border-[#444] bg-[#1a1a1a] focus:ring-emerald-500"
         />
-        <label htmlFor="check-terms" className="text-sm text-gray-700">
+        <label htmlFor="check-terms" className="text-sm text-[#D4CFC0]">
           I will mail a check/money order for ${amount.toFixed(2)} to the address above
         </label>
       </div>

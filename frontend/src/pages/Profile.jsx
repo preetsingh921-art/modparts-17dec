@@ -296,105 +296,105 @@ const Profile = () => {
               <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-gray-700 mb-2">First Name</label>
+                    <label className="block text-sm font-medium text-[#D4CFC0] mb-2">First Name</label>
                     <input
                       type="text"
                       name="first_name"
                       value={formData.first_name}
                       onChange={handleChange}
-                      className="w-full p-2 border rounded bg-gray-100 cursor-not-allowed"
+                      className="w-full p-2 border border-[#444] rounded bg-[#1e1e1e] text-[#888] cursor-not-allowed"
                       readOnly
                       title="Name cannot be changed"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Name cannot be changed</p>
+                    <p className="text-xs text-[#A8A090] mt-1">Name cannot be changed</p>
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2">Last Name</label>
+                    <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Last Name</label>
                     <input
                       type="text"
                       name="last_name"
                       value={formData.last_name}
                       onChange={handleChange}
-                      className="w-full p-2 border rounded bg-gray-100 cursor-not-allowed"
+                      className="w-full p-2 border border-[#444] rounded bg-[#1e1e1e] text-[#888] cursor-not-allowed"
                       readOnly
                       title="Name cannot be changed"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Name cannot be changed</p>
+                    <p className="text-xs text-[#A8A090] mt-1">Name cannot be changed</p>
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Email</label>
+                  <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Email</label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded bg-gray-100 cursor-not-allowed"
+                    className="w-full p-2 border border-[#444] rounded bg-[#1e1e1e] text-[#888] cursor-not-allowed"
                     readOnly
                     title="Email cannot be changed"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                  <p className="text-xs text-[#A8A090] mt-1">Email cannot be changed</p>
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Phone</label>
+                  <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Phone</label>
                   <input
                     type="tel"
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                   />
                 </div>
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Primary Address</h3>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Primary Address</h3>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Address</label>
+                  <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Address</label>
                   <input
                     type="text"
                     name="address"
                     value={formData.address}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block text-gray-700 mb-2">City</label>
+                    <label className="block text-sm font-medium text-[#D4CFC0] mb-2">City</label>
                     <input
                       type="text"
                       name="city"
                       value={formData.city}
                       onChange={handleChange}
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2">State</label>
+                    <label className="block text-sm font-medium text-[#D4CFC0] mb-2">State</label>
                     <input
                       type="text"
                       name="state"
                       value={formData.state}
                       onChange={handleChange}
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2">ZIP Code</label>
+                    <label className="block text-sm font-medium text-[#D4CFC0] mb-2">ZIP Code</label>
                     <input
                       type="text"
                       name="zip_code"
                       value={formData.zip_code}
                       onChange={handleChange}
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                     />
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Shipping Address</h3>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Shipping Address</h3>
 
                 <div className="mb-4">
                   <div className="flex items-center mb-2">
@@ -426,57 +426,57 @@ const Profile = () => {
                           }));
                         }
                       }}
-                      className="mr-2"
+                      className="mr-2 accent-[#8B2332]"
                     />
-                    <label htmlFor="same-as-primary-shipping" className="text-gray-700">
+                    <label htmlFor="same-as-primary-shipping" className="text-[#D4CFC0]">
                       Same as primary address
                     </label>
                   </div>
 
                   {sameAsShipping ? (
-                    <p className="text-sm text-gray-600 italic">Using primary address for shipping</p>
+                    <p className="text-sm text-[#A8A090] italic">Using primary address for shipping</p>
                   ) : (
                     <>
                       <div className="mb-4">
-                        <label className="block text-gray-700 mb-2">Address</label>
+                        <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Address</label>
                         <input
                           type="text"
                           name="shipping_address"
                           value={formData.shipping_address}
                           onChange={handleChange}
-                          className="w-full p-2 border rounded"
+                          className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                         />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
-                          <label className="block text-gray-700 mb-2">City</label>
+                          <label className="block text-sm font-medium text-[#D4CFC0] mb-2">City</label>
                           <input
                             type="text"
                             name="shipping_city"
                             value={formData.shipping_city}
                             onChange={handleChange}
-                            className="w-full p-2 border rounded"
+                            className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                           />
                         </div>
                         <div>
-                          <label className="block text-gray-700 mb-2">State</label>
+                          <label className="block text-sm font-medium text-[#D4CFC0] mb-2">State</label>
                           <input
                             type="text"
                             name="shipping_state"
                             value={formData.shipping_state}
                             onChange={handleChange}
-                            className="w-full p-2 border rounded"
+                            className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                           />
                         </div>
                         <div>
-                          <label className="block text-gray-700 mb-2">ZIP Code</label>
+                          <label className="block text-sm font-medium text-[#D4CFC0] mb-2">ZIP Code</label>
                           <input
                             type="text"
                             name="shipping_zip_code"
                             value={formData.shipping_zip_code}
                             onChange={handleChange}
-                            className="w-full p-2 border rounded"
+                            className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                           />
                         </div>
                       </div>
@@ -484,7 +484,7 @@ const Profile = () => {
                   )}
                 </div>
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Billing Address</h3>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Billing Address</h3>
 
                 <div className="mb-4">
                   <div className="flex items-center mb-2">
@@ -516,57 +516,57 @@ const Profile = () => {
                           }));
                         }
                       }}
-                      className="mr-2"
+                      className="mr-2 accent-[#8B2332]"
                     />
-                    <label htmlFor="same-as-primary-billing" className="text-gray-700">
+                    <label htmlFor="same-as-primary-billing" className="text-[#D4CFC0]">
                       Same as primary address
                     </label>
                   </div>
 
                   {sameAsBilling ? (
-                    <p className="text-sm text-gray-600 italic">Using primary address for billing</p>
+                    <p className="text-sm text-[#A8A090] italic">Using primary address for billing</p>
                   ) : (
                     <>
                       <div className="mb-4">
-                        <label className="block text-gray-700 mb-2">Address</label>
+                        <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Address</label>
                         <input
                           type="text"
                           name="billing_address"
                           value={formData.billing_address}
                           onChange={handleChange}
-                          className="w-full p-2 border rounded"
+                          className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                         />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
-                          <label className="block text-gray-700 mb-2">City</label>
+                          <label className="block text-sm font-medium text-[#D4CFC0] mb-2">City</label>
                           <input
                             type="text"
                             name="billing_city"
                             value={formData.billing_city}
                             onChange={handleChange}
-                            className="w-full p-2 border rounded"
+                            className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                           />
                         </div>
                         <div>
-                          <label className="block text-gray-700 mb-2">State</label>
+                          <label className="block text-sm font-medium text-[#D4CFC0] mb-2">State</label>
                           <input
                             type="text"
                             name="billing_state"
                             value={formData.billing_state}
                             onChange={handleChange}
-                            className="w-full p-2 border rounded"
+                            className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                           />
                         </div>
                         <div>
-                          <label className="block text-gray-700 mb-2">ZIP Code</label>
+                          <label className="block text-sm font-medium text-[#D4CFC0] mb-2">ZIP Code</label>
                           <input
                             type="text"
                             name="billing_zip_code"
                             value={formData.billing_zip_code}
                             onChange={handleChange}
-                            className="w-full p-2 border rounded"
+                            className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                           />
                         </div>
                       </div>
@@ -574,10 +574,10 @@ const Profile = () => {
                   )}
                 </div>
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Address Preferences</h3>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Address Preferences</h3>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Preferred Address for Checkout</label>
+                  <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Preferred Address for Checkout</label>
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <input
@@ -587,9 +587,9 @@ const Profile = () => {
                         value="shipping"
                         checked={formData.preferred_address === 'shipping'}
                         onChange={handleChange}
-                        className="mr-2"
+                        className="mr-2 accent-[#8B2332]"
                       />
-                      <label htmlFor="shipping">Shipping Address</label>
+                      <label htmlFor="shipping" className="text-[#D4CFC0]">Shipping Address</label>
                     </div>
                     <div className="flex items-center">
                       <input
@@ -599,22 +599,22 @@ const Profile = () => {
                         value="billing"
                         checked={formData.preferred_address === 'billing'}
                         onChange={handleChange}
-                        className="mr-2"
+                        className="mr-2 accent-[#8B2332]"
                       />
-                      <label htmlFor="billing">Billing Address</label>
+                      <label htmlFor="billing" className="text-[#D4CFC0]">Billing Address</label>
                     </div>
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Payment Preferences</h3>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Payment Preferences</h3>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Preferred Payment Method</label>
+                  <label className="block text-sm font-medium text-[#D4CFC0] mb-2">Preferred Payment Method</label>
                   <select
                     name="preferred_payment_method"
                     value={formData.preferred_payment_method}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border border-[#444] rounded bg-[#1a1a1a] text-[#F5F0E1] focus:outline-none focus:border-[#8B2332]"
                   >
                     <option value="credit_card">Credit Card</option>
                     <option value="paypal">PayPal</option>
@@ -622,17 +622,17 @@ const Profile = () => {
                   </select>
                 </div>
 
-                <div className="flex justify-end mt-6">
+                <div className="flex justify-end mt-6 space-x-3">
                   <button
                     type="button"
                     onClick={() => setEditMode(false)}
-                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded mr-2 hover:bg-gray-400"
+                    className="bg-[#333] text-[#D4CFC0] px-4 py-2 rounded hover:bg-[#444] transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center"
+                    className="bg-[#8B2332] text-white px-5 py-2 rounded hover:bg-[#A32A3B] transition-colors disabled:opacity-50 flex items-center justify-center font-medium"
                     disabled={saving}
                   >
                     {saving ? (
@@ -647,60 +647,60 @@ const Profile = () => {
               <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-600">Name</h3>
-                    <p>{user.first_name} {user.last_name}</p>
+                    <h3 className="text-sm font-semibold text-[#A8A090]">Name</h3>
+                    <p className="text-[#F5F0E1] font-medium">{user.first_name} {user.last_name}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-600">Email</h3>
-                    <p>{user.email}</p>
+                    <h3 className="text-sm font-semibold text-[#A8A090]">Email</h3>
+                    <p className="text-[#F5F0E1] font-medium">{user.email}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-600">Phone</h3>
-                    <p>{user.phone || 'Not provided'}</p>
+                    <h3 className="text-sm font-semibold text-[#A8A090]">Phone</h3>
+                    <p className="text-[#F5F0E1] font-medium">{user.phone || 'Not provided'}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-600">Member Since</h3>
-                    <p>{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
+                    <h3 className="text-sm font-semibold text-[#A8A090]">Member Since</h3>
+                    <p className="text-[#F5F0E1] font-medium">{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Primary Address</h3>
-                <p>{user.address || 'No address provided'}</p>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Primary Address</h3>
+                <p className="text-[#D4CFC0]">{user.address || 'No address provided'}</p>
                 {user.city && user.state && (
-                  <p>{user.city}, {user.state} {user.zip_code}</p>
+                  <p className="text-[#D4CFC0]">{user.city}, {user.state} {user.zip_code}</p>
                 )}
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Shipping Address</h3>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Shipping Address</h3>
                 {user.shipping_address ? (
                   <>
-                    <p>{user.shipping_address}</p>
+                    <p className="text-[#D4CFC0]">{user.shipping_address}</p>
                     {user.shipping_city && user.shipping_state && (
-                      <p>{user.shipping_city}, {user.shipping_state} {user.shipping_zip_code}</p>
+                      <p className="text-[#D4CFC0]">{user.shipping_city}, {user.shipping_state} {user.shipping_zip_code}</p>
                     )}
                   </>
                 ) : (
-                  <p className="text-gray-600 italic">Using primary address for shipping</p>
+                  <p className="text-[#A8A090] italic">Using primary address for shipping</p>
                 )}
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Billing Address</h3>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Billing Address</h3>
                 {user.billing_address ? (
                   <>
-                    <p>{user.billing_address}</p>
+                    <p className="text-[#D4CFC0]">{user.billing_address}</p>
                     {user.billing_city && user.billing_state && (
-                      <p>{user.billing_city}, {user.billing_state} {user.billing_zip_code}</p>
+                      <p className="text-[#D4CFC0]">{user.billing_city}, {user.billing_state} {user.billing_zip_code}</p>
                     )}
                   </>
                 ) : (
-                  <p className="text-gray-600 italic">Using primary address for billing</p>
+                  <p className="text-[#A8A090] italic">Using primary address for billing</p>
                 )}
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Address Preferences</h3>
-                <p>Preferred Address for Checkout: {formData.preferred_address === 'billing' ? 'Billing Address' : 'Shipping Address'}</p>
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Address Preferences</h3>
+                <p className="text-[#D4CFC0]">Preferred Address for Checkout: <span className="text-[#F5F0E1] font-medium">{formData.preferred_address === 'billing' ? 'Billing Address' : 'Shipping Address'}</span></p>
 
-                <h3 className="text-lg font-semibold mb-2 mt-6">Payment Preferences</h3>
-                <p>Preferred Payment Method: {formData.preferred_payment_method ?
+                <h3 className="text-lg font-semibold mb-2 mt-6 text-[#F5F0E1]">Payment Preferences</h3>
+                <p className="text-[#D4CFC0]">Preferred Payment Method: <span className="text-[#F5F0E1] font-medium">{formData.preferred_payment_method ?
                   formData.preferred_payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) :
-                  'Not set'}</p>
+                  'Not set'}</span></p>
               </div>
             )}
           </div>
@@ -716,8 +716,8 @@ const Profile = () => {
               >
                 Recent Orders
               </h2>
-              <Link to="/orders" className="text-[#B8860B] hover:text-[#d4a50d] text-sm">
-                View All
+              <Link to="/orders" className="text-[#B8860B] hover:text-[#d4a50d] text-sm transition-colors">
+                View All →
               </Link>
             </div>
 
@@ -726,26 +726,26 @@ const Profile = () => {
                 <LoadingSpinner size="md" text="Loading orders..." variant="gear" />
               </div>
             ) : error ? (
-              <div className="text-center py-4 text-red-600">{error}</div>
+              <div className="text-center py-4 text-red-400">{error}</div>
             ) : orders.length === 0 ? (
-              <div className="text-center py-4 text-gray-600">No orders found</div>
+              <div className="text-center py-4 text-[#A8A090]">No orders found</div>
             ) : (
               <div className="space-y-4">
                 {orders.map(order => (
-                  <div key={order.id} className="border rounded p-4">
+                  <div key={order.id} className="border border-[#333] bg-[#1a1a1a] rounded p-4 hover:border-[#444] transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <p className="font-semibold">Order #{order.id}</p>
-                        <p className="text-sm text-gray-600">{formatDate(order.created_at)}</p>
+                        <p className="font-semibold text-[#F5F0E1]">Order #{order.id}</p>
+                        <p className="text-sm text-[#A8A090]">{formatDate(order.created_at)}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
                         {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                       </span>
                     </div>
-                    <p className="font-medium">${parseFloat(order.total_amount).toFixed(2)}</p>
+                    <p className="font-medium text-[#F5F0E1]">${parseFloat(order.total_amount).toFixed(2)}</p>
                     <div className="mt-2">
-                      <Link to={`/order/${order.id}`} className="text-blue-600 hover:underline text-sm">
-                        View Details
+                      <Link to={`/order/${order.id}`} className="text-[#B8860B] hover:text-[#d4a50d] text-sm font-medium transition-colors">
+                        View Details →
                       </Link>
                     </div>
                   </div>

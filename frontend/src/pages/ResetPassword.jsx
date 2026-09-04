@@ -108,20 +108,25 @@ const ResetPassword = () => {
   // Show error if no token or invalid token
   if (tokenValid === false) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] px-4 py-12">
+        <div className="max-w-md w-full bg-[#242424] border border-[#333] rounded-lg shadow-xl p-6 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-950/80 border border-red-800 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-red-900 mb-4">Invalid Reset Link</h2>
-          <p className="text-red-700 mb-6">
+          <h2
+            className="text-xl font-bold text-[#F5F0E1] mb-4 uppercase tracking-wide"
+            style={{ fontFamily: "'Oswald', sans-serif" }}
+          >
+            Invalid Reset Link
+          </h2>
+          <p className="text-[#D4CFC0] mb-6">
             This password reset link is invalid or has expired. Please request a new password reset.
           </p>
           <Link
             to="/login"
-            className="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition duration-200"
+            className="inline-block bg-[#8B2332] text-white px-6 py-2 rounded font-semibold hover:bg-[#A32A3B] transition-colors"
           >
             Back to Login
           </Link>
@@ -133,18 +138,23 @@ const ResetPassword = () => {
   // Show success message
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] px-4 py-12">
+        <div className="max-w-md w-full bg-[#242424] border border-[#333] rounded-lg shadow-xl p-6 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-emerald-950/80 border border-emerald-700 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-green-900 mb-4">Password Reset Successful!</h2>
-          <p className="text-green-700 mb-6">
+          <h2
+            className="text-xl font-bold text-[#F5F0E1] mb-4 uppercase tracking-wide"
+            style={{ fontFamily: "'Oswald', sans-serif" }}
+          >
+            Password Reset Successful!
+          </h2>
+          <p className="text-[#D4CFC0] mb-6">
             Your password has been reset successfully. You can now log in with your new password.
           </p>
-          <p className="text-gray-600 text-sm">
+          <p className="text-[#A8A090] text-sm">
             Redirecting to login page...
           </p>
         </div>
@@ -153,26 +163,31 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] px-4 py-12">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Reset Your Password</h2>
-          <p className="mt-2 text-gray-600">
+          <h2
+            className="text-3xl font-bold text-[#F5F0E1] uppercase tracking-wide"
+            style={{ fontFamily: "'Oswald', sans-serif" }}
+          >
+            Reset Your Password
+          </h2>
+          <p className="mt-2 text-[#A8A090]">
             Enter your new password below
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-[#242424] border border-[#333] rounded-lg shadow-xl p-6">
           <form onSubmit={handleSubmit}>
             {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              <div className="mb-4 p-3 bg-red-950/80 border border-red-800 text-red-200 rounded text-sm">
                 {error}
               </div>
             )}
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="newPassword" className="block text-sm font-medium text-[#D4CFC0] mb-1">
                   New Password
                 </label>
                 <input
@@ -183,17 +198,17 @@ const ResetPassword = () => {
                   onChange={handleChange}
                   required
                   minLength={6}
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 bg-[#1a1a1a] border border-[#444] rounded text-[#F5F0E1] placeholder-[#777] focus:outline-none focus:border-[#8B2332]"
                   placeholder="Enter your new password"
                   disabled={loading}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-[#A8A090] mt-1">
                   Password must be at least 6 characters long
                 </p>
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-[#D4CFC0] mb-1">
                   Confirm New Password
                 </label>
                 <input
@@ -204,7 +219,7 @@ const ResetPassword = () => {
                   onChange={handleChange}
                   required
                   minLength={6}
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 bg-[#1a1a1a] border border-[#444] rounded text-[#F5F0E1] placeholder-[#777] focus:outline-none focus:border-[#8B2332]"
                   placeholder="Confirm your new password"
                   disabled={loading}
                 />
@@ -214,7 +229,7 @@ const ResetPassword = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-6 bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+              className="w-full mt-6 bg-[#8B2332] text-white py-3 px-4 rounded font-semibold hover:bg-[#A32A3B] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -230,7 +245,7 @@ const ResetPassword = () => {
           <div className="mt-6 text-center">
             <Link
               to="/login"
-              className="text-blue-600 hover:text-blue-500 text-sm"
+              className="text-[#B8860B] hover:text-[#d4a50d] text-sm transition-colors"
             >
               Back to Login
             </Link>

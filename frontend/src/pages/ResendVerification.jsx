@@ -60,22 +60,25 @@ const ResendVerification = () => {
   }, [retryAfter]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+          <h2
+            className="mt-6 text-3xl font-bold text-[#F5F0E1] uppercase tracking-wide"
+            style={{ fontFamily: "'Oswald', sans-serif" }}
+          >
             Resend Verification Email
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-[#A8A090]">
             Enter your email address to receive a new verification link
           </p>
         </div>
 
-        <div className="bg-white shadow-md rounded-lg p-6">
+        <div className="bg-[#242424] border border-[#333] shadow-xl rounded-lg p-6">
           {!sent ? (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="block text-sm font-medium text-[#D4CFC0]">
                   Email Address
                 </label>
                 <input
@@ -86,15 +89,15 @@ const ResendVerification = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  className="mt-1 appearance-none relative block w-full px-3 py-2 bg-[#1a1a1a] border border-[#444] placeholder-[#777] text-[#F5F0E1] rounded-md focus:outline-none focus:border-[#8B2332] sm:text-sm"
                   placeholder="Enter your email address"
                   disabled={loading || retryAfter > 0}
                 />
               </div>
 
               {retryAfter > 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                  <p className="text-sm text-yellow-800">
+                <div className="bg-amber-950/80 border border-amber-700 rounded-md p-3">
+                  <p className="text-sm text-amber-200">
                     Please wait {retryAfter} seconds before requesting another email.
                   </p>
                 </div>
@@ -104,7 +107,7 @@ const ResendVerification = () => {
                 <button
                   type="submit"
                   disabled={loading || retryAfter > 0}
-                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-semibold rounded-md text-white bg-[#8B2332] hover:bg-[#A32A3B] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
                     <LoadingSpinner size="sm" text="Sending..." />
@@ -118,19 +121,19 @@ const ResendVerification = () => {
             </form>
           ) : (
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-950/80 border border-emerald-700 mb-4">
+                <svg className="h-6 w-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-bold text-[#F5F0E1] mb-2">
                 Verification Email Sent! 📧
               </h3>
-              <p className="text-gray-600 mb-4">
-                We've sent a new verification email to <strong>{email}</strong>. 
+              <p className="text-[#D4CFC0] mb-4">
+                We've sent a new verification email to <strong className="text-[#F5F0E1]">{email}</strong>. 
                 Please check your inbox and click the verification link.
               </p>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-[#A8A090] mb-4">
                 Don't see the email? Check your spam folder.
               </p>
               <button
@@ -138,7 +141,7 @@ const ResendVerification = () => {
                   setSent(false);
                   setEmail('');
                 }}
-                className="text-blue-600 hover:text-blue-500 text-sm"
+                className="text-[#B8860B] hover:text-[#d4a50d] text-sm transition-colors"
               >
                 Send to a different email
               </button>
@@ -148,7 +151,7 @@ const ResendVerification = () => {
           <div className="mt-6 text-center">
             <Link
               to="/login"
-              className="text-blue-600 hover:text-blue-500 text-sm"
+              className="text-[#B8860B] hover:text-[#d4a50d] text-sm transition-colors"
             >
               Back to Login
             </Link>

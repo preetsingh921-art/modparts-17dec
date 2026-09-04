@@ -316,14 +316,16 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-midnight-900 border border-midnight-700 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col text-white animate-fadeIn">
         {/* Header */}
-        <div className="bg-blue-800 text-white px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Import Products from CSV</h2>
+        <div className="bg-midnight-950 text-white px-6 py-4 flex justify-between items-center border-b border-midnight-700">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <span>📄</span> Import Products from CSV
+          </h2>
           <button
             onClick={onClose}
-            className="text-white hover:text-gray-200"
+            className="text-midnight-400 hover:text-white transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -332,31 +334,33 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-6 bg-midnight-900">
           {/* Step 1: Upload CSV */}
           {step === 1 && (
             <div>
-              <p className="mb-4 text-gray-700">
+              <p className="mb-4 text-midnight-200">
                 Upload a CSV file containing product data. The file should have columns for product name, price, category, and quantity.
               </p>
 
-              <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md">
+              <div className="mb-4 p-4 bg-midnight-800 border border-midnight-700 text-midnight-200 rounded-lg">
                 <p className="text-sm">
-                  <strong>Tip:</strong> You can <button
+                  <strong className="text-amber-300">Tip:</strong> You can{' '}
+                  <button
                     onClick={downloadSampleCsv}
-                    className="text-blue-600 underline hover:text-blue-800 bg-transparent border-none p-0 cursor-pointer font-normal"
+                    className="text-amber-400 underline hover:text-amber-300 bg-transparent border-none p-0 cursor-pointer font-medium"
                     type="button"
                   >
                     download a sample CSV file
-                  </button> to see the expected format.
+                  </button>{' '}
+                  to see the expected format.
                 </p>
 
-                <div className="mt-2 pt-2 border-t border-blue-100">
-                  <p className="text-sm font-semibold">Available Categories:</p>
-                  <div className="mt-1 text-xs grid grid-cols-2 md:grid-cols-3 gap-1">
+                <div className="mt-3 pt-3 border-t border-midnight-700">
+                  <p className="text-sm font-semibold text-white">Available Categories:</p>
+                  <div className="mt-1 text-xs grid grid-cols-2 md:grid-cols-3 gap-1.5 text-midnight-300">
                     {categories.map(category => (
                       <div key={category.id} className="flex items-center">
-                        <span className="font-medium">{category.id}:</span> {category.name}
+                        <span className="font-medium text-amber-400 mr-1">{category.id}:</span> {category.name}
                       </div>
                     ))}
                   </div>
@@ -364,7 +368,7 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
               </div>
 
               <div
-                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
+                className="border-2 border-dashed border-midnight-600 bg-midnight-950/40 rounded-xl p-8 text-center cursor-pointer hover:border-amber-500 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
@@ -376,11 +380,11 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
                   accept=".csv"
                   className="hidden"
                 />
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-midnight-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                <p className="mt-2 text-sm text-gray-600">Drag and drop a CSV file here, or click to select a file</p>
-                {fileName && <p className="mt-2 text-blue-600">{fileName}</p>}
+                <p className="text-sm text-midnight-300">Drag and drop a CSV file here, or click to select a file</p>
+                {fileName && <p className="mt-2 text-amber-400 font-medium">{fileName}</p>}
               </div>
             </div>
           )}
@@ -388,21 +392,21 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
           {/* Step 2: Preview Data */}
           {step === 2 && (
             <div>
-              <h3 className="text-lg font-semibold mb-2">Preview Data</h3>
-              <p className="mb-4 text-gray-700">
+              <h3 className="text-lg font-semibold mb-2 text-white">Preview Data</h3>
+              <p className="mb-4 text-midnight-300 text-sm">
                 Review your CSV file and map the columns to product fields. Showing page {currentPage} of {Math.ceil(parsedData.length / itemsPerPage)}.
               </p>
 
               {parsedData.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <div className="overflow-x-auto border border-midnight-700 rounded-lg">
+                  <table className="min-w-full divide-y divide-midnight-700">
+                    <thead className="bg-midnight-800">
                       <tr>
                         {headers.map((header, index) => (
-                          <th key={index} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th key={index} className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
                             {header}
                             <select
-                              className="block w-full mt-1 text-sm border-gray-300 rounded-md"
+                              className="block w-full mt-1.5 text-xs bg-midnight-900 border border-midnight-600 rounded text-white p-1.5 focus:ring-amber-500 focus:border-amber-500 outline-none"
                               value={Object.entries(mappings).find(([_, v]) => v === header)?.[0] || ''}
                               onChange={(e) => {
                                 const prevMapping = Object.entries(mappings).find(([_, v]) => v === header);
@@ -435,11 +439,11 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-midnight-900 divide-y divide-midnight-700/60">
                       {parsedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((row, rowIndex) => (
-                        <tr key={rowIndex}>
+                        <tr key={rowIndex} className="hover:bg-midnight-800/50 transition-colors">
                           {headers.map((header, colIndex) => (
-                            <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm text-midnight-200">
                               {row[header]}
                             </td>
                           ))}
@@ -450,28 +454,28 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
                   
                   {/* Pagination Controls */}
                   {parsedData.length > itemsPerPage && (
-                    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6 mt-4">
+                    <div className="flex items-center justify-between px-4 py-3 bg-midnight-950 border-t border-midnight-700 sm:px-6">
                       <div className="flex justify-between flex-1 sm:hidden">
                         <button
                           onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                           disabled={currentPage === 1}
-                          className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:bg-gray-100"
+                          className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-midnight-200 bg-midnight-800 border border-midnight-600 rounded-md hover:bg-midnight-700 disabled:opacity-50"
                         >
                           Previous
                         </button>
                         <button
                           onClick={() => setCurrentPage(Math.min(Math.ceil(parsedData.length / itemsPerPage), currentPage + 1))}
                           disabled={currentPage === Math.ceil(parsedData.length / itemsPerPage)}
-                          className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:bg-gray-100"
+                          className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-midnight-200 bg-midnight-800 border border-midnight-600 rounded-md hover:bg-midnight-700 disabled:opacity-50"
                         >
                           Next
                         </button>
                       </div>
                       <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                         <div>
-                          <p className="text-sm text-gray-700">
-                            Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, parsedData.length)}</span> of{' '}
-                            <span className="font-medium">{parsedData.length}</span> results
+                          <p className="text-sm text-midnight-300">
+                            Showing <span className="font-medium text-white">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-medium text-white">{Math.min(currentPage * itemsPerPage, parsedData.length)}</span> of{' '}
+                            <span className="font-medium text-white">{parsedData.length}</span> results
                           </p>
                         </div>
                         <div>
@@ -479,20 +483,20 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
                             <button
                               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                               disabled={currentPage === 1}
-                              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
+                              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-midnight-600 bg-midnight-800 text-sm font-medium text-midnight-300 hover:bg-midnight-700 hover:text-white disabled:opacity-50"
                             >
                               <span className="sr-only">Previous</span>
                               <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             </button>
-                            <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                            <span className="relative inline-flex items-center px-4 py-2 border border-midnight-600 bg-midnight-900 text-sm font-medium text-midnight-200">
                               Page {currentPage} of {Math.ceil(parsedData.length / itemsPerPage)}
                             </span>
                             <button
                               onClick={() => setCurrentPage(Math.min(Math.ceil(parsedData.length / itemsPerPage), currentPage + 1))}
                               disabled={currentPage === Math.ceil(parsedData.length / itemsPerPage)}
-                              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
+                              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-midnight-600 bg-midnight-800 text-sm font-medium text-midnight-300 hover:bg-midnight-700 hover:text-white disabled:opacity-50"
                             >
                               <span className="sr-only">Next</span>
                               <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -511,26 +515,26 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
 
           {/* Error message */}
           {error && (
-            <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-md">
+            <div className="mt-4 p-3 bg-red-950/60 border border-red-800/80 text-red-200 rounded-lg text-sm">
               {error}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-100 px-6 py-4 flex justify-between">
+        <div className="bg-midnight-950 border-t border-midnight-700 px-6 py-4 flex justify-between items-center">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:text-gray-900"
+            className="px-4 py-2 text-midnight-300 hover:text-white border border-midnight-700 hover:bg-midnight-800 rounded-lg transition-colors font-medium text-sm"
           >
             Cancel
           </button>
 
-          <div>
+          <div className="flex items-center gap-2">
             {step === 2 && (
               <button
                 onClick={() => setStep(1)}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 mr-2"
+                className="px-4 py-2 text-midnight-300 hover:text-white border border-midnight-700 hover:bg-midnight-800 rounded-lg transition-colors font-medium text-sm"
               >
                 Back
               </button>
@@ -539,7 +543,7 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
             {step === 1 && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300"
+                className="px-5 py-2 bg-[#8B2332] hover:bg-[#a32a3b] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
                 disabled={isLoading}
               >
                 {isLoading ? 'Processing...' : 'Select File'}
@@ -549,7 +553,7 @@ const CSVImportModal = ({ isOpen, onClose, onImport, categories }) => {
             {step === 2 && (
               <button
                 onClick={processData}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
                 disabled={isLoading || Object.keys(mappings).length === 0}
               >
                 Import Products

@@ -120,8 +120,8 @@ const OrderDetail = () => {
   if (!order) {
     return (
       <div className="text-center py-12">
-        <p className="text-xl mb-4">Order not found</p>
-        <Link to="/orders" className="text-blue-600 hover:underline">
+        <p className="text-xl mb-4 text-[#F5F0E1]">Order not found</p>
+        <Link to="/orders" className="text-[#B8860B] hover:text-[#d4a50d] transition-colors">
           Back to My Orders
         </Link>
       </div>
@@ -132,7 +132,7 @@ const OrderDetail = () => {
     <>
       <div className="container mx-auto px-4 single-page print:hidden">
         <div className="mb-6 back-button">
-          <Link to="/orders" className="text-blue-600 hover:underline flex items-center">
+          <Link to="/orders" className="text-[#B8860B] hover:text-[#d4a50d] transition-colors flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
             </svg>
@@ -183,7 +183,7 @@ const OrderDetail = () => {
                 {order.billing_info.address && (
                   <div>
                     <p className="text-gray-300">{order.billing_info.address}</p>
-                    <p className="text-gray-700">
+                    <p className="text-gray-300">
                       {[
                         order.billing_info.city,
                         order.billing_info.state,
@@ -201,7 +201,7 @@ const OrderDetail = () => {
           <div className="flex justify-end items-start no-print">
             <button
               onClick={() => window.print()}
-              className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 inline-flex items-center text-sm font-medium"
+              className="bg-[#8B2332] text-white px-3 py-2 rounded hover:bg-[#A32A3B] transition-colors inline-flex items-center text-sm font-medium"
               style={{ width: 'auto', minWidth: 'auto' }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">

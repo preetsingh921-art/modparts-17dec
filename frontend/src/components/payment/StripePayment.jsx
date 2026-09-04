@@ -77,8 +77,8 @@ const CheckoutForm = ({ amount, onSuccess, onError, customerInfo }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="p-4 border rounded-lg">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="p-4 bg-[#242424] border border-[#3d3d3d] rounded-lg">
+        <label className="block text-sm font-medium text-[#D4CFC0] mb-2">
           Card Details
         </label>
         <CardElement
@@ -86,9 +86,9 @@ const CheckoutForm = ({ amount, onSuccess, onError, customerInfo }) => {
             style: {
               base: {
                 fontSize: '16px',
-                color: '#424770',
+                color: '#F5F0E1',
                 '::placeholder': {
-                  color: '#aab7c4',
+                  color: '#888888',
                 },
               },
             },
@@ -99,7 +99,7 @@ const CheckoutForm = ({ amount, onSuccess, onError, customerInfo }) => {
       <button
         type="submit"
         disabled={!stripe || loading}
-        className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        className="w-full bg-[#8B2332] hover:bg-[#a32a3b] text-[#F5F0E1] py-3 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? 'Processing...' : `Pay $${amount.toFixed(2)}`}
       </button>

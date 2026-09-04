@@ -72,7 +72,7 @@ const VerifyEmail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]">
         <div className="text-center">
           <LoadingSpinner size="xl" text="Verifying your email..." variant="gear" />
         </div>
@@ -81,29 +81,32 @@ const VerifyEmail = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+          <h2
+            className="mt-6 text-3xl font-bold text-[#F5F0E1] uppercase tracking-wide"
+            style={{ fontFamily: "'Oswald', sans-serif" }}
+          >
             Email Verification
           </h2>
         </div>
 
-        <div className="bg-white shadow-md rounded-lg p-6">
+        <div className="bg-[#242424] border border-[#333] shadow-xl rounded-lg p-6">
           {verified && (
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-950/80 border border-emerald-700 mb-4">
+                <svg className="h-6 w-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-bold text-[#F5F0E1] mb-2">
                 Email Verified Successfully! 🎉
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-[#D4CFC0] mb-4">
                 Welcome to Sardaarji Auto Parts! Your account is now active and you're being logged in.
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[#A8A090]">
                 Redirecting to products page...
               </p>
             </div>
@@ -111,20 +114,20 @@ const VerifyEmail = () => {
 
           {alreadyVerified && (
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-                <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-950/80 border border-amber-700 mb-4">
+                <svg className="h-6 w-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-bold text-[#F5F0E1] mb-2">
                 Email Already Verified ✅
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-[#D4CFC0] mb-4">
                 Your email is already verified. You can login to your account.
               </p>
               <Link
                 to="/login"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                className="inline-flex items-center px-5 py-2.5 rounded font-semibold text-white bg-[#8B2332] hover:bg-[#A32A3B] transition-colors"
               >
                 Go to Login
               </Link>
@@ -133,15 +136,15 @@ const VerifyEmail = () => {
 
           {error && (
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-950/80 border border-red-800 mb-4">
+                <svg className="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-bold text-[#F5F0E1] mb-2">
                 Verification Failed
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-[#D4CFC0] mb-4">
                 {error}
               </p>
               
@@ -149,7 +152,7 @@ const VerifyEmail = () => {
                 <div className="space-y-3">
                   <Link
                     to="/resend-verification"
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    className="inline-flex items-center px-4 py-2 rounded font-semibold text-white bg-[#8B2332] hover:bg-[#A32A3B] transition-colors"
                   >
                     Request New Verification Email
                   </Link>
@@ -159,7 +162,7 @@ const VerifyEmail = () => {
               <div className="mt-4">
                 <Link
                   to="/login"
-                  className="text-blue-600 hover:text-blue-500 text-sm"
+                  className="text-[#B8860B] hover:text-[#d4a50d] text-sm transition-colors"
                 >
                   Back to Login
                 </Link>

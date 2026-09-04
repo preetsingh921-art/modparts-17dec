@@ -154,30 +154,30 @@ const PasswordStrengthIndicator = ({ password, userInfo = {} }) => {
       {/* Strength Bar */}
       <div>
         <div className="flex justify-between items-center mb-1">
-          <span className="text-sm font-medium text-gray-700">Password Strength</span>
+          <span className="text-sm font-medium text-[#D4CFC0]">Password Strength</span>
           <span className={`text-sm font-medium capitalize ${
-            strength === 'weak' ? 'text-red-600' :
-            strength === 'medium' ? 'text-yellow-600' :
-            strength === 'strong' ? 'text-blue-600' :
-            strength === 'very-strong' ? 'text-green-600' :
-            'text-gray-500'
+            strength === 'weak' ? 'text-red-400' :
+            strength === 'medium' ? 'text-amber-400' :
+            strength === 'strong' ? 'text-blue-400' :
+            strength === 'very-strong' ? 'text-emerald-400' :
+            'text-[#888]'
           }`}>
             {strength === 'very-strong' ? 'Very Strong' : strength}
           </span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-[#333] rounded-full h-2">
           <div className={`h-2 rounded-full transition-all duration-300 ${getStrengthColor()} ${getStrengthWidth()}`}></div>
         </div>
       </div>
 
       {/* Requirements Checklist */}
       <div>
-        <h4 className="text-sm font-medium text-gray-700 mb-2">Password Requirements</h4>
+        <h4 className="text-sm font-medium text-[#D4CFC0] mb-2">Password Requirements</h4>
         <div className="space-y-1">
           {requirements.map((req) => (
             <div key={req.id} className="flex items-center space-x-2">
               <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-                req.met ? 'bg-green-500' : 'bg-gray-300'
+                req.met ? 'bg-emerald-600' : 'bg-[#444]'
               }`}>
                 {req.met && (
                   <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -185,7 +185,7 @@ const PasswordStrengthIndicator = ({ password, userInfo = {} }) => {
                   </svg>
                 )}
               </div>
-              <span className={`text-sm ${req.met ? 'text-green-700' : 'text-gray-600'}`}>
+              <span className={`text-sm ${req.met ? 'text-emerald-400' : 'text-[#888]'}`}>
                 {req.text}
               </span>
             </div>
@@ -195,12 +195,12 @@ const PasswordStrengthIndicator = ({ password, userInfo = {} }) => {
 
       {/* Errors */}
       {errors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3">
-          <h4 className="text-sm font-medium text-red-800 mb-1">Password Issues</h4>
-          <ul className="text-sm text-red-700 space-y-1">
+        <div className="bg-red-950/60 border border-red-800/80 rounded-md p-3">
+          <h4 className="text-sm font-medium text-red-300 mb-1">Password Issues</h4>
+          <ul className="text-sm text-red-200/90 space-y-1">
             {errors.map((error, index) => (
               <li key={index} className="flex items-start space-x-1">
-                <span className="text-red-500 mt-0.5">•</span>
+                <span className="text-red-400 mt-0.5">•</span>
                 <span>{error}</span>
               </li>
             ))}
@@ -210,12 +210,12 @@ const PasswordStrengthIndicator = ({ password, userInfo = {} }) => {
 
       {/* Warnings */}
       {warnings.length > 0 && errors.length === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-          <h4 className="text-sm font-medium text-yellow-800 mb-1">Suggestions</h4>
-          <ul className="text-sm text-yellow-700 space-y-1">
+        <div className="bg-amber-950/60 border border-amber-800/80 rounded-md p-3">
+          <h4 className="text-sm font-medium text-amber-300 mb-1">Suggestions</h4>
+          <ul className="text-sm text-amber-200/90 space-y-1">
             {warnings.map((warning, index) => (
               <li key={index} className="flex items-start space-x-1">
-                <span className="text-yellow-500 mt-0.5">•</span>
+                <span className="text-amber-400 mt-0.5">•</span>
                 <span>{warning}</span>
               </li>
             ))}
@@ -225,12 +225,12 @@ const PasswordStrengthIndicator = ({ password, userInfo = {} }) => {
 
       {/* Success Message */}
       {strength === 'very-strong' && errors.length === 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-3">
+        <div className="bg-emerald-950/60 border border-emerald-800/80 rounded-md p-3">
           <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <span className="text-sm font-medium text-green-800">Excellent! Your password is very strong.</span>
+            <span className="text-sm font-medium text-emerald-300">Excellent! Your password is very strong.</span>
           </div>
         </div>
       )}

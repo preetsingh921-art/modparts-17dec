@@ -338,9 +338,9 @@ const ProductForm = () => {
   };
 
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto px-4 max-w-6xl">
       <div className="mb-6">
-        <Link to="/admin/products" className="text-blue-600 hover:underline flex items-center">
+        <Link to="/admin/products" className="text-amber-400 hover:text-amber-300 flex items-center font-medium transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
           </svg>
@@ -348,45 +348,43 @@ const ProductForm = () => {
         </Link>
       </div>
 
-      <h1 className="text-3xl font-bold mb-6">
+      <h1 className="text-3xl font-bold mb-6 text-white" style={{ fontFamily: "'Oswald', sans-serif" }}>
         {isEditMode ? 'Edit Product' : 'Add New Product'}
       </h1>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        <div className="bg-red-950/60 border border-red-800/80 text-red-200 px-4 py-3 rounded-lg mb-6">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-midnight-900 border border-midnight-700 rounded-xl shadow-xl p-6 text-white">
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-gray-700 mb-2">Product Name</label>
+              <label className="block text-midnight-200 text-sm font-medium mb-2">Product Name</label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full p-2 border rounded"
-                style={{ backgroundColor: 'white', color: '#333' }}
+                className="w-full p-2.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white placeholder-midnight-400 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-2">
+              <label className="block text-midnight-200 text-sm font-medium mb-2">
                 Category
                 {aiCategoryLoading && (
-                  <span className="ml-2 text-sm text-blue-500 animate-pulse">🤖 AI analyzing...</span>
+                  <span className="ml-2 text-sm text-amber-400 animate-pulse">🤖 AI analyzing...</span>
                 )}
               </label>
               <select
                 name="category_id"
                 value={formData.category_id}
                 onChange={handleChange}
-                className="w-full p-2 border rounded"
-                style={{ backgroundColor: 'white', color: '#333' }}
+                className="w-full p-2.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                 required
               >
                 <option value="">Select Category</option>
@@ -397,21 +395,11 @@ const ProductForm = () => {
                 ))}
               </select>
               {aiCategorySuggestion && (
-                <div style={{
-                  marginTop: '6px',
-                  padding: '6px 10px',
-                  backgroundColor: aiCategorySuggestion.method === 'ai' ? '#e8f5e9' : '#fff3e0',
-                  borderRadius: '6px',
-                  border: `1px solid ${aiCategorySuggestion.method === 'ai' ? '#4caf50' : '#ff9800'}`,
-                  fontSize: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
+                <div className="mt-2 p-2 bg-midnight-800 border border-midnight-600 rounded-lg text-xs flex items-center gap-2 text-midnight-200">
                   <span>{aiCategorySuggestion.method === 'ai' ? '🤖' : '🔤'}</span>
                   <span>
-                    <strong>AI Suggestion:</strong> {aiCategorySuggestion.category_name}
-                    <span style={{ marginLeft: '8px', color: '#666' }}>
+                    <strong className="text-amber-300">AI Suggestion:</strong> {aiCategorySuggestion.category_name}
+                    <span className="ml-2 text-midnight-400">
                       ({Math.round(aiCategorySuggestion.confidence * 100)}% confidence)
                     </span>
                   </span>
@@ -423,65 +411,64 @@ const ProductForm = () => {
           {/* Part Number and Barcode */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-gray-700 mb-2">Part Number</label>
+              <label className="block text-midnight-200 text-sm font-medium mb-2">Part Number</label>
               <input
                 type="text"
                 name="part_number"
                 value={formData.part_number}
                 onChange={handleChange}
-                className="w-full p-2 border rounded"
-                style={{ backgroundColor: 'white', color: '#333' }}
+                className="w-full p-2.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white placeholder-midnight-400 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                 placeholder="e.g., YAM-RD350-001"
               />
-              <p className="text-xs text-gray-500 mt-1">Used to auto-generate barcode if not provided</p>
+              <p className="text-xs text-midnight-400 mt-1">Used to auto-generate barcode if not provided</p>
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-2">Barcode</label>
+              <label className="block text-midnight-200 text-sm font-medium mb-2">Barcode</label>
               <input
                 type="text"
                 name="barcode"
                 value={formData.barcode}
                 onChange={handleChange}
-                className="w-full p-2 border rounded bg-gray-100"
+                className="w-full p-2.5 bg-midnight-950 border border-midnight-700 rounded-lg text-midnight-300 placeholder-midnight-500"
                 placeholder="Auto-generated from part number"
                 readOnly={isEditMode && !!formData.barcode}
               />
               {isEditMode && formData.barcode && (
-                <div className="mt-2 p-3 bg-white border rounded-lg">
-                  <p className="text-xs text-gray-500 mb-2">Barcode Preview:</p>
-                  <InlineBarcode barcode={formData.barcode} width={1.5} height={35} />
-                  <p className="text-xs text-green-600 mt-2">✓ Barcode: {formData.barcode}</p>
+                <div className="mt-2 p-3 bg-midnight-950 border border-midnight-700 rounded-lg">
+                  <p className="text-xs text-midnight-400 mb-2">Barcode Preview:</p>
+                  <div className="bg-white p-2 rounded inline-block">
+                    <InlineBarcode barcode={formData.barcode} width={1.5} height={35} />
+                  </div>
+                  <p className="text-xs text-emerald-400 mt-2">✓ Barcode: {formData.barcode}</p>
                 </div>
               )}
               {!formData.barcode && (
-                <p className="text-xs text-gray-500 mt-1">Will be auto-generated when product is saved</p>
+                <p className="text-xs text-midnight-400 mt-1">Will be auto-generated when product is saved</p>
               )}
             </div>
           </div>
 
           <div className="mb-6">
-            <label className="block text-gray-700 mb-2">Description</label>
+            <label className="block text-midnight-200 text-sm font-medium mb-2">Description</label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
-              className="w-full p-2 border rounded"
-              style={{ backgroundColor: 'white', color: '#333' }}
+              className="w-full p-2.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white placeholder-midnight-400 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
               rows="4"
             ></textarea>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div>
-              <label className="block text-gray-700 mb-2">Price ($)</label>
+              <label className="block text-midnight-200 text-sm font-medium mb-2">Price ($)</label>
               <input
                 type="number"
                 name="price"
                 value={formData.price}
                 onChange={handleChange}
-                className="w-full p-2 border rounded"
-                style={{ backgroundColor: 'white', color: '#333' }}
+                className="w-full p-2.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white placeholder-midnight-400 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                 step="0.01"
                 min="0"
                 required
@@ -489,27 +476,25 @@ const ProductForm = () => {
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-2">Quantity</label>
+              <label className="block text-midnight-200 text-sm font-medium mb-2">Quantity</label>
               <input
                 type="number"
                 name="quantity"
                 value={formData.quantity}
                 onChange={handleChange}
-                className="w-full p-2 border rounded"
-                style={{ backgroundColor: 'white', color: '#333' }}
+                className="w-full p-2.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white placeholder-midnight-400 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                 min="0"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-2">Condition</label>
+              <label className="block text-midnight-200 text-sm font-medium mb-2">Condition</label>
               <select
                 name="condition_status"
                 value={formData.condition_status}
                 onChange={handleChange}
-                className="w-full p-2 border rounded"
-                style={{ backgroundColor: 'white', color: '#333' }}
+                className="w-full p-2.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                 required
               >
                 <option value="New">New</option>
@@ -521,29 +506,17 @@ const ProductForm = () => {
           </div>
 
           <div className="mb-6">
-            <label className="block text-gray-700 mb-2 text-lg font-semibold">Product Image</label>
+            <label className="block text-midnight-100 mb-2 text-lg font-semibold">Product Image</label>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 {/* Upload Section */}
-                <div style={{
-                  border: '2px dashed #3b82f6',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  backgroundColor: '#eff6ff',
-                  marginBottom: '16px'
-                }}>
-                  <label style={{
-                    display: 'block',
-                    color: '#374151',
-                    marginBottom: '12px',
-                    fontWeight: '500',
-                    fontSize: '18px'
-                  }}>
+                <div className="border-2 border-dashed border-midnight-600 rounded-lg p-4 bg-midnight-800/40">
+                  <label className="block text-midnight-200 font-medium text-sm mb-3">
                     📁 Upload Image from Computer
                   </label>
 
-                  <div style={{ marginBottom: '12px' }}>
+                  <div className="mb-3">
                     {/* Visible file input */}
                     <input
                       type="file"
@@ -551,31 +524,14 @@ const ProductForm = () => {
                       onChange={handleFileChange}
                       ref={fileInputRef}
                       id="file-input"
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '4px',
-                        backgroundColor: 'white',
-                        marginBottom: '12px'
-                      }}
+                      className="w-full p-2 border border-midnight-600 rounded-lg bg-midnight-900 text-midnight-200 mb-3 text-sm"
                     />
 
                     {/* Alternative custom button */}
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#2563eb',
-                        color: 'white',
-                        padding: '12px 16px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        marginBottom: '12px'
-                      }}
+                      className="w-full bg-midnight-700 hover:bg-midnight-600 text-midnight-100 py-2.5 px-4 rounded-lg font-medium transition-colors mb-3 border border-midnight-600 text-sm"
                     >
                       📂 Browse Files (Alternative)
                     </button>
@@ -583,17 +539,11 @@ const ProductForm = () => {
 
                   {/* Show selected file name */}
                   {imageFile && (
-                    <div style={{
-                      backgroundColor: 'white',
-                      padding: '8px',
-                      borderRadius: '4px',
-                      border: '1px solid #d1d5db',
-                      marginBottom: '12px'
-                    }}>
-                      <p style={{ fontSize: '14px', color: '#374151', margin: 0 }}>
+                    <div className="bg-midnight-950 p-2.5 rounded-lg border border-midnight-700 mb-3">
+                      <p className="text-xs text-midnight-200 font-medium">
                         <strong>Selected:</strong> {imageFile.name}
                       </p>
-                      <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
+                      <p className="text-[11px] text-midnight-400">
                         Size: {(imageFile.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
@@ -604,68 +554,51 @@ const ProductForm = () => {
                     type="button"
                     onClick={handleUpload}
                     disabled={!imageFile || uploadLoading}
-                    style={{
-                      width: '100%',
-                      backgroundColor: imageFile && !uploadLoading ? '#16a34a' : '#9ca3af',
-                      color: 'white',
-                      padding: '12px 16px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      fontWeight: '500',
-                      cursor: imageFile && !uploadLoading ? 'pointer' : 'not-allowed'
-                    }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-midnight-700 disabled:opacity-50 text-white py-2.5 px-4 rounded-lg font-medium transition-colors text-sm"
                   >
                     {uploadLoading ? '⏳ Uploading...' : '📤 Upload to Server'}
                   </button>
 
-                  <p style={{
-                    fontSize: '14px',
-                    color: '#4b5563',
-                    marginTop: '12px',
-                    backgroundColor: 'white',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    margin: '12px 0 0 0'
-                  }}>
+                  <div className="text-xs text-midnight-400 mt-3 p-2 bg-midnight-950/60 rounded border border-midnight-800">
                     📋 <strong>Supported formats:</strong> JPG, JPEG, PNG, GIF<br />
                     📏 <strong>Maximum size:</strong> 5MB
-                  </p>
+                  </div>
                 </div>
 
                 {/* Web Search Section */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="bg-amber-950/40 border border-amber-800/60 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-amber-900 text-sm flex items-center gap-1.5">
+                    <span className="font-semibold text-amber-300 text-sm flex items-center gap-1.5">
                       <span>🌐</span> Find Images on the Web
                     </span>
-                    <span className="text-[11px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-medium">
+                    <span className="text-[11px] bg-amber-900/60 text-amber-300 border border-amber-700/60 px-2 py-0.5 rounded-full font-medium">
                       Auto-Finder
                     </span>
                   </div>
-                  <p className="text-xs text-amber-800 mb-3">
+                  <p className="text-xs text-amber-200/80 mb-3">
                     Search parts catalogs and vintage archives for authentic OEM photos, then copy them directly to your server.
                   </p>
                   <button
                     type="button"
                     onClick={() => setIsWebSearchOpen(true)}
-                    className="w-full bg-amber-800 hover:bg-amber-900 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 shadow-sm transition-colors text-sm"
+                    className="w-full bg-amber-700 hover:bg-amber-600 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 shadow transition-colors text-sm"
                   >
                     <span>🔍</span> Search Web for Part Image
                   </button>
                 </div>
 
                 {/* URL Section */}
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <label className="block text-gray-700 mb-2 font-medium">🔗 Or Enter Image URL</label>
+                <div className="border border-midnight-700 rounded-lg p-4 bg-midnight-800/40">
+                  <label className="block text-midnight-200 mb-2 font-medium text-sm">🔗 Or Enter Image URL</label>
                   <input
                     type="text"
                     name="image_url"
                     value={formData.image_url}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2.5 bg-midnight-900 border border-midnight-600 rounded-lg text-white placeholder-midnight-400 text-sm"
                     placeholder="https://example.com/image.jpg or /images/products/..."
                   />
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-xs text-midnight-400 mt-1">
                     Enter a direct URL or local path to an image file
                   </p>
                 </div>
@@ -674,25 +607,25 @@ const ProductForm = () => {
               {/* Multi-Image Gallery Manager */}
               <div>
                 {(formData.images && formData.images.length > 0) || imagePreview ? (
-                  <div className="border-2 border-green-300 rounded-lg p-4 bg-green-50/50 flex flex-col gap-3">
+                  <div className="border border-midnight-700 rounded-lg p-4 bg-midnight-800/40 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-green-900 flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-midnight-200 flex items-center gap-1.5">
                         <span>🖼️</span> Product Images ({formData.images?.length || (imagePreview ? 1 : 0)})
                       </p>
-                      <span className="text-[11px] bg-green-200 text-green-900 px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-[11px] bg-amber-900/60 text-amber-300 border border-amber-700/60 px-2 py-0.5 rounded-full font-medium">
                         ⭐ First is Cover
                       </span>
                     </div>
 
                     {/* Main Active Preview */}
-                    <div className="relative w-full h-52 bg-white border rounded-lg overflow-hidden shadow-sm flex items-center justify-center">
+                    <div className="relative w-full h-52 bg-midnight-950 border border-midnight-700 rounded-lg overflow-hidden shadow-sm flex items-center justify-center">
                       <PlaceholderImage
                         src={processImageUrl(imagePreview || formData.images?.[0])}
                         alt="Product preview"
                         className="object-contain w-full h-full"
                         placeholderText="Image Loading..."
                       />
-                      <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">
+                      <span className="absolute bottom-2 left-2 bg-black/80 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">
                         Preview
                       </span>
                     </div>
@@ -700,7 +633,7 @@ const ProductForm = () => {
                     {/* Thumbnails Strip */}
                     {formData.images && formData.images.length > 0 && (
                       <div>
-                        <p className="text-xs font-medium text-gray-700 mb-1.5">
+                        <p className="text-xs font-medium text-midnight-300 mb-1.5">
                           Gallery Thumbnails (click to view, star to make cover):
                         </p>
                         <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
@@ -712,10 +645,10 @@ const ProductForm = () => {
                               <div
                                 key={idx}
                                 onClick={() => setImagePreview(imgUrl)}
-                                className={`group relative aspect-square bg-white border-2 rounded-md overflow-hidden cursor-pointer transition-all ${
+                                className={`group relative aspect-square bg-midnight-950 border-2 rounded-md overflow-hidden cursor-pointer transition-all ${
                                   isCurrentlyPreviewed
-                                    ? 'border-amber-600 ring-2 ring-amber-400'
-                                    : 'border-gray-200 hover:border-gray-400'
+                                    ? 'border-amber-500 ring-2 ring-amber-400/80'
+                                    : 'border-midnight-700 hover:border-midnight-500'
                                 }`}
                               >
                                 <img
@@ -729,7 +662,7 @@ const ProductForm = () => {
                                   className={`absolute top-1 left-1 text-[9px] font-bold px-1 rounded ${
                                     isMain
                                       ? 'bg-emerald-600 text-white'
-                                      : 'bg-black/60 text-white'
+                                      : 'bg-black/70 text-white'
                                   }`}
                                 >
                                   {isMain ? '★ Cover' : `#${idx + 1}`}
@@ -770,11 +703,11 @@ const ProductForm = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex items-center justify-center h-52 bg-gray-50">
+                  <div className="border-2 border-dashed border-midnight-700 rounded-lg p-6 flex items-center justify-center h-52 bg-midnight-900/50">
                     <div className="text-center">
                       <div className="text-4xl mb-2">📷</div>
-                      <p className="text-gray-600 font-medium text-sm">No images attached yet</p>
-                      <p className="text-xs text-gray-400 mt-1">Use "Search Web" above to find & select images</p>
+                      <p className="text-midnight-300 font-medium text-sm">No images attached yet</p>
+                      <p className="text-xs text-midnight-400 mt-1">Use "Search Web" above to find & select images</p>
                     </div>
                   </div>
                 )}
@@ -785,13 +718,13 @@ const ProductForm = () => {
           <div className="flex justify-end">
             <Link
               to="/admin/products"
-              className="bg-gray-300 text-gray-800 px-6 py-2 rounded mr-2 hover:bg-gray-400"
+              className="bg-midnight-800 hover:bg-midnight-700 text-midnight-200 border border-midnight-600 px-6 py-2.5 rounded-lg mr-3 transition-colors font-medium"
             >
               Cancel
             </Link>
             <button
               type="submit"
-              className="bg-blue-800 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center"
+              className="bg-[#8B2332] hover:bg-[#a32a3b] text-white px-6 py-2.5 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center"
               disabled={loading}
             >
               {loading ? (

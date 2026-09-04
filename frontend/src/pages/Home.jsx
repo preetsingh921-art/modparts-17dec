@@ -14,7 +14,12 @@ const Home = () => {
 
   const getCategoryImagePath = (categoryName) => {
     if (!categoryName) return null;
-    const filename = categoryName.toLowerCase().replace(/\s+/g, '-');
+    const filename = categoryName
+      .toLowerCase()
+      .replace(/&/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
     return `/images/categories/${filename}.jpg`;
   };
 
@@ -114,10 +119,10 @@ const Home = () => {
                   <img
                     src={getCategoryImagePath(category.name)}
                     alt={`${category.name} category`}
-                    className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-300"
+                    className="w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-opacity duration-300"
                     onError={handleCategoryImageError}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1a]/90 via-[#1a1a1a]/50 to-transparent group-hover:from-[#1a1a1a]/80 transition-all duration-300" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#1a1a1a]/70 to-[#1a1a1a]/30 group-hover:from-[#141414]/95 group-hover:via-[#1a1a1a]/60 transition-all duration-300" />
                 </div>
 
                 {/* Content */}

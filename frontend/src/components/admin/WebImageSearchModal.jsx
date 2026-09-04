@@ -161,28 +161,28 @@ const WebImageSearchModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-fadeIn">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-midnight-900 border border-midnight-700 rounded-xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-fadeIn">
         {/* Header */}
-        <div className="bg-amber-900 text-white px-6 py-4 flex items-center justify-between">
+        <div className="bg-midnight-950 text-white px-6 py-4 flex items-center justify-between border-b border-midnight-700">
           <div>
-            <h2 className="text-xl font-bold flex items-center gap-2">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-white">
               <span>🔍</span> Search & Select Part Images
             </h2>
-            <p className="text-xs text-amber-200 mt-0.5">
+            <p className="text-xs text-midnight-300 mt-0.5">
               Select one or more vintage OEM photos from across the web to copy them permanently to your server.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-amber-200 hover:text-white text-2xl font-bold p-1 leading-none"
+            className="text-midnight-400 hover:text-white text-2xl font-bold p-1 leading-none"
           >
             &times;
           </button>
         </div>
 
         {/* Search Bar & Controls */}
-        <div className="p-4 border-b bg-gray-50">
+        <div className="p-4 border-b border-midnight-700 bg-midnight-800">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -196,14 +196,14 @@ const WebImageSearchModal = ({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="e.g. Yamaha RD350 Muffler, 360-14710-03-00..."
-                className="w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-amber-800 focus:outline-none bg-white text-gray-800 text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-midnight-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-midnight-900 text-white placeholder-midnight-400 text-sm"
               />
-              <span className="absolute left-3 top-2.5 text-gray-400 text-lg">🔎</span>
+              <span className="absolute left-3 top-2.5 text-midnight-400 text-lg">🔎</span>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="bg-amber-800 hover:bg-amber-900 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
+              className="bg-amber-700 hover:bg-amber-600 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -218,8 +218,8 @@ const WebImageSearchModal = ({
 
           {/* Quick Query Chips & Multi-Select Helpers */}
           <div className="flex flex-wrap gap-2 mt-3 items-center justify-between text-xs">
-            <div className="flex flex-wrap gap-2 items-center text-gray-600">
-              <span className="font-semibold text-gray-700">Quick Filters:</span>
+            <div className="flex flex-wrap gap-2 items-center text-midnight-300">
+              <span className="font-semibold text-midnight-200">Quick Filters:</span>
               {partNumber && (
                 <button
                   type="button"
@@ -228,7 +228,7 @@ const WebImageSearchModal = ({
                     setQuery(q);
                     handleSearch(q);
                   }}
-                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-2.5 py-1 rounded-full transition-colors"
+                  className="bg-midnight-700 hover:bg-midnight-600 text-midnight-100 border border-midnight-600 px-2.5 py-1 rounded-full transition-colors"
                 >
                   Part #{partNumber}
                 </button>
@@ -241,7 +241,7 @@ const WebImageSearchModal = ({
                   setQuery(newQ);
                   handleSearch(newQ);
                 }}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-2.5 py-1 rounded-full transition-colors"
+                className="bg-midnight-700 hover:bg-midnight-600 text-midnight-100 border border-midnight-600 px-2.5 py-1 rounded-full transition-colors"
               >
                 + OEM Vintage
               </button>
@@ -252,7 +252,7 @@ const WebImageSearchModal = ({
                 <button
                   type="button"
                   onClick={selectAll}
-                  className="text-amber-900 hover:text-amber-700 font-medium px-2 py-1 rounded hover:bg-amber-100 transition-colors"
+                  className="text-amber-400 hover:text-amber-300 font-medium px-2 py-1 rounded hover:bg-midnight-700 transition-colors"
                 >
                   Select All ({results.length})
                 </button>
@@ -260,7 +260,7 @@ const WebImageSearchModal = ({
                   <button
                     type="button"
                     onClick={clearSelection}
-                    className="text-gray-500 hover:text-gray-700 font-medium px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                    className="text-midnight-400 hover:text-midnight-200 font-medium px-2 py-1 rounded hover:bg-midnight-700 transition-colors"
                   >
                     Clear ({selectedUrls.length})
                   </button>
@@ -271,17 +271,17 @@ const WebImageSearchModal = ({
         </div>
 
         {/* Results Gallery */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 bg-midnight-900">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-              <div className="animate-spin h-10 w-10 border-4 border-amber-800 border-t-transparent rounded-full mb-3"></div>
+            <div className="flex flex-col items-center justify-center py-16 text-midnight-400">
+              <div className="animate-spin h-10 w-10 border-4 border-amber-600 border-t-transparent rounded-full mb-3"></div>
               <p className="text-sm font-medium">Scanning vintage parts catalogs & web archives...</p>
             </div>
           ) : results.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">
+            <div className="text-center py-16 text-midnight-400">
               <div className="text-5xl mb-3">📷</div>
-              <h3 className="text-base font-semibold text-gray-700">No images found</h3>
-              <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+              <h3 className="text-base font-semibold text-midnight-200">No images found</h3>
+              <p className="text-sm text-midnight-400 mt-1 max-w-sm mx-auto">
                 Try searching with just the part number, or removing specific sub-assembly keywords.
               </p>
             </div>
@@ -297,14 +297,14 @@ const WebImageSearchModal = ({
                   <div
                     key={idx}
                     onClick={() => toggleSelect(item.image)}
-                    className={`group relative border-2 rounded-lg overflow-hidden bg-white cursor-pointer transition-all flex flex-col justify-between ${
+                    className={`group relative border-2 rounded-lg overflow-hidden cursor-pointer transition-all flex flex-col justify-between ${
                       isSelected
-                        ? 'border-amber-600 ring-2 ring-amber-400 shadow-md bg-amber-50/20'
-                        : 'border-gray-200 hover:border-gray-400 hover:shadow'
+                        ? 'border-amber-500 ring-2 ring-amber-400/80 shadow-md bg-amber-950/30'
+                        : 'bg-midnight-800 border-midnight-700 hover:border-midnight-500 hover:shadow-lg'
                     }`}
                   >
                     {/* Image View */}
-                    <div className="relative aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                    <div className="relative aspect-square bg-midnight-950 flex items-center justify-center overflow-hidden">
                       <img
                         src={item.thumbnail || item.image}
                         alt={item.title}
@@ -320,7 +320,7 @@ const WebImageSearchModal = ({
                           className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-md transition-all ${
                             isSelected
                               ? 'bg-amber-600 text-white scale-110'
-                              : 'bg-white/80 text-gray-600 border border-gray-300 hover:bg-white'
+                              : 'bg-midnight-900/90 text-midnight-300 border border-midnight-700 hover:bg-midnight-800'
                           }`}
                         >
                           {isSelected ? `✓${selectionIndex + 1}` : ''}
@@ -346,7 +346,7 @@ const WebImageSearchModal = ({
                         type="button"
                         title="Copy direct URL to clipboard"
                         onClick={(e) => handleCopyUrlToClipboard(e, item.image)}
-                        className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700 hover:text-amber-900 p-1.5 rounded shadow text-xs transition-colors z-10"
+                        className="absolute top-2 right-2 bg-midnight-900/90 hover:bg-midnight-800 text-midnight-200 hover:text-white border border-midnight-700 p-1.5 rounded shadow text-xs transition-colors z-10"
                       >
                         {isJustCopied ? '✅ Copied' : '📋 URL'}
                       </button>
@@ -361,12 +361,12 @@ const WebImageSearchModal = ({
                     </div>
 
                     {/* Meta & Quick Action */}
-                    <div className="p-2.5 bg-white flex flex-col justify-between flex-1">
-                      <p className="text-[11px] text-gray-800 line-clamp-2 font-medium mb-2" title={item.title}>
+                    <div className="p-2.5 bg-midnight-800 flex flex-col justify-between flex-1">
+                      <p className="text-[11px] text-midnight-100 line-clamp-2 font-medium mb-2" title={item.title}>
                         {item.title}
                       </p>
 
-                      <div className="flex items-center justify-between gap-1 pt-1 border-t border-gray-100">
+                      <div className="flex items-center justify-between gap-1 pt-1 border-t border-midnight-700">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -375,8 +375,8 @@ const WebImageSearchModal = ({
                           }}
                           className={`text-xs font-semibold py-1 px-2 rounded transition-colors ${
                             isSelected
-                              ? 'text-amber-700 bg-amber-100'
-                              : 'text-gray-600 hover:bg-gray-100'
+                              ? 'text-amber-300 bg-amber-950/80 border border-amber-700/60'
+                              : 'text-midnight-300 hover:bg-midnight-700 hover:text-white'
                           }`}
                         >
                           {isSelected ? '✓ Selected' : '+ Select'}
@@ -389,7 +389,7 @@ const WebImageSearchModal = ({
                             e.stopPropagation();
                             handleChooseSingleImage(item, true);
                           }}
-                          className="text-[11px] bg-emerald-700 hover:bg-emerald-800 text-white py-1 px-2 rounded font-medium transition-colors"
+                          className="text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white py-1 px-2 rounded font-medium transition-colors"
                           title="Attach only this image immediately"
                         >
                           ⚡ Attach Solo
@@ -405,7 +405,7 @@ const WebImageSearchModal = ({
 
         {/* Multi-Select Floating Action Bar or Standard Footer */}
         {selectedUrls.length > 0 ? (
-          <div className="px-6 py-3.5 bg-amber-950 text-white flex flex-wrap justify-between items-center gap-3 border-t border-amber-800 shadow-inner">
+          <div className="px-6 py-3.5 bg-midnight-950 text-white flex flex-wrap justify-between items-center gap-3 border-t border-midnight-700 shadow-inner">
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center justify-center bg-amber-500 text-black font-bold text-xs h-6 w-6 rounded-full">
                 {selectedUrls.length}
@@ -427,7 +427,7 @@ const WebImageSearchModal = ({
                 type="button"
                 disabled={actionLoading === 'batch'}
                 onClick={() => handleBatchAttach(false)}
-                className="bg-amber-900/80 hover:bg-amber-900 text-amber-200 border border-amber-700 text-xs font-medium py-2 px-3 rounded-lg transition-colors"
+                className="bg-midnight-800 hover:bg-midnight-700 text-midnight-200 border border-midnight-600 text-xs font-medium py-2 px-3 rounded-lg transition-colors"
               >
                 Attach Direct URLs ({selectedUrls.length})
               </button>
@@ -436,7 +436,7 @@ const WebImageSearchModal = ({
                 type="button"
                 disabled={actionLoading === 'batch'}
                 onClick={() => handleBatchAttach(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-2 px-5 rounded-lg transition-colors shadow flex items-center gap-1.5 disabled:opacity-50"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2 px-5 rounded-lg transition-colors shadow flex items-center gap-1.5 disabled:opacity-50"
               >
                 {actionLoading === 'batch' ? (
                   <>
@@ -452,14 +452,14 @@ const WebImageSearchModal = ({
             </div>
           </div>
         ) : (
-          <div className="px-6 py-3 bg-gray-50 border-t flex justify-between items-center text-xs text-gray-500">
+          <div className="px-6 py-3 bg-midnight-950 border-t border-midnight-700 flex justify-between items-center text-xs text-midnight-400">
             <span>
-              💡 Click multiple images to select them, or use <strong>⚡ Attach Solo</strong> for a single image.
+              💡 Click multiple images to select them, or use <strong className="text-midnight-200">⚡ Attach Solo</strong> for a single image.
             </span>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 border rounded-md text-gray-700 hover:bg-gray-100 font-medium transition-colors"
+              className="px-4 py-1.5 border border-midnight-600 rounded-md text-midnight-200 hover:bg-midnight-800 hover:text-white font-medium transition-colors"
             >
               Close
             </button>

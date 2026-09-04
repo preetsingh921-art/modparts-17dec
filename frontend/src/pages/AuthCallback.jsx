@@ -134,44 +134,44 @@ const AuthCallback = () => {
   }, [searchParams, navigate, setUser]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] px-4">
+      <div className="max-w-md w-full bg-[#242424] border border-[#333] rounded-xl shadow-2xl p-8 text-center text-[#F5F0E1]">
         {status === 'processing' && (
           <>
             <LoadingSpinner size="lg" />
-            <h2 className="text-xl font-semibold text-gray-900 mt-4">
+            <h2 className="text-xl font-bold text-[#F5F0E1] mt-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
               Authenticating...
             </h2>
-            <p className="text-gray-600 mt-2">{message}</p>
+            <p className="text-[#A8A090] mt-2">{message}</p>
           </>
         )}
         
         {status === 'success' && (
           <>
-            <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 mx-auto mb-4 bg-emerald-950/80 border border-emerald-700 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-green-900">
+            <h2 className="text-xl font-bold text-emerald-300" style={{ fontFamily: "'Oswald', sans-serif" }}>
               Authentication Successful!
             </h2>
-            <p className="text-green-700 mt-2">{message}</p>
+            <p className="text-emerald-200/90 mt-2">{message}</p>
           </>
         )}
         
         {status === 'error' && (
           <>
-            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 mx-auto mb-4 bg-red-950/80 border border-red-800 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-red-900">
+            <h2 className="text-xl font-bold text-red-300" style={{ fontFamily: "'Oswald', sans-serif" }}>
               Authentication Failed
             </h2>
-            <p className="text-red-700 mt-2">{message}</p>
-            <p className="text-gray-600 text-sm mt-4">
+            <p className="text-red-200/90 mt-2">{message}</p>
+            <p className="text-[#A8A090] text-sm mt-4">
               Redirecting to login page...
             </p>
           </>

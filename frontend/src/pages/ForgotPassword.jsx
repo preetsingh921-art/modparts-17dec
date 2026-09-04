@@ -69,21 +69,26 @@ const ForgotPassword = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] px-4 py-12">
+        <div className="max-w-md w-full bg-[#242424] border border-[#333] rounded-lg shadow-xl p-6 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-emerald-950/80 border border-emerald-700 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-green-900 mb-4">Check Your Email</h2>
-          <p className="text-green-700 mb-6">
+          <h2
+            className="text-xl font-bold text-[#F5F0E1] mb-4 uppercase tracking-wide"
+            style={{ fontFamily: "'Oswald', sans-serif" }}
+          >
+            Check Your Email
+          </h2>
+          <p className="text-[#D4CFC0] mb-6">
             If an account with that email exists, we've sent you a password reset link.
           </p>
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded p-4 text-left">
-              <h3 className="font-medium text-blue-900 mb-2">What's next?</h3>
-              <ul className="text-sm text-blue-800 space-y-1">
+            <div className="bg-[#1a1a1a] border border-[#333] rounded p-4 text-left">
+              <h3 className="font-semibold text-[#F5F0E1] mb-2">What's next?</h3>
+              <ul className="text-sm text-[#A8A090] space-y-1">
                 <li>• Check your email inbox (and spam folder)</li>
                 <li>• Click the reset link in the email</li>
                 <li>• The link expires in 1 hour</li>
@@ -93,7 +98,7 @@ const ForgotPassword = () => {
             <div className="flex space-x-3">
               <Link
                 to="/login"
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition duration-200 text-center"
+                className="flex-1 bg-[#8B2332] text-white py-2 px-4 rounded font-semibold hover:bg-[#A32A3B] transition-colors text-center"
               >
                 Back to Login
               </Link>
@@ -102,7 +107,7 @@ const ForgotPassword = () => {
                   setSuccess(false);
                   setEmail('');
                 }}
-                className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-50 transition duration-200"
+                className="flex-1 bg-[#333] border border-[#444] text-[#D4CFC0] py-2 px-4 rounded hover:bg-[#3d3d3d] transition-colors"
               >
                 Try Again
               </button>
@@ -114,25 +119,30 @@ const ForgotPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a] px-4 py-12">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Forgot Password?</h2>
-          <p className="mt-2 text-gray-600">
+          <h2
+            className="text-3xl font-bold text-[#F5F0E1] uppercase tracking-wide"
+            style={{ fontFamily: "'Oswald', sans-serif" }}
+          >
+            Forgot Password?
+          </h2>
+          <p className="mt-2 text-[#A8A090]">
             No worries! Enter your email address and we'll send you a reset link.
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-[#242424] border border-[#333] rounded-lg shadow-xl p-6">
           <form onSubmit={handleSubmit}>
             {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              <div className="mb-4 p-3 bg-red-950/80 border border-red-800 text-red-200 rounded text-sm">
                 {error}
               </div>
             )}
 
             <div className="mb-6">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-[#D4CFC0] mb-1">
                 Email Address
               </label>
               <input
@@ -142,18 +152,16 @@ const ForgotPassword = () => {
                 value={email}
                 onChange={handleChange}
                 required
-                className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 bg-[#1a1a1a] border border-[#444] rounded text-[#F5F0E1] placeholder-[#777] focus:outline-none focus:border-[#8B2332]"
                 placeholder="Enter your email address"
                 disabled={loading}
               />
             </div>
 
-
-
             <button
               type="submit"
               disabled={loading || !email}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+              className="w-full bg-[#8B2332] text-white py-3 px-4 rounded font-semibold hover:bg-[#A32A3B] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -169,13 +177,13 @@ const ForgotPassword = () => {
           <div className="mt-6 text-center space-y-2">
             <Link
               to="/login"
-              className="block text-blue-600 hover:text-blue-500 text-sm"
+              className="block text-[#B8860B] hover:text-[#d4a50d] text-sm transition-colors"
             >
               Back to Login
             </Link>
-            <div className="text-gray-500 text-sm">
+            <div className="text-[#A8A090] text-sm">
               Don't have an account?{' '}
-              <Link to="/register" className="text-blue-600 hover:text-blue-500">
+              <Link to="/register" className="text-[#B8860B] hover:text-[#d4a50d] transition-colors">
                 Sign up here
               </Link>
             </div>
@@ -183,9 +191,9 @@ const ForgotPassword = () => {
         </div>
 
         {/* Help section */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-medium text-blue-900 mb-2">💡 Need Help?</h3>
-          <div className="text-sm text-blue-800 space-y-1">
+        <div className="bg-[#1e1e1e] border border-[#333] rounded-lg p-4">
+          <h3 className="font-medium text-[#F5F0E1] mb-2">💡 Need Help?</h3>
+          <div className="text-sm text-[#A8A090] space-y-1">
             <p>• Make sure you enter the email address you used to register</p>
             <p>• Check your spam/junk folder if you don't see the email</p>
             <p>• The reset link expires in 1 hour for security</p>

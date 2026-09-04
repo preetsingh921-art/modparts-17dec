@@ -237,12 +237,12 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-midnight-900 border border-midnight-700 rounded-xl shadow-lg p-6 text-white">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Website Logo</h3>
+        <h3 className="text-lg font-semibold text-white">Website Logo</h3>
         <button
           onClick={testAdminAccess}
-          className="bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm hover:bg-blue-200"
+          className="bg-midnight-800 border border-midnight-600 text-midnight-200 hover:bg-midnight-700 hover:text-white px-3 py-1 rounded text-sm transition-colors"
         >
           Test Admin Access
         </button>
@@ -251,9 +251,9 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
       {/* Current Logo Preview */}
       {preview && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Current Logo</label>
+          <label className="block text-sm font-medium text-midnight-200 mb-2">Current Logo</label>
           <div className="flex items-center space-x-4">
-            <div className="w-32 h-32 border-2 border-gray-200 rounded-lg flex items-center justify-center bg-gray-50">
+            <div className="w-32 h-32 border border-midnight-700 rounded-lg flex items-center justify-center bg-midnight-950 p-2">
               <img 
                 src={preview} 
                 alt="Current Logo" 
@@ -261,13 +261,13 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
               />
             </div>
             <div className="flex-1">
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="text-sm text-midnight-300 mb-2">
                 This logo appears in the header, footer, and as the website favicon.
               </p>
               <button
                 onClick={removeLogo}
                 disabled={uploading}
-                className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
+                className="text-red-400 hover:text-red-300 text-sm font-medium disabled:opacity-50 transition-colors"
               >
                 Remove Logo
               </button>
@@ -278,10 +278,10 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
 
       {/* Upload Area */}
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
           dragActive 
-            ? 'border-blue-400 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400'
+            ? 'border-amber-500 bg-amber-950/20' 
+            : 'border-midnight-600 bg-midnight-950/40 hover:border-amber-500'
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -298,23 +298,23 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
         
         {uploading ? (
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Uploading logo...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500 mb-4"></div>
+            <p className="text-midnight-300">Uploading logo...</p>
           </div>
         ) : (
           <div className="flex flex-col items-center">
-            <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-12 h-12 text-midnight-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            <p className="text-lg font-medium text-gray-900 mb-2">
+            <p className="text-lg font-semibold text-white mb-2">
               {dragActive ? 'Drop your logo here' : 'Upload Website Logo'}
             </p>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-midnight-300 mb-4">
               Drag and drop your logo here, or click to browse
             </p>
             <button
               onClick={triggerFileInput}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-amber-700 hover:bg-amber-600 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm shadow"
             >
               Choose File
             </button>
@@ -323,9 +323,9 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
       </div>
 
       {/* File Requirements */}
-      <div className="mt-4 text-sm text-gray-600">
-        <p className="font-medium mb-2">Requirements:</p>
-        <ul className="list-disc list-inside space-y-1">
+      <div className="mt-4 text-sm text-midnight-300">
+        <p className="font-medium text-white mb-2">Requirements:</p>
+        <ul className="list-disc list-inside space-y-1 text-midnight-300">
           <li>Supported formats: JPG, PNG, GIF, WebP, SVG</li>
           <li>Maximum file size: 5MB</li>
           <li>Recommended size: 200x200px or larger</li>
@@ -334,9 +334,9 @@ const LogoUpload = ({ currentLogo, onLogoUpdate }) => {
       </div>
 
       {/* Logo Usage Info */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-        <h4 className="font-medium text-blue-900 mb-2">Where your logo will appear:</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
+      <div className="mt-6 p-4 bg-midnight-800/80 border border-midnight-700 rounded-lg text-midnight-200">
+        <h4 className="font-medium text-amber-300 mb-2">Where your logo will appear:</h4>
+        <ul className="text-sm text-midnight-300 space-y-1">
           <li>• Website header (navigation bar)</li>
           <li>• Website footer</li>
           <li>• Browser tab (favicon)</li>

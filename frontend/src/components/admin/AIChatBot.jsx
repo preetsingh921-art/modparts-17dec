@@ -161,6 +161,7 @@ const TableRenderer = ({ tableData }) => {
     };
 
     const isWarehouseData = columns.some(c => c.toLowerCase().includes('warehouse') || c.toLowerCase().includes('owner_email'));
+    const isUserData = columns.some(c => c.toLowerCase() === 'role') && columns.some(c => c.toLowerCase() === 'email');
 
     return (
         <div className="min-w-[300px] max-w-full">
@@ -222,8 +223,10 @@ const TableRenderer = ({ tableData }) => {
             {viewMode === 'cards' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
                     {rows.map((row, idx) => {
-                        const title = row.name || row.title || row.part_number || row.email || `Record #${idx + 1}`;
+                        const fullName = [row.first_name, row.last_name].filter(Boolean).join(' ');
+                        const title = fullName || row.name || row.title || row.part_number || row.email || `Record #${idx + 1}`;
                         const flag = row.country === 'IND' || row.warehouse_country === 'IND' ? '🇮🇳' : row.country === 'CAN' || row.warehouse_country === 'CAN' ? '🇨🇦' : '🏢';
+                        const cardIcon = isUserData ? '👤' : isWarehouseData ? flag : '📦';
                         return (
                             <div 
                                 key={idx}
@@ -232,7 +235,7 @@ const TableRenderer = ({ tableData }) => {
                                 <div>
                                     <div className="flex items-start justify-between gap-2 mb-2">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xl">{isWarehouseData ? flag : '📦'}</span>
+                                            <span className="text-xl">{cardIcon}</span>
                                             <div>
                                                 <h4 className="text-sm font-bold text-[#F5F0E1] leading-snug">{title}</h4>
                                                 {row.code && (
@@ -240,20 +243,57 @@ const TableRenderer = ({ tableData }) => {
                                                         {row.code}
                                                     </span>
                                                 )}
+                                                {row.role && (
+                                                    <span className={`text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
+                                                        row.role === 'superadmin' 
+                                                            ? 'bg-purple-950/60 text-purple-300 border-purple-700' 
+                                                            : row.role === 'admin' 
+                                                            ? 'bg-amber-950/60 text-amber-300 border-amber-700' 
+                                                            : 'bg-blue-950/60 text-blue-300 border-blue-700'
+                                                    }`}>
+                                                        {row.role}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
-                                        {row.is_active !== undefined && (
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                                                row.is_active ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' : 'bg-rose-950/60 text-rose-400 border border-rose-800'
-                                            }`}>
-                                                {row.is_active ? 'Active' : 'Inactive'}
-                                            </span>
-                                        )}
+                                        <div className="flex flex-col items-end gap-1">
+                                            {row.is_approved !== undefined && (
+                                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                                    row.is_approved ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' : 'bg-amber-950/60 text-amber-400 border border-amber-800'
+                                                }`}>
+                                                    {row.is_approved ? 'Approved' : 'Pending'}
+                                                </span>
+                                            )}
+                                            {row.is_active !== undefined && (
+                                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                                    row.is_active ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' : 'bg-rose-950/60 text-rose-400 border border-rose-800'
+                                                }`}>
+                                                    {row.is_active ? 'Active' : 'Inactive'}
+                                                </span>
+                                            )}
+                                            {row.status && (
+                                                <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase bg-[#1e293b] text-slate-300 border border-slate-700">
+                                                    {row.status}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Attributes list */}
                                     <div className="space-y-1.5 text-xs text-[#b5b5b5] mt-2">
-                                        {row.owner_email && (
+                                        {row.email && (
+                                            <div className="flex items-center gap-1.5 bg-[#0b0f17] p-2 rounded-lg border border-[#222d3d]">
+                                                <span className="text-gray-400 font-medium">✉️ Email:</span>
+                                                <a 
+                                                    href={`mailto:${row.email}`} 
+                                                    className="text-amber-400 hover:underline font-mono truncate"
+                                                    title={row.email}
+                                                >
+                                                    {row.email}
+                                                </a>
+                                            </div>
+                                        )}
+                                        {row.owner_email && !row.email && (
                                             <div className="flex items-center gap-1.5 bg-[#0b0f17] p-2 rounded-lg border border-[#222d3d]">
                                                 <span className="text-gray-400 font-medium">✉️ Owner:</span>
                                                 <a 
@@ -263,6 +303,12 @@ const TableRenderer = ({ tableData }) => {
                                                 >
                                                     {row.owner_email}
                                                 </a>
+                                            </div>
+                                        )}
+                                        {row.warehouse_id && (
+                                            <div className="flex justify-between text-[11px]">
+                                                <span className="text-gray-400">🏢 Assigned Warehouse:</span>
+                                                <span className="text-amber-300 font-mono font-medium">#{row.warehouse_id}</span>
                                             </div>
                                         )}
                                         {row.owner_name && (
@@ -865,8 +911,10 @@ const AIChatBot = () => {
                                     onChange={(e) => setSelectedProvider(e.target.value)}
                                     className="bg-[#2a2a2a] text-[#F5F0E1] border border-[#444] text-xs rounded-md px-2 py-1 focus:outline-none focus:border-[#8B2332]"
                                 >
-                                    <option value="gemini">Google Gemini</option>
-                                    <option value="groq">Llama 3 (Groq)</option>
+                                    <option value="gemini">Google Gemini (Default)</option>
+                                    <option value="groq">Groq Cloud (Fast)</option>
+                                    <option value="sambanova">SambaNova Cloud</option>
+                                    <option value="github">GitHub Models (GPT-4o)</option>
                                 </select>
                                 <button onClick={() => setIsOpen(false)} className="text-[#666] hover:text-white transition-colors ml-2">
                                     ✕

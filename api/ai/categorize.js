@@ -72,10 +72,15 @@ Common patterns:
                     const groq = new Groq({ apiKey: groqKey });
                     const groqModels = [
                         process.env.GROQ_MODEL,
+                        'openai/gpt-oss-120b',
+                        'qwen/qwen3.6-27b',
+                        'openai/gpt-oss-20b',
+                        'qwen/qwen3.8-27b',
                         'llama-3.3-70b-versatile',
+                        'llama-3.2-11b-vision-preview',
+                        'llama-3.1-8b-instant',
                         'llama3-70b-8192',
-                        'llama3-8b-8192',
-                        'mixtral-8x7b-32768'
+                        'llama3-8b-8192'
                     ].filter(Boolean);
 
                     let responseText = null;
@@ -136,10 +141,10 @@ Common patterns:
                     const genAI = new GoogleGenerativeAI(geminiKey);
                     const geminiModels = [
                         process.env.GEMINI_MODEL,
-                        'gemini-1.5-flash',
-                        'gemini-2.0-flash',
                         'gemini-2.5-flash',
-                        'gemini-1.5-pro'
+                        'gemini-3.6-flash',
+                        'gemini-2.0-flash',
+                        'gemini-1.5-flash'
                     ].filter(Boolean);
 
                     let responseText = null;
@@ -155,28 +160,79 @@ Common patterns:
                     }
 
                     let cleanJson = responseText;
-                    if (cleanJson.startsWith('```')) {
+                    if (cleanJson && cleanJson.startsWith('```')) {
                         cleanJson = cleanJson.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
                     }
 
-                    const parsed = JSON.parse(cleanJson);
-                    const matchedCategory = categories.find(c =>
-                        c.name.toLowerCase() === parsed.category?.toLowerCase()
-                    );
+                    if (cleanJson) {
+                        const parsed = JSON.parse(cleanJson);
+                        const matchedCategory = categories.find(c =>
+                            c.name.toLowerCase() === parsed.category?.toLowerCase()
+                        );
 
-                    if (matchedCategory) {
-                        aiResult = {
-                            category_id: String(matchedCategory.id),
-                            category_name: matchedCategory.name,
-                            confidence: parsed.confidence || 0.8,
-                            method: 'ai'
-                        };
+                        if (matchedCategory) {
+                            aiResult = {
+                                category_id: String(matchedCategory.id),
+                                category_name: matchedCategory.name,
+                                confidence: parsed.confidence || 0.8,
+                                method: 'ai'
+                            };
+                        }
+
+                        console.log(`🤖 Gemini categorized "${inputText}" → ${aiResult?.category_name || 'no match'} (${(aiResult?.confidence || 0) * 100}%)`);
                     }
-
-                    console.log(`🤖 Gemini categorized "${inputText}" → ${aiResult?.category_name || 'no match'} (${(aiResult?.confidence || 0) * 100}%)`);
                 }
             } catch (geminiError) {
                 console.error('Gemini categorization error:', geminiError.message);
+            }
+        }
+
+        // ==========================================
+        // TERTIARY FALLBACK: SambaNova Cloud
+        // ==========================================
+        if (!aiResult) {
+            try {
+                const sambaKey = process.env.SAMBANOVA_API_KEY;
+                if (sambaKey) {
+                    const axios = require('axios');
+                    const sambaModels = [process.env.SAMBANOVA_MODEL, 'Meta-Llama-3.1-70B-Instruct', 'Meta-Llama-3.3-70B-Instruct'].filter(Boolean);
+                    for (const sm of sambaModels) {
+                        try {
+                            const res = await axios.post('https://api.sambanova.ai/v1/chat/completions', {
+                                model: sm,
+                                messages: [
+                                    { role: 'system', content: 'You are a motorcycle parts categorization expert. Respond with ONLY valid JSON, no markdown.' },
+                                    { role: 'user', content: prompt }
+                                ],
+                                temperature: 0.1,
+                                response_format: { type: 'json_object' }
+                            }, {
+                                headers: { 'Authorization': `Bearer ${sambaKey}`, 'Content-Type': 'application/json' },
+                                timeout: 15000
+                            });
+                            const respText = res.data?.choices?.[0]?.message?.content?.trim();
+                            if (respText) {
+                                let clean = respText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+                                const parsed = JSON.parse(clean);
+                                const matched = categories.find(c => c.name.toLowerCase() === parsed.category?.toLowerCase());
+                                if (matched) {
+                                    aiResult = {
+                                        category_id: String(matched.id),
+                                        category_name: matched.name,
+                                        confidence: parsed.confidence || 0.8,
+                                        method: 'ai'
+                                    };
+                                    console.log(`🔷 SambaNova categorized "${inputText}" → ${aiResult.category_name}`);
+                                    break;
+                                }
+                            }
+                        } catch (smErr) {
+                            console.warn(`⚠️ SambaNova model ${sm} failed:`, smErr.message);
+                        }
+                    }
+                }
+            } catch (sambaErr) {
+                console.error('SambaNova categorization error:', sambaErr.message);
             }
         }
 

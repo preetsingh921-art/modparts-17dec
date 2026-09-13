@@ -395,18 +395,47 @@ const BarcodeScanner = ({
 
             console.log('📦 API returned:', result.products?.length || 0, 'products');
 
-            // Find exact match first (part_number or barcode), including hyphens
-            const exactMatch = result.products?.find(p =>
+            const allProducts = result.products || [];
+
+            // Find exact matches first (part_number or barcode)
+            const exactMatches = allProducts.filter(p =>
                 p.part_number === barcodeValue ||
                 p.barcode === barcodeValue ||
                 p.part_number?.toLowerCase() === barcodeValue.toLowerCase() ||
                 p.barcode?.toLowerCase() === barcodeValue.toLowerCase()
             );
 
-            const product = exactMatch || result.products?.[0];
+            // Prioritize:
+            // 1. Exact match in the active warehouseId (if provided)
+            // 2. Exact match in any warehouse with quantity > 0
+            // 3. Any exact match
+            // 4. Any product in active warehouse matching search
+            // 5. Any product matching search
+            let product = null;
+            if (exactMatches.length > 0) {
+                if (warehouseId) {
+                    product = exactMatches.find(p => String(p.warehouse_id) === String(warehouseId));
+                }
+                if (!product) {
+                    product = exactMatches.find(p => p.warehouse_id && (p.quantity > 0));
+                }
+                if (!product) {
+                    product = exactMatches[0];
+                }
+            } else if (allProducts.length > 0) {
+                if (warehouseId) {
+                    product = allProducts.find(p => String(p.warehouse_id) === String(warehouseId));
+                }
+                if (!product) {
+                    product = allProducts.find(p => p.warehouse_id && (p.quantity > 0));
+                }
+                if (!product) {
+                    product = allProducts[0];
+                }
+            }
 
             if (product) {
-                console.log('✅ Product found:', product.name);
+                console.log('✅ Product found:', product.name, 'in warehouse:', product.warehouse_id);
                 setScanStatus(`✅ Found: ${product.name}`);
                 if (onScan) {
                     onScan(barcodeValue, product);
@@ -438,9 +467,21 @@ const BarcodeScanner = ({
         setIsSearching(true);
         try {
             // Search globally so products from any warehouse appear in suggestions
-            const searchParams = { search: query, limit: 20 };
+            const searchParams = { search: query, limit: 30 };
             const result = await getProducts(searchParams);
-            const products = result.products || [];
+            let products = result.products || [];
+
+            // Sort to prioritize active warehouse products, then products with stock
+            if (products.length > 1) {
+                products.sort((a, b) => {
+                    const aActive = warehouseId && String(a.warehouse_id) === String(warehouseId);
+                    const bActive = warehouseId && String(b.warehouse_id) === String(warehouseId);
+                    if (aActive && !bActive) return -1;
+                    if (!aActive && bActive) return 1;
+                    return (b.quantity || 0) - (a.quantity || 0);
+                });
+            }
+
             console.log('🔍 Search found:', products.length, 'products for', query);
             setSearchResults(products);
             setShowDropdown(products.length > 0);
@@ -449,7 +490,7 @@ const BarcodeScanner = ({
             setSearchResults([]);
         }
         setIsSearching(false);
-    }, []);
+    }, [warehouseId]);
 
     const handleInputChange = (e) => {
         const value = e.target.value;
@@ -891,7 +932,7 @@ const BarcodeScanner = ({
             {/* Manual Input with Product Search */}
             <form onSubmit={handleManualSubmit} style={{ marginTop: '10px', position: 'relative' }}>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                    <div style={{ position: 'relative', width: '280px' }}>
+                    <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
                         <input
                             type="text"
                             data-scanner-manual="true"
@@ -899,16 +940,17 @@ const BarcodeScanner = ({
                             value={manualInput}
                             onChange={handleInputChange}
                             onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-                            onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                            onBlur={() => setTimeout(() => setShowDropdown(false), 250)}
                             style={{
                                 padding: '14px 40px 14px 14px',
-                                fontSize: '16px',
-                                border: '2px solid #1976d2',
+                                fontSize: '15px',
+                                border: '1px solid #475569',
                                 borderRadius: '8px',
                                 width: '100%',
                                 boxSizing: 'border-box',
-                                backgroundColor: 'white',
-                                color: '#333'
+                                backgroundColor: '#090d16',
+                                color: '#f8fafc',
+                                outline: 'none'
                             }}
                         />
 
@@ -931,48 +973,85 @@ const BarcodeScanner = ({
                                 top: '100%',
                                 left: 0,
                                 right: 0,
-                                backgroundColor: 'white',
-                                border: '1px solid #ccc',
+                                backgroundColor: '#0f172a',
+                                border: '1px solid #334155',
                                 borderRadius: '0 0 8px 8px',
-                                maxHeight: '250px',
+                                maxHeight: '280px',
                                 overflowY: 'auto',
                                 zIndex: 1000,
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.7)',
                                 textAlign: 'left'
                             }}>
-                                {searchResults.map((product) => (
-                                    <div
-                                        key={product.id}
-                                        onClick={() => handleSelectProduct(product)}
-                                        style={{
-                                            padding: '12px 14px',
-                                            cursor: 'pointer',
-                                            borderBottom: '1px solid #eee',
-                                            backgroundColor: 'white'
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e3f2fd'}
-                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                                    >
-                                        <div style={{ fontWeight: 'bold', color: '#333' }}>
-                                            {product.name}
+                                {searchResults.map((product) => {
+                                    const isActiveWh = warehouseId && String(product.warehouse_id) === String(warehouseId);
+                                    return (
+                                        <div
+                                            key={product.id}
+                                            onClick={() => handleSelectProduct(product)}
+                                            style={{
+                                                padding: '10px 12px',
+                                                cursor: 'pointer',
+                                                borderBottom: '1px solid rgba(51, 65, 85, 0.5)',
+                                                backgroundColor: isActiveWh ? 'rgba(245, 158, 11, 0.05)' : 'transparent',
+                                                transition: 'background-color 0.15s'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.15)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isActiveWh ? 'rgba(245, 158, 11, 0.05)' : 'transparent'}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '14px' }}>
+                                                    {product.name}
+                                                </span>
+                                                {isActiveWh && (
+                                                    <span style={{
+                                                        background: 'rgba(245, 158, 11, 0.2)',
+                                                        color: '#fbbf24',
+                                                        fontSize: '10px',
+                                                        padding: '1px 6px',
+                                                        borderRadius: '4px',
+                                                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                        fontWeight: 'bold',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        ⭐ Active WH
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                                <span style={{
+                                                    fontFamily: 'monospace',
+                                                    backgroundColor: '#1e293b',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    color: '#fbbf24',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '11px'
+                                                }}>
+                                                    {product.part_number || product.barcode || 'No Part #'}
+                                                </span>
+                                                <span style={{
+                                                    backgroundColor: 'rgba(51, 65, 85, 0.5)',
+                                                    padding: '1px 6px',
+                                                    borderRadius: '4px',
+                                                    color: '#cbd5e1',
+                                                    fontSize: '11px'
+                                                }}>
+                                                    📍 {product.warehouse_name || 'No Warehouse'}
+                                                </span>
+                                                <span style={{
+                                                    color: (product.quantity || 0) > 0 ? '#34d399' : '#94a3b8',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '11px'
+                                                }}>
+                                                    Qty: {product.quantity || 0}
+                                                </span>
+                                                <span style={{ color: '#64748b', marginLeft: 'auto', fontSize: '11px' }}>
+                                                    ${parseFloat(product.price || 0).toFixed(2)}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                            <span style={{
-                                                fontFamily: 'monospace',
-                                                backgroundColor: '#e3f2fd',
-                                                padding: '2px 8px',
-                                                borderRadius: '4px',
-                                                color: '#1976d2',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {product.part_number || product.barcode || 'No Part #'}
-                                            </span>
-                                            <span style={{ marginLeft: '10px' }}>
-                                                ${parseFloat(product.price || 0).toFixed(2)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

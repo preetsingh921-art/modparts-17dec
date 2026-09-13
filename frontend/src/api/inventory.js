@@ -207,7 +207,9 @@ export const movementsAPI = {
         quantity,
       }),
     });
-    return response.json();
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to ship product');
+    return data;
   },
 
   // Receive product at destination (requires movement_id and warehouse_id for validation)

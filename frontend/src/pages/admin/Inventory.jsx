@@ -19,15 +19,17 @@ const Inventory = () => {
     const [movements, setMovements] = useState([]);
     const [scannedProduct, setScannedProduct] = useState(null);
     const [notFoundBarcode, setNotFoundBarcode] = useState(null);
-    const [selectedWarehouse, setSelectedWarehouse] = useState('');
+    const [operatingWarehouse, setOperatingWarehouse] = useState('');
+    const [destinationWarehouse, setDestinationWarehouse] = useState('');
+    const [otherWarehouseProduct, setOtherWarehouseProduct] = useState(null);
     const [transferAction, setTransferAction] = useState('send'); // 'send' or 'receive'
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [newBin, setNewBin] = useState({ bin_number: '', description: '', capacity: 100 });
 
-    // Effective warehouse: superadmin operates on selectedWarehouse (or first warehouse), admin operates on assigned warehouse
+    // Effective warehouse: superadmin operates on operatingWarehouse (or first warehouse), admin operates on assigned warehouse
     const effectiveWarehouseId = isSuperAdmin
-        ? (selectedWarehouse ? String(selectedWarehouse) : (warehouses[0]?.id ? String(warehouses[0]?.id) : null))
+        ? (operatingWarehouse ? String(operatingWarehouse) : (warehouses[0]?.id ? String(warehouses[0]?.id) : null))
         : (adminWarehouseId ? String(adminWarehouseId) : null);
 
     const activeWarehouseObj = warehouses.find(w => String(w.id) === String(effectiveWarehouseId));
@@ -140,7 +142,7 @@ const Inventory = () => {
                 const nearest = findNearestWarehouse(location, warehouses);
                 if (nearest) {
                     setNearestWarehouse(nearest);
-                    setSelectedWarehouse(String(nearest.id));
+                    setOperatingWarehouse(String(nearest.id));
                     setMessage({
                         type: 'success',
                         text: `📍 Detected nearest warehouse: ${nearest.name} (${nearest.distance} km away)`
@@ -206,11 +208,11 @@ const Inventory = () => {
             const data = await warehouseAPI.getAll();
             const whList = data.warehouses || [];
             setWarehouses(whList);
-            if (whList.length > 0 && !selectedWarehouse) {
+            if (whList.length > 0 && !operatingWarehouse) {
                 const defaultWh = (adminWarehouseId && whList.find(w => String(w.id) === String(adminWarehouseId)))
                     ? String(adminWarehouseId)
                     : String(whList[0].id);
-                setSelectedWarehouse(defaultWh);
+                setOperatingWarehouse(defaultWh);
             }
         } catch (error) {
             console.error('Error fetching warehouses:', error);
@@ -401,177 +403,154 @@ const Inventory = () => {
         setLoading(true);
         setMessage({ type: '', text: '' });
         setNotFoundBarcode(null); // Reset not found state
+        setOtherWarehouseProduct(null);
 
         try {
-            // If product is already provided by scanner, use it directly
-            if (product) {
-                // For SEND mode, verify product is in operating warehouse
-                if (activeTab === 'scan-send' && effectiveWarehouseId && String(product.warehouse_id) !== String(effectiveWarehouseId)) {
-                    setScannedProduct(null);
-                    setMessage({ type: 'warning', text: `Cannot send: Product is in ${product.warehouse_name || 'another warehouse'}, not your active warehouse.` });
-                } else if (activeTab === 'scan-receive') {
-                    // RECEIVE MODE: Show product details, let user select bin then click Receive
-                    setScannedProduct(product);
+            const productsModule = await import('../../api/products');
+            const searchVal = barcode || product?.part_number || product?.barcode;
+            if (!searchVal) {
+                setLoading(false);
+                return;
+            }
+
+            console.log('🔍 SCAN DEBUG:', { effectiveWarehouseId, searchVal, providedProductWh: product?.warehouse_id });
+
+            // Always search globally so we can evaluate local stock vs other warehouse locations
+            const searchParams = { search: searchVal, limit: 50 };
+            const result = await productsModule.getProducts(searchParams);
+            const allProducts = result.products || result || [];
+
+            // Find matching products by exact or case-insensitive barcode / part number
+            let matchingProducts = allProducts.filter(p =>
+                p.part_number === searchVal ||
+                p.barcode === searchVal ||
+                p.part_number?.toLowerCase() === searchVal.toLowerCase() ||
+                p.barcode?.toLowerCase() === searchVal.toLowerCase() ||
+                (p.name && p.name.toLowerCase().includes(searchVal.toLowerCase()))
+            );
+
+            if (matchingProducts.length === 0 && allProducts.length > 0) {
+                matchingProducts = [allProducts[0]];
+            }
+
+            if (activeTab === 'scan-send') {
+                // SEND MODE: Look for the product specifically in the active operating warehouse
+                let productInMyWarehouse = matchingProducts.find(p =>
+                    effectiveWarehouseId && String(p.warehouse_id) === String(effectiveWarehouseId)
+                );
+
+                // If scanner already provided a product and it is in active warehouse, prefer it
+                if (!productInMyWarehouse && product && effectiveWarehouseId && String(product.warehouse_id) === String(effectiveWarehouseId)) {
+                    productInMyWarehouse = product;
+                }
+
+                if (productInMyWarehouse) {
+                    setScannedProduct(productInMyWarehouse);
+                    setSendQuantity(1);
+                    setOtherWarehouseProduct(null);
+                    if (productInMyWarehouse.quantity > 0) {
+                        setMessage({
+                            type: 'success',
+                            text: `Found: ${productInMyWarehouse.name} (${productInMyWarehouse.quantity} units in stock at ${activeWarehouseObj?.name || 'Active Warehouse'})`
+                        });
+                    } else {
+                        setMessage({
+                            type: 'warning',
+                            text: `Product is in active warehouse (${activeWarehouseObj?.name || 'Active Warehouse'}) but has 0 stock. Restock or receive before sending.`
+                        });
+                    }
+                } else {
+                    // Product is NOT in the active warehouse. Check which warehouse(s) it IS in:
+                    const inOtherWarehouses = matchingProducts.filter(p => p.warehouse_id && String(p.warehouse_id) !== String(effectiveWarehouseId));
+
+                    if (inOtherWarehouses.length > 0) {
+                        // Prioritize one with positive stock
+                        const bestOther = inOtherWarehouses.find(p => p.quantity > 0) || inOtherWarehouses[0];
+                        setScannedProduct(null);
+                        setOtherWarehouseProduct(bestOther);
+
+                        const otherWhName = bestOther.warehouse_name || warehouses.find(w => String(w.id) === String(bestOther.warehouse_id))?.name || `Warehouse ${bestOther.warehouse_id}`;
+
+                        setMessage({
+                            type: 'warning',
+                            text: `Product "${bestOther.name}" (${bestOther.part_number || barcode}) is located in ${otherWhName} (Stock: ${bestOther.quantity || 0}), not in your active warehouse (${activeWarehouseObj?.name || 'Selected'}).`
+                        });
+                    } else if (matchingProducts.length > 0) {
+                        // Product exists only in catalog template with no warehouse assigned
+                        const catalogItem = matchingProducts[0];
+                        setScannedProduct(null);
+                        setOtherWarehouseProduct(catalogItem);
+                        setMessage({
+                            type: 'warning',
+                            text: `Product "${catalogItem.name}" (${catalogItem.part_number || barcode}) has no warehouse stock assigned. Use Scan & Receive to add stock to ${activeWarehouseObj?.name || 'this warehouse'}.`
+                        });
+                    } else {
+                        // Not found in system
+                        setScannedProduct(null);
+                        setNotFoundBarcode(barcode);
+                        setOtherWarehouseProduct(null);
+                        setMessage({
+                            type: 'error',
+                            text: `No product found matching "${barcode}". Please verify the barcode or part number.`
+                        });
+                    }
+                }
+            } else {
+                // RECEIVE MODE: Check pending movements FIRST, then look for products
+                const matchedMovement = movements.find(m =>
+                    (m.part_number === barcode || m.barcode === barcode ||
+                        m.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
+                        m.barcode?.toLowerCase().includes(barcode.toLowerCase())) &&
+                    String(m.to_warehouse_id) === String(effectiveWarehouseId) &&
+                    m.status === 'in_transit'
+                );
+
+                if (matchedMovement) {
+                    // EXPECTED SHIPMENT FOUND - even if product doesn't exist in receiving warehouse
+                    setPendingMovement(matchedMovement);
+                    setReceiveQuantity(matchedMovement.quantity || 1);
+                    setScannedProduct({
+                        id: matchedMovement.product_id,
+                        name: matchedMovement.product_name || barcode,
+                        part_number: matchedMovement.part_number,
+                        barcode: matchedMovement.barcode,
+                        quantity: matchedMovement.quantity
+                    });
+                    setShowUnexpectedConfirm(false);
+                    setNotFoundBarcode(null);
+                    setOtherWarehouseProduct(null);
+                    setMessage({
+                        type: 'success',
+                        text: `✅ EXPECTED: ${matchedMovement.product_name || barcode} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
+                    });
+                } else if (matchingProducts.length > 0) {
+                    // Product exists but no pending movement - pick local copy or best match
+                    const foundProduct = matchingProducts.find(p => String(p.warehouse_id) === String(effectiveWarehouseId)) || matchingProducts[0];
+                    setScannedProduct(foundProduct);
                     setPendingMovement(null);
                     setShowUnexpectedConfirm(true);
                     setReceiveQuantity(1);
+                    setOtherWarehouseProduct(null);
                     setMessage({
                         type: 'info',
-                        text: `📦 Found: ${product.name} (Qty: ${product.quantity}). Select a bin and click RECEIVE.`
+                        text: `📦 Found: ${foundProduct.name} (Qty: ${foundProduct.quantity || 0}). Select a bin and click RECEIVE.`
                     });
-                    console.log('📥 RECEIVE MODE: Product found, waiting for bin selection and receive click');
                 } else {
-                    // SEND mode - product is in operating warehouse
-                    setScannedProduct(product);
-                    setSendQuantity(1);
-                    setMessage({ type: 'success', text: `Found: ${product.name} (Qty: ${product.quantity})` });
-                }
-            } else {
-                // Search for product by barcode/part_number - search GLOBALLY first
-                const productsModule = await import('../../api/products');
-
-                // Search without warehouse filter so we can find the product regardless of location
-                const searchParams = { search: barcode, limit: 50 };
-                console.log('🔍 SEARCH DEBUG:', { effectiveWarehouseId, searchParams, userWarehouseId: user?.warehouse_id });
-                const result = await productsModule.getProducts(searchParams);
-                const products = result.products || result;
-                console.log('🔍 SEARCH RESULTS:', products?.length, 'products found');
-
-                // Find matching products by barcode/part number
-                let matchingProducts = products?.filter(p =>
-                    p.part_number === barcode || p.barcode === barcode ||
-                    p.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
-                    p.name?.toLowerCase().includes(barcode.toLowerCase())
-                ) || [];
-
-                // Sort so that the product in the operating warehouse is FIRST
-                if (matchingProducts.length > 1 && effectiveWarehouseId) {
-                    matchingProducts.sort((a, b) => {
-                        if (String(a.warehouse_id) === String(effectiveWarehouseId)) return -1;
-                        if (String(b.warehouse_id) === String(effectiveWarehouseId)) return 1;
-                        return 0;
+                    // No product found and no pending movement
+                    setNotFoundBarcode(barcode);
+                    setScannedProduct(null);
+                    setPendingMovement(null);
+                    setOtherWarehouseProduct(null);
+                    setShowUnexpectedConfirm(true);
+                    setMessage({
+                        type: 'warning',
+                        text: `⚠️ No pending shipment or product found for: ${barcode}. Confirm below to add as new.`
                     });
-                }
-
-                if (matchingProducts.length === 0 && products?.length > 0) {
-                    // If no exact match, use first result
-                    matchingProducts = [products[0]];
-                }
-
-                if (matchingProducts.length > 0) {
-                    if (activeTab === 'scan-send') {
-                        // SEND MODE: Find product specifically in operating warehouse
-                        const productInMyWarehouse = matchingProducts.find(p =>
-                            String(p.warehouse_id) === String(effectiveWarehouseId)
-                        );
-
-                        if (productInMyWarehouse) {
-                            setScannedProduct(productInMyWarehouse);
-                            setSendQuantity(1);
-                            setMessage({ type: 'success', text: `Found: ${productInMyWarehouse.name} (Qty: ${productInMyWarehouse.quantity} in active warehouse)` });
-                        } else {
-                            // Product exists but not in operating warehouse
-                            const otherLocations = matchingProducts.map(p => p.warehouse_name || `Warehouse ${p.warehouse_id}`).join(', ');
-                            setScannedProduct(null);
-                            setMessage({ type: 'warning', text: `Product not in active warehouse (${activeWarehouseObj?.name || 'Selected'}). Found in: ${otherLocations}. Switch to RECEIVE mode or change operating warehouse.` });
-                        }
-                    } else {
-                        // RECEIVE MODE: Check pending movements FIRST, then look for products
-
-                        // Search for pending movement by barcode/part_number destined to operating warehouse
-                        const matchedMovement = movements.find(m =>
-                            (m.part_number === barcode || m.barcode === barcode ||
-                                m.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
-                                m.barcode?.toLowerCase().includes(barcode.toLowerCase())) &&
-                            String(m.to_warehouse_id) === String(effectiveWarehouseId) &&
-                            m.status === 'in_transit'
-                        );
-
-                        if (matchedMovement) {
-                            // EXPECTED SHIPMENT FOUND - even if product doesn't exist in receiving warehouse
-                            setPendingMovement(matchedMovement);
-                            setReceiveQuantity(matchedMovement.quantity || 1);
-                            setScannedProduct({
-                                id: matchedMovement.product_id,
-                                name: matchedMovement.product_name || barcode,
-                                part_number: matchedMovement.part_number,
-                                barcode: matchedMovement.barcode,
-                                quantity: matchedMovement.quantity
-                            });
-                            setShowUnexpectedConfirm(false);
-                            setNotFoundBarcode(null);
-                            setMessage({
-                                type: 'success',
-                                text: `✅ EXPECTED: ${matchedMovement.product_name || barcode} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
-                            });
-                        } else if (matchingProducts.length > 0) {
-                            // Product exists but no pending movement - show product, wait for receive click
-                            const foundProduct = matchingProducts[0];
-                            setScannedProduct(foundProduct);
-                            setPendingMovement(null);
-                            setShowUnexpectedConfirm(true);
-                            setReceiveQuantity(1);
-                            setMessage({
-                                type: 'info',
-                                text: `📦 Found: ${foundProduct.name} (Qty: ${foundProduct.quantity}). Select a bin and click RECEIVE.`
-                            });
-                            console.log('📥 RECEIVE MODE: Product found via search, waiting for bin selection and receive click');
-                        } else {
-                            // No product found AND no pending movement
-                            setNotFoundBarcode(barcode);
-                            setScannedProduct(null);
-                            setPendingMovement(null);
-                            setShowUnexpectedConfirm(true);
-                            setMessage({ type: 'warning', text: `⚠️ No pending shipment or product found for: ${barcode}. Confirm to add as new.` });
-                        }
-                    }
-                } else {
-                    // No product found at all - still check pending movements for RECEIVE mode
-                    if (activeTab === 'scan-receive') {
-                        const matchedMovement = movements.find(m =>
-                            (m.part_number === barcode || m.barcode === barcode ||
-                                m.part_number?.toLowerCase().includes(barcode.toLowerCase()) ||
-                                m.barcode?.toLowerCase().includes(barcode.toLowerCase())) &&
-                            String(m.to_warehouse_id) === String(effectiveWarehouseId) &&
-                            m.status === 'in_transit'
-                        );
-
-                        if (matchedMovement) {
-                            // EXPECTED SHIPMENT FOUND
-                            setPendingMovement(matchedMovement);
-                            setReceiveQuantity(matchedMovement.quantity || 1);
-                            setScannedProduct({
-                                id: matchedMovement.product_id,
-                                name: matchedMovement.product_name || barcode,
-                                part_number: matchedMovement.part_number,
-                                barcode: matchedMovement.barcode,
-                                quantity: matchedMovement.quantity
-                            });
-                            setShowUnexpectedConfirm(false);
-                            setNotFoundBarcode(null);
-                            setMessage({
-                                type: 'success',
-                                text: `✅ EXPECTED: ${matchedMovement.product_name || barcode} (${matchedMovement.quantity} units from ${matchedMovement.from_warehouse_name}). Click RECEIVE.`
-                            });
-                        } else {
-                            // No product and no pending movement - show add as new
-                            setNotFoundBarcode(barcode);
-                            setScannedProduct(null);
-                            setPendingMovement(null);
-                            setShowUnexpectedConfirm(true);
-                            setMessage({ type: 'warning', text: `⚠️ No pending shipment for: ${barcode}. Confirm to add as new product.` });
-                        }
-                    } else {
-                        // SEND mode - product not found
-                        setNotFoundBarcode(barcode);
-                        setScannedProduct(null);
-                        setMessage({ type: 'warning', text: `Product not found for barcode: ${barcode}` });
-                    }
                 }
             }
         } catch (error) {
-            setMessage({ type: 'error', text: 'Error scanning barcode' });
             console.error('Scan error:', error);
+            setMessage({ type: 'error', text: 'Error scanning: ' + error.message });
         }
 
         setLoading(false);
@@ -599,7 +578,7 @@ const Inventory = () => {
 
     const handleCreateBin = async (e) => {
         e.preventDefault();
-        const warehouseToUse = effectiveWarehouseId || selectedWarehouse;
+        const warehouseToUse = effectiveWarehouseId;
         if (!warehouseToUse || !newBin.bin_number) {
             setMessage({ type: 'error', text: 'Warehouse not assigned or bin number missing' });
             return;
@@ -877,7 +856,13 @@ const Inventory = () => {
                             <select
                                 value={effectiveWarehouseId || ''}
                                 onChange={(e) => {
-                                    setSelectedWarehouse(e.target.value);
+                                    setOperatingWarehouse(e.target.value);
+                                    setScannedProduct(null);
+                                    setOtherWarehouseProduct(null);
+                                    setMessage({ type: '', text: '' });
+                                    if (destinationWarehouse === e.target.value) {
+                                        setDestinationWarehouse('');
+                                    }
                                     if (activeTab === 'warehouse-inventory') {
                                         fetchBinInventory(e.target.value, binInventorySearch);
                                         fetchProductInventory(e.target.value, binInventorySearch);
@@ -1206,8 +1191,8 @@ const Inventory = () => {
                                                         Destination Branch Warehouse:
                                                     </label>
                                                     <select
-                                                        value={selectedWarehouse}
-                                                        onChange={(e) => setSelectedWarehouse(e.target.value)}
+                                                        value={destinationWarehouse}
+                                                        onChange={(e) => setDestinationWarehouse(e.target.value)}
                                                         style={{
                                                             width: '100%',
                                                             padding: '12px 14px',
@@ -1221,7 +1206,7 @@ const Inventory = () => {
                                                     >
                                                         <option value="">-- Select Destination Warehouse --</option>
                                                         {warehouses
-                                                            .filter(w => String(w.id) !== String(scannedProduct?.warehouse_id))
+                                                            .filter(w => String(w.id) !== String(effectiveWarehouseId) && String(w.id) !== String(scannedProduct?.warehouse_id))
                                                             .map(w => (
                                                                 <option key={w.id} value={w.id}>
                                                                     {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
@@ -1318,7 +1303,7 @@ const Inventory = () => {
                                             {/* Action Execution Button */}
                                             <button
                                                 onClick={async () => {
-                                                    if (activeTab === 'scan-send' && !selectedWarehouse) {
+                                                    if (activeTab === 'scan-send' && !destinationWarehouse) {
                                                         setMessage({ type: 'error', text: 'Please select a destination warehouse' });
                                                         return;
                                                     }
@@ -1337,11 +1322,11 @@ const Inventory = () => {
                                                             await movementsAPI.ship(
                                                                 [scannedProduct.id],
                                                                 scannedProduct.warehouse_id,
-                                                                selectedWarehouse,
+                                                                destinationWarehouse,
                                                                 `Shipped 1 via barcode scan`,
                                                                 1
                                                             );
-                                                            const destWarehouse = warehouses.find(w => String(w.id) === String(selectedWarehouse));
+                                                            const destWarehouse = warehouses.find(w => String(w.id) === String(destinationWarehouse));
                                                             setMessage({
                                                                 type: 'success',
                                                                 text: `✅ 1 unit shipped to ${destWarehouse?.name || 'destination'}! (${scannedProduct.quantity - 1} remaining)`
@@ -1390,7 +1375,7 @@ const Inventory = () => {
                                                     }
                                                     setLoading(false);
                                                 }}
-                                                disabled={loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId)}
+                                                disabled={loading || (activeTab === 'scan-send' && !destinationWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId)}
                                                 style={{
                                                     width: '100%',
                                                     padding: '16px',
@@ -1400,8 +1385,8 @@ const Inventory = () => {
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '10px',
-                                                    cursor: loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 'not-allowed' : 'pointer',
-                                                    opacity: loading || (activeTab === 'scan-send' && !selectedWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 0.6 : 1,
+                                                    cursor: loading || (activeTab === 'scan-send' && !destinationWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 'not-allowed' : 'pointer',
+                                                    opacity: loading || (activeTab === 'scan-send' && !destinationWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 0.6 : 1,
                                                     fontWeight: 'bold',
                                                     fontSize: '17px',
                                                     letterSpacing: '0.5px',
@@ -1415,6 +1400,128 @@ const Inventory = () => {
                                                 {loading ? '⏳ Processing Transaction...' : (
                                                     activeTab === 'scan-send' ? '📤 DISPATCH 1 UNIT TO DESTINATION' : '📥 RECEIVE 1 UNIT INTO WAREHOUSE'
                                                 )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : otherWarehouseProduct ? (
+                                    /* Product in Another Warehouse - Clear Context & Actions */
+                                    <div style={{
+                                        padding: '20px',
+                                        background: 'rgba(234, 88, 12, 0.08)',
+                                        border: '1px solid rgba(234, 88, 12, 0.4)',
+                                        borderRadius: '10px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                            <span style={{ fontSize: '18px' }}>📍</span>
+                                            <h4 style={{ color: '#fb923c', margin: 0, fontSize: '16px', fontWeight: 'bold' }}>
+                                                {otherWarehouseProduct.warehouse_id ? 'Product Located in Another Warehouse' : 'Catalog Item (No Active Warehouse Stock)'}
+                                            </h4>
+                                        </div>
+
+                                        <p style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+                                            <strong>{otherWarehouseProduct.name}</strong> ({otherWarehouseProduct.part_number || otherWarehouseProduct.barcode}) is currently
+                                            {otherWarehouseProduct.warehouse_id ? (
+                                                <> assigned to <strong style={{ color: '#f8fafc' }}>
+                                                    {otherWarehouseProduct.warehouse_name || warehouses.find(w => String(w.id) === String(otherWarehouseProduct.warehouse_id))?.name || `Warehouse #${otherWarehouseProduct.warehouse_id}`}
+                                                </strong> with <strong style={{ color: '#34d399' }}>{otherWarehouseProduct.quantity || 0} unit(s)</strong> in stock.</>
+                                            ) : (
+                                                <> a catalog template with no stock assigned in any warehouse.</>
+                                            )}
+                                        </p>
+
+                                        <div style={{
+                                            padding: '12px 14px',
+                                            backgroundColor: '#0b0f17',
+                                            borderRadius: '8px',
+                                            border: '1px solid #334155',
+                                            marginBottom: '16px',
+                                            fontSize: '13px',
+                                            color: '#94a3b8'
+                                        }}>
+                                            <span>Your Active Operating Warehouse: </span>
+                                            <strong style={{ color: '#f59e0b' }}>{activeWarehouseObj?.name || 'Not Selected'}</strong>
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {otherWarehouseProduct.warehouse_id && isSuperAdmin && (
+                                                <button
+                                                    onClick={() => {
+                                                        const targetWhId = String(otherWarehouseProduct.warehouse_id);
+                                                        setOperatingWarehouse(targetWhId);
+                                                        setScannedProduct(otherWarehouseProduct);
+                                                        setOtherWarehouseProduct(null);
+                                                        const targetWhName = warehouses.find(w => String(w.id) === targetWhId)?.name || 'Origin';
+                                                        setMessage({
+                                                            type: 'info',
+                                                            text: `⚡ Switched operating warehouse to ${targetWhName}. Ready to dispatch.`
+                                                        });
+                                                    }}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px',
+                                                        padding: '13px 20px',
+                                                        background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        fontWeight: 'bold',
+                                                        fontSize: '14px',
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)'
+                                                    }}
+                                                >
+                                                    ⚡ Switch Operating Warehouse to {warehouses.find(w => String(w.id) === String(otherWarehouseProduct.warehouse_id))?.name || 'Origin'} & Dispatch
+                                                </button>
+                                            )}
+
+                                            <button
+                                                onClick={() => {
+                                                    setActiveTab('scan-receive');
+                                                    setScannedProduct(otherWarehouseProduct);
+                                                    setOtherWarehouseProduct(null);
+                                                    setMessage({
+                                                        type: 'info',
+                                                        text: `Switched to Receive mode. You can now receive "${otherWarehouseProduct.name}" into ${activeWarehouseObj?.name || 'operating warehouse'}.`
+                                                    });
+                                                }}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px',
+                                                    padding: '12px 20px',
+                                                    background: 'linear-gradient(135deg, #059669, #047857)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '14px',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)'
+                                                }}
+                                            >
+                                                📥 Switch to "Scan & Receive" to Add Stock at {activeWarehouseObj?.name || 'Local'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    setOtherWarehouseProduct(null);
+                                                    setMessage({ type: '', text: '' });
+                                                }}
+                                                style={{
+                                                    padding: '10px 16px',
+                                                    backgroundColor: '#334155',
+                                                    color: '#f8fafc',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '500',
+                                                    fontSize: '13px'
+                                                }}
+                                            >
+                                                ✖️ Dismiss / Scan Another Part
                                             </button>
                                         </div>
                                     </div>
@@ -1769,7 +1876,7 @@ const Inventory = () => {
                                         <div
                                             key={w.id}
                                             onClick={() => {
-                                                setSelectedWarehouse(String(w.id));
+                                                setOperatingWarehouse(String(w.id));
                                                 fetchBins(w.id);
                                                 fetchBinInventory(w.id, binInventorySearch);
                                                 fetchProductInventory(w.id, binInventorySearch);
@@ -1875,7 +1982,7 @@ const Inventory = () => {
                                 <select
                                     value={effectiveWarehouseId || ''}
                                     onChange={(e) => {
-                                        setSelectedWarehouse(e.target.value);
+                                        setOperatingWarehouse(e.target.value);
                                         fetchBins(e.target.value);
                                         fetchBinInventory(e.target.value, binInventorySearch);
                                         fetchProductInventory(e.target.value, binInventorySearch);

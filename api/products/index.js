@@ -29,10 +29,72 @@ module.exports = async function handler(req, res) {
       // Calculate offset
       const offset = (page - 1) * limit;
 
-      const queryParams = [];
-      let paramCount = 1;
+      // Bin Number Filter
+      const binNumber = req.query.bin_number || null;
 
-      // Base Select clauses
+      // Helper function to build WHERE clauses with distinct parameter tracking
+      function buildWhereClauses(startIndex) {
+        const clauses = [];
+        const params = [];
+        let idx = startIndex;
+
+        if (search) {
+          clauses.push(`(p.name ILIKE $${idx} OR p.description ILIKE $${idx} OR p.part_number ILIKE $${idx} OR p.barcode ILIKE $${idx} OR p.ref_no ILIKE $${idx} OR p.part_number = $${idx + 1})`);
+          params.push(`%${search}%`, search);
+          idx += 2;
+        }
+        if (category) {
+          clauses.push(`p.category_id = $${idx}`);
+          params.push(category);
+          idx++;
+        }
+        if (categories) {
+          const categoryIds = categories.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+          if (categoryIds.length > 0) {
+            clauses.push(`p.category_id = ANY($${idx}::int[])`);
+            params.push(categoryIds);
+            idx++;
+          }
+        }
+        if (minPrice !== null) {
+          clauses.push(`p.price >= $${idx}`);
+          params.push(minPrice);
+          idx++;
+        }
+        if (maxPrice !== null) {
+          clauses.push(`p.price <= $${idx}`);
+          params.push(maxPrice);
+          idx++;
+        }
+        if (warehouseId && !globalCatalog) {
+          clauses.push(`p.warehouse_id = $${idx}`);
+          params.push(parseInt(warehouseId));
+          idx++;
+        }
+        if (binNumber) {
+          clauses.push(`p.bin_number = $${idx}`);
+          params.push(binNumber);
+          idx++;
+        }
+
+        const whereSql = clauses.length > 0 ? ' AND ' + clauses.join(' AND ') : '';
+        return { whereSql, params, nextIndex: idx };
+      }
+
+      // 1. COUNT QUERY: built with its own independent parameter mapping starting at $1
+      const countFilter = buildWhereClauses(1);
+      const countSelectClause = globalCatalog 
+        ? `SELECT COUNT(DISTINCT COALESCE(p.barcode, p.part_number)) as total_count` 
+        : `SELECT COUNT(*) as total_count`;
+      const countQueryText = `
+        ${countSelectClause}
+        FROM products p
+        WHERE 1=1${countFilter.whereSql}
+      `;
+      const countParams = countFilter.params;
+
+      // 2. MAIN QUERY: built with its own parameter list
+      const queryParams = [];
       let selectClause = `
         SELECT 
           p.*, 
@@ -42,9 +104,7 @@ module.exports = async function handler(req, res) {
           w.location as warehouse_location,
           w.country as warehouse_country
       `;
-      let countSelectClause = `SELECT COUNT(*) as total_count`;
 
-      // Apply Global Catalog Modifications
       if (globalCatalog) {
         selectClause = `
         SELECT DISTINCT ON (COALESCE(p.barcode, p.part_number))
@@ -54,143 +114,61 @@ module.exports = async function handler(req, res) {
           w.name as warehouse_name,
           w.location as warehouse_location,
           w.country as warehouse_country`;
-        countSelectClause = `SELECT COUNT(DISTINCT COALESCE(p.barcode, p.part_number)) as total_count`;
-        
+
         if (warehouseId) {
+          queryParams.push(parseInt(warehouseId)); // $1
           selectClause += `,
-          COALESCE((SELECT quantity FROM products p2 WHERE COALESCE(p2.barcode, p2.part_number) = COALESCE(p.barcode, p.part_number) AND p2.warehouse_id = $${paramCount} LIMIT 1), 0) as local_quantity,
-          (SELECT id FROM products p3 WHERE COALESCE(p3.barcode, p3.part_number) = COALESCE(p.barcode, p.part_number) AND p3.warehouse_id = $${paramCount} LIMIT 1) as local_id,
-          (SELECT warehouse_id FROM products p4 WHERE COALESCE(p4.barcode, p4.part_number) = COALESCE(p.barcode, p.part_number) AND p4.warehouse_id = $${paramCount} LIMIT 1) as local_warehouse_id
+          COALESCE((SELECT quantity FROM products p2 WHERE COALESCE(p2.barcode, p2.part_number) = COALESCE(p.barcode, p.part_number) AND p2.warehouse_id = $1 LIMIT 1), 0) as local_quantity,
+          (SELECT id FROM products p3 WHERE COALESCE(p3.barcode, p3.part_number) = COALESCE(p.barcode, p.part_number) AND p3.warehouse_id = $1 LIMIT 1) as local_id,
+          (SELECT warehouse_id FROM products p4 WHERE COALESCE(p4.barcode, p4.part_number) = COALESCE(p.barcode, p.part_number) AND p4.warehouse_id = $1 LIMIT 1) as local_warehouse_id
           `;
-          queryParams.push(parseInt(warehouseId));
-          paramCount++;
         }
       }
 
-      // Build Query - Include warehouse join
-      let queryText = `
-        ${selectClause}
-        FROM products p
-        LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN warehouses w ON p.warehouse_id = w.id
-        WHERE 1=1
-      `;
-      let countQueryText = `
-        ${countSelectClause}
-        FROM products p
-        WHERE 1=1
-      `;
-
-      // Add Search Filter - search in name, description, part_number, barcode, and ref_no
-      if (search) {
-        const searchClause = ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount} OR p.part_number ILIKE $${paramCount} OR p.barcode ILIKE $${paramCount} OR p.ref_no ILIKE $${paramCount} OR p.part_number = $${paramCount + 1})`;
-        queryText += searchClause;
-        countQueryText += searchClause;
-        queryParams.push(`%${search}%`);
-        queryParams.push(search); // Exact match for part_number
-        paramCount += 2;
-      }
-
-      // Add Category Filter (Single)
-      if (category) {
-        const catClause = ` AND p.category_id = $${paramCount}`;
-        queryText += catClause;
-        countQueryText += catClause;
-        queryParams.push(category);
-        paramCount++;
-      }
-
-      // Add Multiple Categories Filter
-      if (categories) {
-        const categoryIds = categories.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-        if (categoryIds.length > 0) {
-          // Manually build IN clause list since pg doesn't support array directly in this context easily without ANY
-          // Using ANY($n) approach for array
-          const catMultiClause = ` AND p.category_id = ANY($${paramCount}::int[])`;
-          queryText += catMultiClause;
-          countQueryText += catMultiClause;
-          queryParams.push(categoryIds);
-          paramCount++;
-        }
-      }
-
-      // Add Price Range Filter
-      if (minPrice !== null) {
-        const minClause = ` AND p.price >= $${paramCount}`;
-        queryText += minClause;
-        countQueryText += minClause;
-        queryParams.push(minPrice);
-        paramCount++;
-      }
-      if (maxPrice !== null) {
-        const maxClause = ` AND p.price <= $${paramCount}`;
-        queryText += maxClause;
-        countQueryText += maxClause;
-        queryParams.push(maxPrice);
-        paramCount++;
-      }
-
-      // Add Warehouse Filter
-      if (warehouseId && !globalCatalog) {
-        const warehouseClause = ` AND p.warehouse_id = $${paramCount}`;
-        queryText += warehouseClause;
-        countQueryText += warehouseClause;
-        queryParams.push(parseInt(warehouseId));
-        paramCount++;
-      }
-
-      // Add Bin Number Filter
-      const binNumber = req.query.bin_number || null;
-      if (binNumber) {
-        const binClause = ` AND p.bin_number = $${paramCount}`;
-        queryText += binClause;
-        countQueryText += binClause;
-        queryParams.push(binNumber);
-        paramCount++;
-      }
+      // Build WHERE clauses for main query starting after any select clause parameters
+      const mainFilter = buildWhereClauses(queryParams.length + 1);
+      queryParams.push(...mainFilter.params);
 
       // Geo-IP Country Filter: India visitors get IND warehouse products prioritized
-      // NOTE: We use SOFT prioritization (sort order) instead of hard filtering
-      // to avoid empty results when warehouse country data is incomplete
-      // Handles country variants: 'IND', 'India', 'IN', 'CAN', 'Canada', 'CA', etc.
       let geoSortPrefix = '';
       if (visitorCountry) {
         const upperCountry = visitorCountry.toUpperCase();
         if (upperCountry === 'IN' || upperCountry === 'IND') {
-          // India customers: prioritize IND/India warehouse products first in sort
           geoSortPrefix = `CASE WHEN w.country ILIKE 'IND%' OR w.country ILIKE 'India%' THEN 0 WHEN w.country IS NULL THEN 1 ELSE 2 END, `;
           console.log('🇮🇳 Geo-IP: Prioritizing IND warehouse products');
         }
       }
-      // If no geo detected, still prioritize IND (default nearest warehouse)
       if (!geoSortPrefix) {
         geoSortPrefix = `CASE WHEN w.country ILIKE 'IND%' OR w.country ILIKE 'India%' THEN 0 ELSE 1 END, `;
       }
 
       // Add Sorting
-      // Validate sortBy to prevent SQL injection
       const allowedSortColumns = ['name', 'price', 'created_at', 'updated_at', 'quantity'];
       const safeSortBy = allowedSortColumns.includes(sortBy) ? `p.${sortBy}` : 'p.created_at';
 
-      // Apply geo-priority sorting, then user's sort preference
+      let orderClause = '';
       if (globalCatalog) {
-        // DISTINCT ON requires the first ORDER BY column to match the DISTINCT ON expression
-        queryText += ` ORDER BY COALESCE(p.barcode, p.part_number), ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
+        orderClause = ` ORDER BY COALESCE(p.barcode, p.part_number), ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
       } else {
-        queryText += ` ORDER BY ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
+        orderClause = ` ORDER BY ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
       }
 
-      // Add Pagination
-      queryText += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-
-      // Execute Queries
-      // We need separate params for main query and count query because count query doesn't have LIMIT/OFFSET
-      const countParams = queryParams.slice(); // Copy params used so far
-
-      // Add limit and offset to main query params
+      const limitParamIdx = mainFilter.nextIndex;
+      const offsetParamIdx = mainFilter.nextIndex + 1;
       queryParams.push(limit, offset);
 
+      const queryText = `
+        ${selectClause}
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN warehouses w ON p.warehouse_id = w.id
+        WHERE 1=1${mainFilter.whereSql}
+        ${orderClause}
+        LIMIT $${limitParamIdx} OFFSET $${offsetParamIdx}
+      `;
+
       console.log('🔍 Executing Neon Query:', queryText);
+      console.log('🔍 Executing Count Query:', countQueryText);
 
       const [productsResult, countResult] = await Promise.all([
         db.query(queryText, queryParams),

@@ -50,8 +50,9 @@ export const barcodeAPI = {
   },
 
   // Lookup product by barcode (used when scanning)
-  scan: async (barcode) => {
-    const response = await fetch(`${API_BASE_URL}/inventory/barcode?action=scan&barcode=${encodeURIComponent(barcode)}`, {
+  scan: async (barcode, warehouseId = null) => {
+    const whParam = warehouseId ? `&warehouse_id=${encodeURIComponent(warehouseId)}` : '';
+    const response = await fetch(`${API_BASE_URL}/inventory/barcode?action=scan&barcode=${encodeURIComponent(barcode)}${whParam}`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -244,6 +245,24 @@ export const movementsAPI = {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Failed to assign bin');
+    return data;
+  },
+
+  // Shift product between bins inside a warehouse
+  shiftBin: async ({ productId, fromBin, toBin, warehouseId, quantity = 1 }) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=shift-bin`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        product_id: productId,
+        from_bin: fromBin,
+        to_bin: toBin,
+        warehouse_id: warehouseId,
+        quantity,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to shift product between bins');
     return data;
   },
 

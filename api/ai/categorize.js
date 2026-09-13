@@ -70,19 +70,33 @@ Common patterns:
                 if (groqKey) {
                     const Groq = require('groq-sdk');
                     const groq = new Groq({ apiKey: groqKey });
-                    const groqModel = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+                    const groqModels = [
+                        process.env.GROQ_MODEL,
+                        'llama-3.3-70b-versatile',
+                        'llama3-70b-8192',
+                        'llama3-8b-8192',
+                        'mixtral-8x7b-32768'
+                    ].filter(Boolean);
 
-                    const chatCompletion = await groq.chat.completions.create({
-                        messages: [
-                            { role: 'system', content: 'You are a motorcycle parts categorization expert. Respond with ONLY valid JSON, no markdown.' },
-                            { role: 'user', content: prompt }
-                        ],
-                        model: groqModel,
-                        temperature: 0.0,
-                        response_format: { type: 'json_object' }
-                    });
+                    let responseText = null;
+                    for (const m of groqModels) {
+                        try {
+                            const chatCompletion = await groq.chat.completions.create({
+                                messages: [
+                                    { role: 'system', content: 'You are a motorcycle parts categorization expert. Respond with ONLY valid JSON, no markdown.' },
+                                    { role: 'user', content: prompt }
+                                ],
+                                model: m,
+                                temperature: 0.0,
+                                response_format: { type: 'json_object' }
+                            });
+                            responseText = chatCompletion.choices[0]?.message?.content?.trim();
+                            if (responseText) break;
+                        } catch (mErr) {
+                            console.warn(`⚠️ Groq model ${m} failed in categorize: ${mErr.message}`);
+                        }
+                    }
 
-                    const responseText = chatCompletion.choices[0]?.message?.content?.trim();
                     if (responseText) {
                         let cleanJson = responseText;
                         if (cleanJson.startsWith('```')) {
@@ -120,10 +134,25 @@ Common patterns:
                 if (geminiKey) {
                     const { GoogleGenerativeAI } = require('@google/generative-ai');
                     const genAI = new GoogleGenerativeAI(geminiKey);
-                    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+                    const geminiModels = [
+                        process.env.GEMINI_MODEL,
+                        'gemini-1.5-flash',
+                        'gemini-2.0-flash',
+                        'gemini-2.5-flash',
+                        'gemini-1.5-pro'
+                    ].filter(Boolean);
 
-                    const result = await model.generateContent(prompt);
-                    const responseText = result.response.text().trim();
+                    let responseText = null;
+                    for (const gm of geminiModels) {
+                        try {
+                            const model = genAI.getGenerativeModel({ model: gm });
+                            const result = await model.generateContent(prompt);
+                            responseText = result.response.text().trim();
+                            if (responseText) break;
+                        } catch (gmErr) {
+                            console.warn(`⚠️ Gemini model ${gm} failed in categorize: ${gmErr.message}`);
+                        }
+                    }
 
                     let cleanJson = responseText;
                     if (cleanJson.startsWith('```')) {

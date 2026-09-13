@@ -310,6 +310,60 @@ module.exports = async function handler(req, res) {
                 return res.json({ message: 'Product assigned to bin successfully' });
             }
 
+            // Shift product between bins in the same warehouse
+            if (action === 'shift-bin') {
+                const { product_id, from_bin, to_bin, warehouse_id: reqWhId, quantity } = req.body;
+
+                if (!product_id || !to_bin) {
+                    return res.status(400).json({ message: 'product_id and to_bin are required' });
+                }
+
+                // Verify product exists and get its current state
+                const prodRes = await db.query(`
+                    SELECT * FROM products WHERE id = $1
+                `, [product_id]);
+
+                if (prodRes.rows.length === 0) {
+                    return res.status(404).json({ message: 'Product not found' });
+                }
+
+                const sourceProd = prodRes.rows[0];
+                const targetWhId = reqWhId || sourceProd.warehouse_id;
+                const currentQty = parseInt(sourceProd.quantity) || 0;
+                const moveQty = quantity ? Math.min(parseInt(quantity), currentQty) : currentQty;
+
+                // Update product's bin_number and warehouse_id
+                await db.query(`
+                    UPDATE products 
+                    SET bin_number = $1, warehouse_id = COALESCE($2, warehouse_id), updated_at = NOW() 
+                    WHERE id = $3
+                `, [to_bin, targetWhId, product_id]);
+
+                // Log movement in inventory_movements
+                try {
+                    await db.query(`
+                        INSERT INTO inventory_movements 
+                        (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at, received_at, quantity, from_bin_number, to_bin)
+                        VALUES ($1, $2, $2, 'adjustment', 'completed', $3, $4, NOW(), NOW(), $5, $6, $7)
+                    `, [
+                        product_id,
+                        targetWhId,
+                        `Shifted ${moveQty} units from bin ${from_bin || sourceProd.bin_number || 'unassigned'} to bin ${to_bin}`,
+                        decoded.id,
+                        moveQty,
+                        from_bin || sourceProd.bin_number || null,
+                        to_bin
+                    ]);
+                } catch (logErr) {
+                    console.warn('⚠️ Could not log internal bin movement in inventory_movements:', logErr.message);
+                }
+
+                return res.json({ 
+                    success: true, 
+                    message: `Successfully shifted ${moveQty} unit(s) of "${sourceProd.name}" to bin ${to_bin}` 
+                });
+            }
+
             // Add unexpected inventory (when product wasn't expected/no movement)
             if (action === 'add-unexpected') {
                 const { part_number, warehouse_id, bin_number, quantity = 1 } = req.body;

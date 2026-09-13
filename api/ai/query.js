@@ -18,6 +18,15 @@ SQL RULES:
 - MUST start with SELECT and be READ-ONLY.
 - ALWAYS use ILIKE instead of = for string matching (e.g. c.name ILIKE '%brakes%') to be case-insensitive.
 
+WAREHOUSE & OWNER RELATIONSHIPS:
+- Warehouses are assigned to admin users via users.warehouse_id = warehouses.id.
+- When the user asks to "display warehouses and their owner email id" or questions about warehouse managers, owners, or branch emails:
+  Write a query joining warehouses with users, for example:
+  SELECT w.id, w.name, w.code, w.city, w.state, w.country, u.email as owner_email, u.name as owner_name, u.role
+  FROM warehouses w
+  LEFT JOIN users u ON u.warehouse_id = w.id
+  ORDER BY w.id;
+
 CHART RULES:
 - When the user asks for a GROUPED, COMPARISON, COMBO, or MULTI-METRIC chart (e.g., "revenue AND quantity", "revenue vs qty", "group column chart"), your SQL query MUST return ONE text/label column AND MULTIPLE numeric columns. For example: SELECT p.name, SUM(oi.quantity) AS qty_sold, SUM(oi.quantity * oi.price) AS revenue FROM order_items oi JOIN products p ON oi.product_id = p.id GROUP BY p.name ORDER BY revenue DESC LIMIT 10.
 - When the user asks for a simple chart (single metric), return ONE label column and ONE numeric column as usual.
@@ -34,10 +43,16 @@ IMPORTANT: You MUST return ONLY a valid JSON object with the following exact key
 Do not use SQL wildcards (e.g. '%') inside the JSON "filters" block. However, when writing the "sqlQuery" string natively, you MUST use '%' wildcards alongside ILIKE (e.g., ILIKE '%engine%')!
 Do not return markdown formatting blocks or any text outside the JSON object.`;
 
-// --- GEMINI SPECIFIC CONFIG ---
+// --- GEMINI SPECIFIC CONFIG & FALLBACK CASCADE ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'MISSING_KEY');
-const selectedModelName = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
-const isModernModel = selectedModelName.includes('1.5') || selectedModelName.includes('2.0');
+const GEMINI_MODELS = [
+    process.env.GEMINI_MODEL,
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.5-flash',
+    'gemini-1.5-pro'
+].filter(Boolean);
+
 const responseSchema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -50,9 +65,59 @@ const responseSchema = {
     required: ["actionType", "responseText"]
 };
 
-// --- GROQ SPECIFIC CONFIG ---
+// --- GROQ SPECIFIC CONFIG & FALLBACK CASCADE ---
 let groq = null;
-const groqModelName = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+const GROQ_MODELS = [
+    process.env.GROQ_MODEL,
+    'llama-3.3-70b-versatile',
+    'llama3-70b-8192',
+    'llama3-8b-8192',
+    'mixtral-8x7b-32768'
+].filter(Boolean);
+
+async function callGroqWithFallback(messages, options = {}) {
+    if (!groq) groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    let lastError = null;
+    for (const model of GROQ_MODELS) {
+        try {
+            console.log(`🦙 Trying Groq model: ${model}`);
+            const completion = await groq.chat.completions.create({
+                messages,
+                model,
+                temperature: 0.0,
+                ...options
+            });
+            return completion.choices[0]?.message?.content || "";
+        } catch (err) {
+            console.warn(`⚠️ Groq model "${model}" failed: ${err.message}. Trying next model in cascade...`);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error("All Groq models in fallback cascade failed");
+}
+
+async function callGeminiWithFallback(prompt, systemInstruction, withJsonSchema = false) {
+    let lastError = null;
+    for (const modelName of GEMINI_MODELS) {
+        try {
+            console.log(`✨ Trying Gemini model: ${modelName}`);
+            const isModern = modelName.includes('1.5') || modelName.includes('2.0') || modelName.includes('2.5');
+            const config = { model: modelName, systemInstruction };
+            if (withJsonSchema && isModern) {
+                config.generationConfig = { temperature: 0.0, responseMimeType: "application/json", responseSchema };
+            } else {
+                config.generationConfig = { temperature: 0.0 };
+            }
+            const model = genAI.getGenerativeModel(config);
+            const result = await model.generateContent(prompt);
+            return result.response.text();
+        } catch (err) {
+            console.warn(`⚠️ Gemini model "${modelName}" failed: ${err.message}. Trying next model in cascade...`);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error("All Gemini models in fallback cascade failed");
+}
 
 module.exports = async function handler(req, res) {
     try {
@@ -112,27 +177,16 @@ If the user asks questions about "my warehouse", "my products", or "my orders", 
             if (!process.env.GROQ_API_KEY) {
                 return res.status(500).json({ message: 'GROQ_API_KEY missing from environment variables.' });
             }
-            if (!groq) groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-            const chatCompletion = await groq.chat.completions.create({
-                messages: [{ role: "system", content: dynamicSystemInstruction }, { role: "user", content: prompt }],
-                model: groqModelName,
-                temperature: 0.0,
-                response_format: { type: "json_object" }
-            });
-            responseText = chatCompletion.choices[0]?.message?.content || "";
+            responseText = await callGroqWithFallback(
+                [{ role: "system", content: dynamicSystemInstruction }, { role: "user", content: prompt }],
+                { response_format: { type: "json_object" } }
+            );
         } else {
             // -- GEMINI PIPELINE --
             if (!process.env.GEMINI_API_KEY) {
                 return res.status(500).json({ message: 'GEMINI_API_KEY missing from environment variables.' });
             }
-            // Bind config dynamically per request to append the dynamic schema cleanly
-            const geminiConfig = { model: selectedModelName, systemInstruction: dynamicSystemInstruction };
-            if (isModernModel) {
-                geminiConfig.generationConfig = { temperature: 0.0, responseMimeType: "application/json", responseSchema };
-            }
-            const geminiModel = genAI.getGenerativeModel(geminiConfig);
-            const result = await geminiModel.generateContent(prompt);
-            responseText = result.response.text();
+            responseText = await callGeminiWithFallback(prompt, dynamicSystemInstruction, true);
         }
         
         console.log(`🤖 AI Raw Response: ${responseText}`);
@@ -168,8 +222,8 @@ If the user asks questions about "my warehouse", "my products", or "my orders", 
                 const truncatedStats = rawDbStats.length > 4000 ? rawDbStats.substring(0, 4000) + '... (truncated)' : rawDbStats;
                 const summaryPrompt = `User asked: "${prompt}"\nDatabase returned: ${truncatedStats}`;
 
-                // --- TABLE/CSV DETECTION: if user wants a table or CSV, send raw structured data ---
-                const tableKeywords = /\b(table|csv|spreadsheet|excel|sheet|tabular|export data|download data|list all|show all|show me all)\b/i;
+                // --- TABLE/CARD DETECTION: if user wants a table, card view, or multiple records are returned ---
+                const tableKeywords = /\b(table|csv|spreadsheet|excel|sheet|tabular|export data|download data|list all|show all|show me all|display|cards?|card layout|warehouses?|inventory matrix)\b/i;
                 // --- CHART DETECTION: if user wants a chart, skip the LLM summarization and send raw data ---
                 const chartKeywords = /\b(chart|graph|pie|bar chart|bar|graphical|html report|visual report|column|grouped|stacked|combo|comparison|compare|vs|versus)\b/i;
                 
@@ -184,8 +238,6 @@ If the user asks questions about "my warehouse", "my products", or "my orders", 
                     const isGrouped = /\b(group|grouped|comparison|compare|combo|multi|vs|versus|stacked|and|&)\b/i.test(prompt);
 
                     // Analyze DB result columns to find label and value keys
-                    // NOTE: PostgreSQL returns numeric/decimal columns as strings (e.g. "1234.56")
-                    // so we must check if a string is parseable as a number before classifying it
                     const rows = dbResult.rows;
                     if (rows.length > 0) {
                         const keys = Object.keys(rows[0]);
@@ -230,27 +282,24 @@ If the user asks questions about "my warehouse", "my products", or "my orders", 
                         };
                     }
                     parsedResponse.responseText = "Here's your chart:";
-                } else if (tableKeywords.test(prompt) && dbResult.rows.length > 0) {
-                    // Send raw table data for frontend rendering
+                } else if ((tableKeywords.test(prompt) || dbResult.rows.length > 0) && dbResult.rows.length > 0) {
+                    // Always attach raw tableData when records are present so frontend can render Cards or Table
                     parsedResponse.tableData = {
                         columns: Object.keys(dbResult.rows[0]),
                         rows: dbResult.rows,
                         totalRows: dbResult.rows.length,
                     };
-                    parsedResponse.responseText = `Here's your data (${dbResult.rows.length} rows):`;
+                    parsedResponse.responseText = `Here are the results (${dbResult.rows.length} record${dbResult.rows.length !== 1 ? 's' : ''}):`;
                 } else {
-                    // Normal text summarization for non-chart queries
+                    // Normal text summarization for non-chart, non-tabular queries
+                    const summarizationInstruction = "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text.";
                     if (aiProvider === 'groq') {
-                         const summaryCompletion = await groq.chat.completions.create({
-                            messages: [{ role: "system", content: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." }, { role: "user", content: summaryPrompt }],
-                            model: groqModelName,
-                            temperature: 0.0,
-                        });
-                        parsedResponse.responseText = summaryCompletion.choices[0]?.message?.content || "Here are your stats.";
+                        parsedResponse.responseText = await callGroqWithFallback([
+                            { role: "system", content: summarizationInstruction },
+                            { role: "user", content: summaryPrompt }
+                        ]);
                     } else {
-                         const geminiTextModel = genAI.getGenerativeModel({ model: selectedModelName, generationConfig: { temperature: 0.0 }, systemInstruction: "Answer the user's question directly based on the database results. If the database returns multiple records, format your response using bullet points so no data is lost. If the user asks for CSV, Excel, sheet, or a table, output ONLY raw TSV (Tab-Separated Values) text." });
-                         const summaryResponse = await geminiTextModel.generateContent(summaryPrompt);
-                         parsedResponse.responseText = summaryResponse.response.text();
+                        parsedResponse.responseText = await callGeminiWithFallback(summaryPrompt, summarizationInstruction, false);
                     }
                 }
 

@@ -11,7 +11,7 @@ import FloatingNotification from '../../components/ui/FloatingNotification';
  */
 const Inventory = () => {
     const { user } = useAuth();
-    const isSuperAdmin = user?.role === 'superadmin';
+    const isSuperAdmin = user?.role?.toLowerCase() === 'superadmin';
     const adminWarehouseId = user?.warehouse_id;
     const [activeTab, setActiveTab] = useState('scan-send');
     const [warehouses, setWarehouses] = useState([]);
@@ -31,6 +31,11 @@ const Inventory = () => {
     const effectiveWarehouseId = isSuperAdmin
         ? (operatingWarehouse ? String(operatingWarehouse) : (warehouses[0]?.id ? String(warehouses[0]?.id) : null))
         : (adminWarehouseId ? String(adminWarehouseId) : null);
+
+    // Visible warehouses: superadmin sees all; regular admin strictly sees only assigned warehouse
+    const visibleWarehouses = isSuperAdmin
+        ? warehouses
+        : warehouses.filter(w => adminWarehouseId && String(w.id) === String(adminWarehouseId));
 
     const activeWarehouseObj = warehouses.find(w => String(w.id) === String(effectiveWarehouseId));
 
@@ -433,6 +438,22 @@ const Inventory = () => {
                 matchingProducts = [allProducts[0]];
             }
 
+            if (matchingProducts.length > 1) {
+                matchingProducts.sort((a, b) => {
+                    const aEff = effectiveWarehouseId && String(a.warehouse_id) === String(effectiveWarehouseId);
+                    const bEff = effectiveWarehouseId && String(b.warehouse_id) === String(effectiveWarehouseId);
+                    if (aEff && !bEff) return -1;
+                    if (!aEff && bEff) return 1;
+                    const aStock = (a.quantity || 0) > 0;
+                    const bStock = (b.quantity || 0) > 0;
+                    if (aStock && !bStock) return -1;
+                    if (!aStock && bStock) return 1;
+                    if (a.warehouse_id && !b.warehouse_id) return -1;
+                    if (!a.warehouse_id && b.warehouse_id) return 1;
+                    return (b.quantity || 0) - (a.quantity || 0);
+                });
+            }
+
             if (activeTab === 'scan-send') {
                 // SEND MODE: Look for the product specifically in the active operating warehouse
                 let productInMyWarehouse = matchingProducts.find(p =>
@@ -444,10 +465,17 @@ const Inventory = () => {
                     productInMyWarehouse = product;
                 }
 
-                if (productInMyWarehouse) {
+                if (productInMyWarehouse && (productInMyWarehouse.quantity > 0 || !isSuperAdmin)) {
                     setScannedProduct(productInMyWarehouse);
                     setSendQuantity(1);
                     setOtherWarehouseProduct(null);
+
+                    // Auto-select valid destination warehouse if not set or pointing to source
+                    const validDest = warehouses.find(w => String(w.id) !== String(productInMyWarehouse.warehouse_id));
+                    if (validDest && (!destinationWarehouse || String(destinationWarehouse) === String(productInMyWarehouse.warehouse_id))) {
+                        setDestinationWarehouse(String(validDest.id));
+                    }
+
                     if (productInMyWarehouse.quantity > 0) {
                         setMessage({
                             type: 'success',
@@ -460,12 +488,29 @@ const Inventory = () => {
                         });
                     }
                 } else {
-                    // Product is NOT in the active warehouse. Check which warehouse(s) it IS in:
+                    // Product is NOT in the active warehouse with stock. Check other warehouses:
                     const inOtherWarehouses = matchingProducts.filter(p => p.warehouse_id && String(p.warehouse_id) !== String(effectiveWarehouseId));
+                    const bestOther = inOtherWarehouses.find(p => p.quantity > 0) || inOtherWarehouses[0];
 
-                    if (inOtherWarehouses.length > 0) {
-                        // Prioritize one with positive stock
-                        const bestOther = inOtherWarehouses.find(p => p.quantity > 0) || inOtherWarehouses[0];
+                    if (bestOther && isSuperAdmin && bestOther.quantity > 0) {
+                        // SUPERADMIN SMOOTH DISPATCH: Automatically align source warehouse so superadmin can dispatch immediately
+                        const targetWhId = String(bestOther.warehouse_id);
+                        setOperatingWarehouse(targetWhId);
+                        setScannedProduct(bestOther);
+                        setSendQuantity(1);
+                        setOtherWarehouseProduct(null);
+
+                        const originWhName = bestOther.warehouse_name || warehouses.find(w => String(w.id) === targetWhId)?.name || `Warehouse ${targetWhId}`;
+                        const validDest = warehouses.find(w => String(w.id) !== targetWhId);
+                        if (validDest) {
+                            setDestinationWarehouse(String(validDest.id));
+                        }
+
+                        setMessage({
+                            type: 'success',
+                            text: `⚡ Stock found at ${originWhName} (${bestOther.quantity} units available)! Source warehouse auto-aligned to ${originWhName}. Ready to dispatch.`
+                        });
+                    } else if (bestOther) {
                         setScannedProduct(null);
                         setOtherWarehouseProduct(bestOther);
 
@@ -690,20 +735,29 @@ const Inventory = () => {
         }
         setLoading(true);
         try {
-            const productsModule = await import('../../api/products');
-            const result = await productsModule.updateProduct({
-                id: shiftData.product.id,
-                bin_number: shiftData.toBin
+            const result = await movementsAPI.shiftBin({
+                productId: shiftData.product.id,
+                fromBin: shiftData.fromBin,
+                toBin: shiftData.toBin,
+                warehouseId: effectiveWarehouseId || shiftData.product.warehouse_id,
+                quantity: shiftData.quantity
             });
-            if (result.product || result.id || result.name) {
-                setMessage({ type: 'success', text: `Moved ${shiftData.quantity} items to bin ${shiftData.toBin}` });
+            if (result.success || result.product) {
+                setMessage({ 
+                    type: 'success', 
+                    text: `✅ Successfully moved ${shiftData.quantity} unit(s) of "${shiftData.product.name}" from ${shiftData.fromBin || 'unassigned'} to bin ${shiftData.toBin}` 
+                });
                 setShowShiftModal(false);
                 if (selectedBinOverlay) {
                     handleBinClick(selectedBinOverlay);
                 }
-                if (effectiveWarehouseId) await fetchBins(effectiveWarehouseId);
+                if (effectiveWarehouseId) {
+                    await fetchBins(effectiveWarehouseId);
+                    await fetchBinInventory(effectiveWarehouseId, binInventorySearch);
+                    await fetchProductInventory(effectiveWarehouseId, binInventorySearch);
+                }
             } else {
-                setMessage({ type: 'error', text: result.message || 'Failed to shift product' });
+                setMessage({ type: 'error', text: result.message || result.error || 'Failed to shift product' });
             }
         } catch (error) {
             console.error('Shift error:', error);
@@ -798,7 +852,7 @@ const Inventory = () => {
         { id: 'movements', label: '🚚 Movements', icon: '🚚' },
         { id: 'warehouse-inventory', label: '📦 Warehouse Inventory', icon: '📦' },
         { id: 'bin-management', label: '🗄️ Bin Management', icon: '🗄️' },
-        ...(user?.role === 'superadmin' ? [{ id: 'warehouses', label: '🏭 Warehouses', icon: '🏭' }] : []),
+        ...(isSuperAdmin ? [{ id: 'warehouses', label: '🏭 Warehouses', icon: '🏭' }] : []),
     ];
 
     return (
@@ -1319,9 +1373,15 @@ const Inventory = () => {
                                                                 setLoading(false);
                                                                 return;
                                                             }
+                                                            const sourceWhId = scannedProduct.warehouse_id || effectiveWarehouseId;
+                                                            if (String(destinationWarehouse) === String(sourceWhId)) {
+                                                                setMessage({ type: 'error', text: 'Destination warehouse cannot be the same as source warehouse.' });
+                                                                setLoading(false);
+                                                                return;
+                                                            }
                                                             await movementsAPI.ship(
                                                                 [scannedProduct.id],
-                                                                scannedProduct.warehouse_id,
+                                                                sourceWhId,
                                                                 destinationWarehouse,
                                                                 `Shipped 1 via barcode scan`,
                                                                 1
@@ -1451,9 +1511,13 @@ const Inventory = () => {
                                                         setScannedProduct(otherWarehouseProduct);
                                                         setOtherWarehouseProduct(null);
                                                         const targetWhName = warehouses.find(w => String(w.id) === targetWhId)?.name || 'Origin';
+                                                        const validDest = warehouses.find(w => String(w.id) !== targetWhId);
+                                                        if (validDest) {
+                                                            setDestinationWarehouse(String(validDest.id));
+                                                        }
                                                         setMessage({
                                                             type: 'info',
-                                                            text: `⚡ Switched operating warehouse to ${targetWhName}. Ready to dispatch.`
+                                                            text: `⚡ Switched operating warehouse to ${targetWhName}. Destination set. Ready to dispatch.`
                                                         });
                                                     }}
                                                     style={{
@@ -1834,10 +1898,12 @@ const Inventory = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                                 <div>
                                     <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>🏭 All Warehouses Inventory Matrix</span>
+                                        <span>{isSuperAdmin ? '🏭 All Warehouses Inventory Matrix' : '🏢 Assigned Warehouse Stock'}</span>
                                     </h3>
                                     <p style={{ margin: '4px 0 0 0', color: '#94a3b8', fontSize: '13px' }}>
-                                        Full stock overview across all branches. Click any warehouse card to inspect its complete parts and bins.
+                                        {isSuperAdmin
+                                            ? 'Full stock overview across all branches. Click any warehouse card to inspect its complete parts and bins.'
+                                            : 'Stock overview for your assigned branch. Click the card to inspect parts and bins.'}
                                     </p>
                                 </div>
                                 <button
@@ -1870,8 +1936,13 @@ const Inventory = () => {
                                 gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                                 gap: '16px'
                             }}>
-                                {warehouses.map(w => {
-                                    const isCurrent = String(w.id) === String(effectiveWarehouseId);
+                                {visibleWarehouses.length === 0 ? (
+                                    <div style={{ padding: '20px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', color: '#f87171' }}>
+                                        ⚠️ You do not have an assigned warehouse yet. Please contact a Superadmin.
+                                    </div>
+                                ) : (
+                                    visibleWarehouses.map(w => {
+                                        const isCurrent = String(w.id) === String(effectiveWarehouseId);
                                     return (
                                         <div
                                             key={w.id}
@@ -1950,7 +2021,8 @@ const Inventory = () => {
                                             </div>
                                         </div>
                                     );
-                                })}
+                                })
+                            )}
                             </div>
                         </div>
 
@@ -1976,35 +2048,37 @@ const Inventory = () => {
                                 </span>
                             </div>
 
-                            {/* Warehouse selector for quickly changing warehouse */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <label style={{ color: '#94a3b8', fontSize: '13px' }}>Switch Warehouse:</label>
-                                <select
-                                    value={effectiveWarehouseId || ''}
-                                    onChange={(e) => {
-                                        setOperatingWarehouse(e.target.value);
-                                        fetchBins(e.target.value);
-                                        fetchBinInventory(e.target.value, binInventorySearch);
-                                        fetchProductInventory(e.target.value, binInventorySearch);
-                                    }}
-                                    style={{
-                                        padding: '8px 14px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #f59e0b',
-                                        backgroundColor: '#0f172a',
-                                        color: '#f8fafc',
-                                        fontSize: '13px',
-                                        outline: 'none'
-                                    }}
-                                >
-                                    {warehouses.map(w => (
-                                        <option key={w.id} value={w.id}>
-                                            {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
-                                            {w.name} ({w.code || w.id})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            {/* Warehouse selector for quickly changing warehouse (Superadmin only) */}
+                            {isSuperAdmin && visibleWarehouses.length > 1 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <label style={{ color: '#94a3b8', fontSize: '13px' }}>Switch Warehouse:</label>
+                                    <select
+                                        value={effectiveWarehouseId || ''}
+                                        onChange={(e) => {
+                                            setOperatingWarehouse(e.target.value);
+                                            fetchBins(e.target.value);
+                                            fetchBinInventory(e.target.value, binInventorySearch);
+                                            fetchProductInventory(e.target.value, binInventorySearch);
+                                        }}
+                                        style={{
+                                            padding: '8px 14px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #f59e0b',
+                                            backgroundColor: '#0f172a',
+                                            color: '#f8fafc',
+                                            fontSize: '13px',
+                                            outline: 'none'
+                                        }}
+                                    >
+                                        {visibleWarehouses.map(w => (
+                                            <option key={w.id} value={w.id}>
+                                                {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
+                                                {w.name} ({w.code || w.id})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         {/* Bin/Product View Toggle */}

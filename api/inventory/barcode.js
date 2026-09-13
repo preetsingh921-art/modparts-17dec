@@ -3,11 +3,12 @@ const { verifyAdminToken } = require('../../lib/auth');
 
 module.exports = async function handler(req, res) {
     try {
-        const { action, barcode } = req.query;
+        const { action, barcode, warehouse_id } = req.query;
 
         // GET - Scan/lookup barcode
         if (req.method === 'GET') {
             if (action === 'scan' && barcode) {
+                const targetWarehouseId = warehouse_id ? String(warehouse_id) : null;
                 const result = await db.query(`
           SELECT 
             p.*,
@@ -18,14 +19,21 @@ module.exports = async function handler(req, res) {
           LEFT JOIN categories c ON p.category_id = c.id
           LEFT JOIN warehouses w ON p.warehouse_id = w.id
           WHERE p.barcode = $1 OR p.part_number = $1
-          LIMIT 1
-        `, [barcode]);
+          ORDER BY 
+            (CASE WHEN $2::text IS NOT NULL AND p.warehouse_id::text = $2::text THEN 0 ELSE 1 END),
+            (CASE WHEN p.quantity > 0 THEN 0 ELSE 1 END),
+            p.quantity DESC,
+            p.id DESC
+        `, [barcode, targetWarehouseId]);
 
                 if (result.rows.length === 0) {
                     return res.status(404).json({ message: 'Product not found', barcode });
                 }
 
-                return res.json({ product: result.rows[0] });
+                return res.json({ 
+                    product: result.rows[0],
+                    products: result.rows 
+                });
             }
 
             return res.status(400).json({ message: 'Invalid action or missing barcode' });

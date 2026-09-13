@@ -46,37 +46,69 @@ module.exports = async function handler(req, res) {
         return res.status(403).json({ message: 'Admin access required to update products' });
       }
 
-      const { name, description, condition_status, price, quantity, category_id, image_url, images, part_number, barcode, ref_no } = req.body;
+      const { name, description, condition_status, price, quantity, category_id, image_url, images, part_number, barcode, ref_no, bin_number, warehouse_id } = req.body;
 
       console.log('[PRODUCT UPDATE] Updating product ID:', id);
-      console.log('[PRODUCT UPDATE] Data received:', { name, price, quantity, part_number, barcode });
+      console.log('[PRODUCT UPDATE] Data received:', { name, price, quantity, part_number, barcode, bin_number, warehouse_id });
 
-      if (!name || !condition_status || price < 0 || quantity < 0) {
+      let finalName = name;
+      let finalCondition = condition_status;
+      let finalPrice = price;
+      let finalQuantity = quantity;
+      let finalCategoryId = category_id;
+      let finalPartNumber = part_number;
+      let finalBarcode = barcode;
+      let finalRefNo = ref_no;
+      let finalImageUrl = image_url;
+      let finalImages = images;
+      let finalBinNumber = bin_number;
+      let finalWarehouseId = warehouse_id;
+
+      // Support partial update (e.g. updating bin_number or stock only)
+      if (!finalName || !finalCondition || finalPrice === undefined || finalQuantity === undefined) {
+        const existing = await db.query('SELECT * FROM products WHERE id = $1', [id]);
+        if (existing.rows.length === 0) {
+          return res.status(404).json({ message: 'Product not found' });
+        }
+        const cur = existing.rows[0];
+        finalName = finalName || cur.name;
+        finalCondition = finalCondition || cur.condition_status;
+        finalPrice = finalPrice !== undefined ? finalPrice : cur.price;
+        finalQuantity = finalQuantity !== undefined ? finalQuantity : cur.quantity;
+        finalCategoryId = finalCategoryId !== undefined ? finalCategoryId : cur.category_id;
+        finalPartNumber = finalPartNumber !== undefined ? finalPartNumber : cur.part_number;
+        finalBarcode = finalBarcode !== undefined ? finalBarcode : cur.barcode;
+        finalRefNo = finalRefNo !== undefined ? finalRefNo : cur.ref_no;
+        finalImageUrl = finalImageUrl !== undefined ? finalImageUrl : cur.image_url;
+        finalImages = finalImages !== undefined ? finalImages : cur.images;
+        finalBinNumber = finalBinNumber !== undefined ? finalBinNumber : cur.bin_number;
+        finalWarehouseId = finalWarehouseId !== undefined ? finalWarehouseId : cur.warehouse_id;
+      }
+
+      if (!finalName || !finalCondition || finalPrice < 0 || finalQuantity < 0) {
         return res.status(400).json({
           message: 'Name, condition status, valid price, and quantity are required'
         });
       }
 
       // Barcode logic: ALWAYS use part_number as barcode when available
-      // This ensures scanning the barcode returns the part number
       let generatedBarcode;
-      if (part_number) {
-        generatedBarcode = part_number;
-      } else if (barcode) {
-        generatedBarcode = barcode;
+      if (finalPartNumber) {
+        generatedBarcode = finalPartNumber;
+      } else if (finalBarcode) {
+        generatedBarcode = finalBarcode;
       } else {
-        // Keep existing barcode if neither part_number nor barcode is provided
         generatedBarcode = null;
       }
 
       // Format images array
       let formattedImages = [];
-      if (Array.isArray(images) && images.length > 0) {
-        formattedImages = images.filter(Boolean);
-      } else if (image_url) {
-        formattedImages = [image_url];
+      if (Array.isArray(finalImages) && finalImages.length > 0) {
+        formattedImages = finalImages.filter(Boolean);
+      } else if (finalImageUrl) {
+        formattedImages = [finalImageUrl];
       }
-      const primaryImageUrl = formattedImages[0] || image_url || null;
+      const primaryImageUrl = formattedImages[0] || finalImageUrl || null;
 
       const updateQuery = `
         UPDATE products 
@@ -92,23 +124,27 @@ module.exports = async function handler(req, res) {
           part_number = $9,
           barcode = $10,
           ref_no = $11,
+          bin_number = $12,
+          warehouse_id = $13,
           updated_at = NOW()
-        WHERE id = $12
+        WHERE id = $14
         RETURNING *
       `;
 
       const values = [
-        name,
+        finalName,
         description || null,
-        condition_status,
-        parseFloat(price),
-        parseInt(quantity),
-        category_id ? parseInt(category_id) : null,
+        finalCondition,
+        parseFloat(finalPrice),
+        parseInt(finalQuantity),
+        finalCategoryId ? parseInt(finalCategoryId) : null,
         primaryImageUrl,
         JSON.stringify(formattedImages),
-        part_number || null,
+        finalPartNumber || null,
         generatedBarcode,
-        ref_no || null,
+        finalRefNo || null,
+        finalBinNumber || null,
+        finalWarehouseId ? parseInt(finalWarehouseId) : null,
         id
       ];
 

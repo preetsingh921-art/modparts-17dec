@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/config';
+import { barcodeAPI, warehouseAPI, movementsAPI } from '../../api/inventory';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Pie, Doughnut, Line } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
@@ -109,8 +110,9 @@ const ChartRenderer = ({ chartData, onExpand }) => {
     );
 };
 
-// Table Renderer for structured data display + CSV download
+// Table & Card Renderer for structured data display + CSV/PDF download
 const TableRenderer = ({ tableData }) => {
+    const [viewMode, setViewMode] = useState('cards'); // Default to cards view
     if (!tableData || !tableData.rows || tableData.rows.length === 0) return <p className="text-gray-400 text-sm">No data to display.</p>;
 
     const { columns, rows } = tableData;
@@ -158,11 +160,40 @@ const TableRenderer = ({ tableData }) => {
         }
     };
 
+    const isWarehouseData = columns.some(c => c.toLowerCase().includes('warehouse') || c.toLowerCase().includes('owner_email'));
+
     return (
         <div className="min-w-[300px] max-w-full">
-            {/* Header with count + download */}
-            <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-400">{rows.length} row{rows.length !== 1 ? 's' : ''}</span>
+            {/* Header with count + Card/Table Toggle + CSV/PDF download */}
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 font-medium">{rows.length} record{rows.length !== 1 ? 's' : ''}</span>
+                    <div className="flex bg-[#111] p-0.5 rounded-lg border border-[#333]">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('cards')}
+                            className={`px-2.5 py-1 text-xs rounded-md font-semibold transition-all ${
+                                viewMode === 'cards' 
+                                    ? 'bg-[#8B2332] text-white shadow-sm' 
+                                    : 'text-[#888] hover:text-[#eee]'
+                            }`}
+                        >
+                            🃏 Cards
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('table')}
+                            className={`px-2.5 py-1 text-xs rounded-md font-semibold transition-all ${
+                                viewMode === 'table' 
+                                    ? 'bg-[#8B2332] text-white shadow-sm' 
+                                    : 'text-[#888] hover:text-[#eee]'
+                            }`}
+                        >
+                            📋 Table
+                        </button>
+                    </div>
+                </div>
+
                 <div className="flex gap-1.5">
                     <button
                         onClick={handleDownloadCSV}
@@ -186,31 +217,417 @@ const TableRenderer = ({ tableData }) => {
                     </button>
                 </div>
             </div>
-            {/* Scrollable table */}
-            <div className="overflow-x-auto overflow-y-auto max-h-[300px] rounded-lg border border-[#444]">
-                <table className="w-full text-xs">
-                    <thead className="sticky top-0 z-10">
-                        <tr className="bg-[#333]">
-                            {columns.map(col => (
-                                <th key={col} className="px-3 py-2 text-left text-[#F5F0E1] font-semibold whitespace-nowrap border-b border-[#444]">
-                                    {col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map((row, i) => (
-                            <tr key={i} className={`${i % 2 === 0 ? 'bg-[#242424]' : 'bg-[#1e1e1e]'} hover:bg-[#333] transition-colors`}>
+
+            {/* View Mode Rendering */}
+            {viewMode === 'cards' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
+                    {rows.map((row, idx) => {
+                        const title = row.name || row.title || row.part_number || row.email || `Record #${idx + 1}`;
+                        const flag = row.country === 'IND' || row.warehouse_country === 'IND' ? '🇮🇳' : row.country === 'CAN' || row.warehouse_country === 'CAN' ? '🇨🇦' : '🏢';
+                        return (
+                            <div 
+                                key={idx}
+                                className="bg-gradient-to-br from-[#1b1e24] to-[#12151c] border border-[#2e3748] hover:border-[#f59e0b] rounded-xl p-3.5 shadow-md transition-all flex flex-col justify-between"
+                            >
+                                <div>
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xl">{isWarehouseData ? flag : '📦'}</span>
+                                            <div>
+                                                <h4 className="text-sm font-bold text-[#F5F0E1] leading-snug">{title}</h4>
+                                                {row.code && (
+                                                    <span className="text-[10px] font-mono font-bold text-[#fbbf24] bg-[#f59e0b]/15 px-1.5 py-0.5 rounded border border-[#f59e0b]/30">
+                                                        {row.code}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {row.is_active !== undefined && (
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                                row.is_active ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' : 'bg-rose-950/60 text-rose-400 border border-rose-800'
+                                            }`}>
+                                                {row.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Attributes list */}
+                                    <div className="space-y-1.5 text-xs text-[#b5b5b5] mt-2">
+                                        {row.owner_email && (
+                                            <div className="flex items-center gap-1.5 bg-[#0b0f17] p-2 rounded-lg border border-[#222d3d]">
+                                                <span className="text-gray-400 font-medium">✉️ Owner:</span>
+                                                <a 
+                                                    href={`mailto:${row.owner_email}`} 
+                                                    className="text-amber-400 hover:underline font-mono truncate"
+                                                    title={row.owner_email}
+                                                >
+                                                    {row.owner_email}
+                                                </a>
+                                            </div>
+                                        )}
+                                        {row.owner_name && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-400">👤 Manager:</span>
+                                                <span className="text-[#f1f1f1] font-medium">{row.owner_name}</span>
+                                            </div>
+                                        )}
+                                        {(row.city || row.country) && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-400">📍 Location:</span>
+                                                <span className="text-[#f1f1f1]">{[row.city, row.state, row.country].filter(Boolean).join(', ')}</span>
+                                            </div>
+                                        )}
+                                        {row.quantity !== undefined && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-400">📦 Stock:</span>
+                                                <span className="text-emerald-400 font-bold">{row.quantity} units</span>
+                                            </div>
+                                        )}
+                                        {row.price !== undefined && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-400">💰 Price:</span>
+                                                <span className="text-amber-300 font-bold">${row.price}</span>
+                                            </div>
+                                        )}
+                                        {/* Other generic fields */}
+                                        {columns
+                                            .filter(c => !['name', 'title', 'code', 'is_active', 'owner_email', 'owner_name', 'city', 'state', 'country', 'warehouse_country', 'quantity', 'price', 'id', 'created_at', 'updated_at'].includes(c.toLowerCase()))
+                                            .slice(0, 3)
+                                            .map(col => (
+                                                <div key={col} className="flex justify-between text-[11px]">
+                                                    <span className="text-gray-400">{col.replace(/_/g, ' ')}:</span>
+                                                    <span className="text-gray-200 font-medium truncate max-w-[150px]">{String(row[col] ?? '-')}</span>
+                                                </div>
+                                            ))
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                /* Table View */
+                <div className="overflow-x-auto overflow-y-auto max-h-[300px] rounded-lg border border-[#444]">
+                    <table className="w-full text-xs">
+                        <thead className="sticky top-0 z-10">
+                            <tr className="bg-[#333]">
                                 {columns.map(col => (
-                                    <td key={col} className="px-3 py-1.5 text-[#d4d4d4] whitespace-nowrap border-b border-[#333]">
-                                        {row[col] === null || row[col] === undefined ? <span className="text-gray-600 italic">null</span> : String(row[col])}
-                                    </td>
+                                    <th key={col} className="px-3 py-2 text-left text-[#F5F0E1] font-semibold whitespace-nowrap border-b border-[#444]">
+                                        {col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </th>
                                 ))}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, i) => (
+                                <tr key={i} className={`${i % 2 === 0 ? 'bg-[#242424]' : 'bg-[#1e1e1e]'} hover:bg-[#333] transition-colors`}>
+                                    {columns.map(col => (
+                                        <td key={col} className="px-3 py-1.5 text-[#d4d4d4] whitespace-nowrap border-b border-[#333]">
+                                            {row[col] === null || row[col] === undefined ? <span className="text-gray-600 italic">null</span> : String(row[col])}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// In-Chat Scan & Auto Receive/Send Component with Radio Options
+const InChatScanTransact = ({ onClose, onComplete }) => {
+    const [mode, setMode] = useState('receive'); // 'receive' or 'send'
+    const [barcodeInput, setBarcodeInput] = useState('');
+    const [searching, setSearching] = useState(false);
+    const [foundProduct, setFoundProduct] = useState(null);
+    const [error, setError] = useState('');
+    const [warehouses, setWarehouses] = useState([]);
+    const [destWarehouseId, setDestWarehouseId] = useState('');
+    const [recvWarehouseId, setRecvWarehouseId] = useState('');
+    const [binNumber, setBinNumber] = useState('');
+    const [quantity, setQuantity] = useState(1);
+    const [executing, setExecuting] = useState(false);
+
+    useEffect(() => {
+        const fetchWhs = async () => {
+            try {
+                const data = await warehouseAPI.getAll();
+                const list = data.warehouses || [];
+                setWarehouses(list);
+                if (list.length > 0) {
+                    setRecvWarehouseId(String(list[0].id));
+                    if (list.length > 1) {
+                        setDestWarehouseId(String(list[1].id));
+                    } else {
+                        setDestWarehouseId(String(list[0].id));
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load warehouses:', err);
+            }
+        };
+        fetchWhs();
+    }, []);
+
+    const handleLookup = async (code) => {
+        const searchCode = (code || barcodeInput).trim();
+        if (!searchCode) return;
+        setSearching(true);
+        setError('');
+        setFoundProduct(null);
+        try {
+            const data = await barcodeAPI.scan(searchCode);
+            if (data.product) {
+                setFoundProduct(data.product);
+                if (data.product.warehouse_id) {
+                    const otherWh = warehouses.find(w => String(w.id) !== String(data.product.warehouse_id));
+                    if (otherWh) setDestWarehouseId(String(otherWh.id));
+                }
+            } else {
+                setError(`Product "${searchCode}" not found in database.`);
+            }
+        } catch (err) {
+            setError(err.message || 'Product lookup failed');
+        } finally {
+            setSearching(false);
+        }
+    };
+
+    const handleExecute = async () => {
+        if (!foundProduct) return;
+        setExecuting(true);
+        setError('');
+        try {
+            const qty = parseInt(quantity) || 1;
+            if (mode === 'send') {
+                if (!destWarehouseId) {
+                    setError('Please select a destination warehouse');
+                    setExecuting(false);
+                    return;
+                }
+                if ((foundProduct.quantity || 0) < qty) {
+                    setError(`Insufficient stock. Current stock is ${foundProduct.quantity || 0}.`);
+                    setExecuting(false);
+                    return;
+                }
+                await movementsAPI.ship(
+                    [foundProduct.id],
+                    foundProduct.warehouse_id,
+                    destWarehouseId,
+                    'Dispatched via In-Chat AI Assistant',
+                    qty
+                );
+                const destWhName = warehouses.find(w => String(w.id) === String(destWarehouseId))?.name || `Warehouse #${destWarehouseId}`;
+                onComplete(`✅ **DISPATCH COMPLETE:** Successfully shipped ${qty} unit(s) of **${foundProduct.name}** (${foundProduct.part_number}) to **${destWhName}**.`);
+            } else {
+                const targetWh = recvWarehouseId || foundProduct.warehouse_id || warehouses[0]?.id;
+                await movementsAPI.addUnexpected({
+                    partNumber: foundProduct.part_number,
+                    warehouseId: targetWh,
+                    binNumber: binNumber || null,
+                    quantity: qty
+                });
+                const recvWhName = warehouses.find(w => String(w.id) === String(targetWh))?.name || `Warehouse #${targetWh}`;
+                onComplete(`✅ **RECEIVE COMPLETE:** Successfully received ${qty} unit(s) of **${foundProduct.name}** (${foundProduct.part_number}) into **${recvWhName}**${binNumber ? ` (Bin: ${binNumber})` : ''}.`);
+            }
+            onClose();
+        } catch (err) {
+            setError(err.message || 'Transaction failed');
+        } finally {
+            setExecuting(false);
+        }
+    };
+
+    return (
+        <div className="bg-gradient-to-br from-[#1c1c1c] to-[#121212] border border-[#f59e0b]/40 rounded-xl p-4 shadow-xl mb-4 text-[#F5F0E1]">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#333]">
+                <div className="flex items-center gap-2">
+                    <span className="text-xl">📦⚡</span>
+                    <h4 className="font-bold text-sm tracking-wide text-[#fbbf24]">In-Chat Scan & Transact</h4>
+                </div>
+                <button 
+                    onClick={onClose}
+                    className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-[#242424] hover:bg-[#333]"
+                >
+                    ✕ Close
+                </button>
             </div>
+
+            {/* Radio Options: Receive vs Send */}
+            <div className="mb-4">
+                <label className="block text-xs font-semibold text-gray-300 mb-2">Select Transaction Type:</label>
+                <div className="grid grid-cols-2 gap-2">
+                    <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        mode === 'receive' 
+                            ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 font-bold shadow-sm' 
+                            : 'bg-[#181818] border-[#333] text-gray-400 hover:text-white'
+                    }`}>
+                        <input 
+                            type="radio" 
+                            name="inchat_mode" 
+                            value="receive" 
+                            checked={mode === 'receive'} 
+                            onChange={() => setMode('receive')}
+                            className="accent-emerald-500"
+                        />
+                        <span className="text-xs">📥 Auto Receive (Inbound)</span>
+                    </label>
+
+                    <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        mode === 'send' 
+                            ? 'bg-amber-950/40 border-amber-500 text-amber-300 font-bold shadow-sm' 
+                            : 'bg-[#181818] border-[#333] text-gray-400 hover:text-white'
+                    }`}>
+                        <input 
+                            type="radio" 
+                            name="inchat_mode" 
+                            value="send" 
+                            checked={mode === 'send'} 
+                            onChange={() => setMode('send')}
+                            className="accent-amber-500"
+                        />
+                        <span className="text-xs">📤 Auto Send (Outbound)</span>
+                    </label>
+                </div>
+            </div>
+
+            {/* Barcode Search Box */}
+            <div className="mb-3">
+                <label className="block text-xs text-gray-300 mb-1">Scan or Enter Barcode / Part Number:</label>
+                <div className="flex gap-2">
+                    <input 
+                        type="text"
+                        value={barcodeInput}
+                        onChange={(e) => setBarcodeInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleLookup(); }}
+                        placeholder="e.g. 90179-15018..."
+                        className="flex-1 bg-[#0a0a0a] text-white border border-[#444] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#f59e0b]"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => handleLookup()}
+                        disabled={searching || !barcodeInput.trim()}
+                        className="px-3 py-2 bg-[#2d3748] hover:bg-[#3b4758] text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                    >
+                        {searching ? '🔍...' : 'Find Part'}
+                    </button>
+                </div>
+            </div>
+
+            {error && (
+                <div className="text-xs text-rose-400 bg-rose-950/40 border border-rose-800/60 p-2 rounded-lg mb-3">
+                    ⚠️ {error}
+                </div>
+            )}
+
+            {/* Found Product Snapshot */}
+            {foundProduct && (
+                <div className="bg-[#141820] border border-[#2a3648] rounded-lg p-3 mb-3 text-xs space-y-2">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <div className="font-bold text-[#F5F0E1] text-sm">{foundProduct.name}</div>
+                            <div className="text-amber-400 font-mono text-[11px]">{foundProduct.part_number}</div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-emerald-400 font-bold text-sm">{foundProduct.quantity || 0}</span>
+                            <span className="text-gray-400 text-[10px] block">in stock</span>
+                        </div>
+                    </div>
+
+                    {/* Mode Specific Inputs */}
+                    {mode === 'send' ? (
+                        <div className="space-y-2 pt-2 border-t border-[#232d3d]">
+                            <div>
+                                <label className="block text-gray-300 text-[11px] mb-1">Destination Warehouse:</label>
+                                <select 
+                                    value={destWarehouseId}
+                                    onChange={(e) => setDestWarehouseId(e.target.value)}
+                                    className="w-full bg-[#0d1117] text-white border border-[#3b4758] rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
+                                >
+                                    <option value="">-- Choose Destination --</option>
+                                    {warehouses
+                                        .filter(w => String(w.id) !== String(foundProduct.warehouse_id))
+                                        .map(w => (
+                                            <option key={w.id} value={w.id}>
+                                                {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
+                                                {w.name}
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-gray-300 text-[11px]">Quantity:</label>
+                                <input 
+                                    type="number"
+                                    min="1"
+                                    max={foundProduct.quantity || 1}
+                                    value={quantity}
+                                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                    className="w-20 bg-[#0d1117] text-white border border-[#3b4758] rounded px-2 py-1 text-xs"
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-2 pt-2 border-t border-[#232d3d]">
+                            <div>
+                                <label className="block text-gray-300 text-[11px] mb-1">Receiving Warehouse:</label>
+                                <select 
+                                    value={recvWarehouseId}
+                                    onChange={(e) => setRecvWarehouseId(e.target.value)}
+                                    className="w-full bg-[#0d1117] text-white border border-[#3b4758] rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-emerald-500"
+                                >
+                                    {warehouses.map(w => (
+                                        <option key={w.id} value={w.id}>
+                                            {w.country === 'CAN' ? '🇨🇦 ' : w.country === 'IND' ? '🇮🇳 ' : '🏢 '}
+                                            {w.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-gray-300 text-[11px] mb-1">Bin Rack (Optional):</label>
+                                    <input 
+                                        type="text"
+                                        value={binNumber}
+                                        onChange={(e) => setBinNumber(e.target.value)}
+                                        placeholder="e.g. A-12"
+                                        className="w-full bg-[#0d1117] text-white border border-[#3b4758] rounded px-2.5 py-1 text-xs"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-300 text-[11px] mb-1">Quantity:</label>
+                                    <input 
+                                        type="number"
+                                        min="1"
+                                        value={quantity}
+                                        onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                        className="w-full bg-[#0d1117] text-white border border-[#3b4758] rounded px-2.5 py-1 text-xs"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Action Execution Button */}
+                    <button
+                        type="button"
+                        onClick={handleExecute}
+                        disabled={executing}
+                        className={`w-full py-2.5 mt-2 rounded-lg font-bold text-xs shadow-md transition-all ${
+                            mode === 'send' 
+                                ? 'bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white' 
+                                : 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white'
+                        }`}
+                    >
+                        {executing ? '⏳ Processing...' : (mode === 'send' ? '📤 Dispatch Transfer' : '📥 Receive Stock')}
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
@@ -229,6 +646,7 @@ const AIChatBot = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [selectedProvider, setSelectedProvider] = useState('gemini');
+    const [showScanTransact, setShowScanTransact] = useState(false);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const navigate = useNavigate();
@@ -627,6 +1045,14 @@ const AIChatBot = () => {
                                         </div>
                                     </div>
                                 )}
+                                {showScanTransact && (
+                                    <InChatScanTransact 
+                                        onClose={() => setShowScanTransact(false)}
+                                        onComplete={(msg) => {
+                                            setMessages(prev => [...prev, { role: 'ai', content: msg }]);
+                                        }}
+                                    />
+                                )}
                                 <div ref={messagesEndRef} />
                             </div>
                         </div>
@@ -635,6 +1061,17 @@ const AIChatBot = () => {
                         <div className="border-t border-[#333] bg-[#1a1a1a] p-4">
                             {/* Pellets */}
                             <div className="flex flex-wrap gap-2 mb-3 px-1">
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowScanTransact(prev => !prev)}
+                                    className={`text-xs font-bold border px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 ${
+                                        showScanTransact 
+                                            ? 'bg-[#f59e0b] text-black border-[#f59e0b] shadow-md' 
+                                            : 'bg-[#f59e0b]/15 hover:bg-[#f59e0b]/25 text-[#fbbf24] border-[#f59e0b]/40'
+                                    }`}
+                                >
+                                    <span>📦⚡</span> Quick Scan & Transact
+                                </button>
                                 {PREDEFINED_PROMPTS.map((prompt, idx) => (
                                     <button 
                                         key={idx}

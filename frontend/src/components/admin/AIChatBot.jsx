@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/config';
 import { barcodeAPI, warehouseAPI, movementsAPI } from '../../api/inventory';
+import { ScanSendIcon, ScanReceiveIcon, QuickScanIcon } from '../inventory/ScanIcons';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Pie, Doughnut, Line } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
@@ -508,7 +509,7 @@ const InChatScanTransact = ({ onClose, onComplete }) => {
                 <div className="grid grid-cols-2 gap-2">
                     <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
                         mode === 'receive' 
-                            ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 font-bold shadow-sm' 
+                            ? 'bg-emerald-950/50 border-emerald-500 text-emerald-300 font-bold shadow-sm' 
                             : 'bg-[#181818] border-[#333] text-gray-400 hover:text-white'
                     }`}>
                         <input 
@@ -519,12 +520,13 @@ const InChatScanTransact = ({ onClose, onComplete }) => {
                             onChange={() => setMode('receive')}
                             className="accent-emerald-500"
                         />
-                        <span className="text-xs">📥 Auto Receive (Inbound)</span>
+                        <ScanReceiveIcon className="w-4 h-4 text-emerald-400" />
+                        <span className="text-xs">Auto Receive (Inbound)</span>
                     </label>
 
                     <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
                         mode === 'send' 
-                            ? 'bg-amber-950/40 border-amber-500 text-amber-300 font-bold shadow-sm' 
+                            ? 'bg-amber-950/50 border-amber-500 text-amber-300 font-bold shadow-sm' 
                             : 'bg-[#181818] border-[#333] text-gray-400 hover:text-white'
                     }`}>
                         <input 
@@ -535,7 +537,8 @@ const InChatScanTransact = ({ onClose, onComplete }) => {
                             onChange={() => setMode('send')}
                             className="accent-amber-500"
                         />
-                        <span className="text-xs">📤 Auto Send (Outbound)</span>
+                        <ScanSendIcon className="w-4 h-4 text-amber-400" />
+                        <span className="text-xs">Auto Send (Outbound)</span>
                     </label>
                 </div>
             </div>
@@ -670,7 +673,19 @@ const InChatScanTransact = ({ onClose, onComplete }) => {
                                 : 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white'
                         }`}
                     >
-                        {executing ? '⏳ Processing...' : (mode === 'send' ? '📤 Dispatch Transfer' : '📥 Receive Stock')}
+                        {executing ? (
+                            '⏳ Processing...'
+                        ) : mode === 'send' ? (
+                            <span className="inline-flex items-center justify-center gap-1.5">
+                                <ScanSendIcon className="w-4 h-4 text-white" />
+                                <span>Dispatch Transfer to Warehouse</span>
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center justify-center gap-1.5">
+                                <ScanReceiveIcon className="w-4 h-4 text-white" />
+                                <span>Confirm Reception into Warehouse</span>
+                            </span>
+                        )}
                     </button>
                 </div>
             )}
@@ -1118,7 +1133,8 @@ const AIChatBot = () => {
                                             : 'bg-[#f59e0b]/15 hover:bg-[#f59e0b]/25 text-[#fbbf24] border-[#f59e0b]/40'
                                     }`}
                                 >
-                                    <span>📦⚡</span> Quick Scan & Transact
+                                    <QuickScanIcon className="w-4 h-4" />
+                                    <span>Quick Scan & Transact</span>
                                 </button>
                                 {PREDEFINED_PROMPTS.map((prompt, idx) => (
                                     <button 

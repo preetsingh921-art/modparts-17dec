@@ -1,59 +1,178 @@
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 const axios = require('axios');
 const db = require('../../lib/db');
 const { verifyAdminToken } = require('../../lib/auth');
 
+let cloudinaryLib = null;
+try {
+  cloudinaryLib = require('../../lib/cloudinary');
+} catch (e) {
+  // Cloudinary module not loaded
+}
+
 /**
- * DuckDuckGo Image Search Helper
+ * 1. Primary Engine: Bing Image Search Scraper
+ * Extracts direct high-res image URLs, thumbnails, dimensions, and source domain from Bing HTML.
  */
-async function searchWebImages(query, limit = 12) {
+async function searchBingImages(query, limit = 16) {
   try {
-    const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-    // Step 1: Fetch vqd search token
-    const tokenUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`;
-    const tokenRes = await axios.get(tokenUrl, {
-      headers: { 'User-Agent': userAgent },
-      timeout: 8000
-    });
-
-    const vqdMatch = tokenRes.data.match(/vqd="?([^"&]+)"?/);
-    if (!vqdMatch) {
-      console.warn('⚠️ No vqd token found for query:', query);
-      return [];
-    }
-
-    const vqd = vqdMatch[1];
-
-    // Step 2: Query image API with vqd
-    const searchUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,`;
-    const imageRes = await axios.get(searchUrl, {
+    const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2&first=1`;
+    const res = await axios.get(url, {
       headers: {
-        'User-Agent': userAgent,
-        'Referer': 'https://duckduckgo.com/'
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
       },
       timeout: 10000
     });
 
-    const rawResults = imageRes.data?.results || [];
+    const html = res.data || '';
+    const regex = /class="iusc"[^>]*m="([^"]+)"/g;
+    let match;
+    const results = [];
+    const seenUrls = new Set();
 
-    return rawResults.slice(0, limit).map(r => ({
-      title: r.title?.replace(/<[^>]*>?/gm, '') || 'Part Image',
-      image: r.image,
-      thumbnail: r.thumbnail,
-      width: r.width,
-      height: r.height,
-      source: r.source || 'Web'
-    }));
+    while ((match = regex.exec(html)) !== null && results.length < limit) {
+      try {
+        const decoded = match[1]
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&')
+          .replace(/&#39;/g, "'")
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+        const data = JSON.parse(decoded);
+        const imgUrl = data.murl;
+        if (!imgUrl || seenUrls.has(imgUrl)) continue;
+        seenUrls.add(imgUrl);
+
+        let source = 'Web';
+        if (data.purl) {
+          try {
+            source = new URL(data.purl).hostname.replace(/^www\./, '');
+          } catch (e) {}
+        }
+
+        results.push({
+          title: (data.t || data.desc || 'Part Image').replace(/<[^>]*>?/gm, ''),
+          image: imgUrl,
+          thumbnail: data.turl || imgUrl,
+          width: data.w || null,
+          height: data.h || null,
+          source: source
+        });
+      } catch (e) {}
+    }
+    return results;
   } catch (err) {
-    console.error('❌ Web image search failed:', err.message);
+    console.warn('⚠️ Bing image search failed:', err.message);
     return [];
   }
 }
 
 /**
- * Download an image and save it into public static directories
+ * 2. Secondary Engine: Wikimedia Commons API
+ * Free public domain schematics, vintage motorcycle photos, and model images.
+ */
+async function searchWikimediaImages(query, limit = 8) {
+  try {
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=${limit}&prop=imageinfo&iiprop=url|size|extmetadata&format=json&origin=*`;
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'ModParts/1.0 (admin@partsformyrd350.com)' },
+      timeout: 8000
+    });
+
+    const pages = res.data?.query?.pages || {};
+    return Object.values(pages).map(p => {
+      const info = p.imageinfo?.[0] || {};
+      return {
+        title: p.title.replace(/^File:/, '').replace(/\.[^/.]+$/, ''),
+        image: info.url,
+        thumbnail: info.thumburl || info.url,
+        width: info.width || null,
+        height: info.height || null,
+        source: 'Wikimedia Commons'
+      };
+    }).filter(item => item.image);
+  } catch (err) {
+    console.warn('⚠️ Wikimedia image search failed:', err.message);
+    return [];
+  }
+}
+
+/**
+ * 3. Tertiary Engine: Internal Database Catalog Search
+ * Pulls existing high-quality images already stored in Neon DB for matching parts.
+ */
+async function searchCatalogImages(query, limit = 6) {
+  try {
+    const cleanQ = query.replace(/yamaha\s*rd\s*350/gi, '').trim() || query.trim();
+    if (!cleanQ || cleanQ.length < 3) return [];
+
+    const searchQuery = `%${cleanQ}%`;
+    const sql = `
+      SELECT id, name, part_number, image_url, images
+      FROM products
+      WHERE image_url IS NOT NULL AND image_url <> ''
+        AND (name ILIKE $1 OR part_number ILIKE $1)
+      LIMIT $2
+    `;
+    const { rows } = await db.query(sql, [searchQuery, limit]);
+    return rows.map(r => ({
+      title: `${r.name} (${r.part_number || 'N/A'})`,
+      image: r.image_url,
+      thumbnail: r.image_url,
+      width: null,
+      height: null,
+      source: 'Catalog DB'
+    }));
+  } catch (err) {
+    console.warn('⚠️ Catalog image search failed:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Unified Search Pipeline:
+ * Cascades across Bing, Wikimedia, and Catalog DB to return a rich, de-duplicated gallery.
+ */
+async function unifiedImageSearch(query, limit = 16) {
+  const seenUrls = new Set();
+  const allResults = [];
+
+  // 1. Primary: Bing Search
+  const bingResults = await searchBingImages(query, limit);
+  for (const item of bingResults) {
+    if (item.image && !seenUrls.has(item.image)) {
+      seenUrls.add(item.image);
+      allResults.push(item);
+    }
+  }
+
+  // 2. If results < limit, supplement with Wikimedia & Catalog DB
+  if (allResults.length < limit) {
+    const needed = limit - allResults.length;
+    const [wikiResults, catalogResults] = await Promise.all([
+      searchWikimediaImages(query, Math.min(needed, 8)),
+      searchCatalogImages(query, Math.min(needed, 6))
+    ]);
+
+    for (const item of [...catalogResults, ...wikiResults]) {
+      if (item.image && !seenUrls.has(item.image)) {
+        seenUrls.add(item.image);
+        allResults.push(item);
+      }
+      if (allResults.length >= limit) break;
+    }
+  }
+
+  return allResults.slice(0, limit);
+}
+
+/**
+ * Download an image and save it permanently via Cloudinary CDN or local static directories
+ * Safely falls back to direct image URL if disk is read-only (e.g. on Vercel without Cloudinary)
  */
 async function downloadAndSaveImage(imageUrl, identifier) {
   const cleanId = String(identifier)
@@ -62,38 +181,68 @@ async function downloadAndSaveImage(imageUrl, identifier) {
   
   const filename = `${cleanId}.jpg`;
 
-  const publicDirs = [
-    path.join(__dirname, '../../public/images/products'),
-    path.join(__dirname, '../../frontend/public/images/products')
-  ];
+  // 1. Download image buffer
+  let buffer = null;
+  try {
+    const agent = new https.Agent({ rejectUnauthorized: false });
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Referer': imageUrl
+      },
+      httpsAgent: agent,
+      timeout: 15000,
+      maxContentLength: 20 * 1024 * 1024 // 20MB limit
+    });
+    buffer = Buffer.from(response.data);
+  } catch (downloadErr) {
+    console.warn(`⚠️ Failed to download image buffer from ${imageUrl}: ${downloadErr.message}`);
+    // If downloading buffer fails, return the direct URL so image assignment still works!
+    return imageUrl;
+  }
 
-  // Ensure directories exist
-  for (const dir of publicDirs) {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  // 2. Upload to Cloudinary if configured (production CDN)
+  const hasCloudinary = !!(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+  );
+
+  if (hasCloudinary && cloudinaryLib?.uploadImage) {
+    try {
+      const uploadResult = await cloudinaryLib.uploadImage(buffer, 'products', cleanId);
+      if (uploadResult?.url) {
+        console.log(`✅ Uploaded product image to Cloudinary: ${uploadResult.url}`);
+        return uploadResult.url;
+      }
+    } catch (cloudErr) {
+      console.warn(`⚠️ Cloudinary upload failed: ${cloudErr.message}. Falling back to disk/URL.`);
     }
   }
 
-  // Download image buffer
-  const response = await axios.get(imageUrl, {
-    responseType: 'arraybuffer',
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
-    },
-    timeout: 15000,
-    maxContentLength: 15 * 1024 * 1024 // 15MB limit
-  });
+  // 3. Fallback: Save to local public directories (local development)
+  try {
+    const publicDirs = [
+      path.join(__dirname, '../../public/images/products'),
+      path.join(__dirname, '../../frontend/public/images/products')
+    ];
 
-  const buffer = Buffer.from(response.data);
+    for (const dir of publicDirs) {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const targetFile = path.join(dir, filename);
+      fs.writeFileSync(targetFile, buffer);
+    }
 
-  // Write to both public directories
-  for (const dir of publicDirs) {
-    const targetFile = path.join(dir, filename);
-    fs.writeFileSync(targetFile, buffer);
+    console.log(`✅ Saved product image locally as: /images/products/${filename}`);
+    return `/images/products/${filename}`;
+  } catch (fsErr) {
+    console.warn(`⚠️ Local disk write failed (${fsErr.message}). Using direct web image URL.`);
+    return imageUrl;
   }
-
-  console.log(`✅ Saved product image locally as: /images/products/${filename}`);
-  return `/images/products/${filename}`;
 }
 
 module.exports = async function handler(req, res) {
@@ -108,7 +257,7 @@ module.exports = async function handler(req, res) {
     // GET: Search images from web
     // -----------------------------------------------------------------
     if (req.method === 'GET') {
-      const { query, part_number, name, limit = 12 } = req.query;
+      const { query, part_number, name, limit = 16 } = req.query;
 
       let searchQuery = query;
       if (!searchQuery) {
@@ -119,7 +268,7 @@ module.exports = async function handler(req, res) {
       }
 
       console.log(`🔍 Searching web images for: "${searchQuery}"`);
-      const results = await searchWebImages(searchQuery, parseInt(limit));
+      const results = await unifiedImageSearch(searchQuery, parseInt(limit));
 
       return res.status(200).json({
         success: true,
@@ -158,9 +307,11 @@ module.exports = async function handler(req, res) {
             const baseId = part_number || (product_id ? `product_${product_id}` : `part_${Date.now()}`);
             const identifier = i === 0 ? baseId : `${baseId}_${i + 1}`;
             finalUrl = await downloadAndSaveImage(rawUrl, identifier);
-            anyLocalCopy = true;
+            if (finalUrl !== rawUrl) {
+              anyLocalCopy = true;
+            }
           } catch (downloadErr) {
-            console.warn(`⚠️ Failed to copy image #${i + 1} locally, using direct URL: ${downloadErr.message}`);
+            console.warn(`⚠️ Failed to copy image #${i + 1}, using direct URL: ${downloadErr.message}`);
             finalUrl = rawUrl;
           }
         }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { barcodeAPI, warehouseAPI, binAPI, movementsAPI, binContentsAPI } from '../../api/inventory';
 import { useAuth } from '../../context/AuthContext';
 import BarcodeScanner from '../../components/inventory/BarcodeScanner';
+import { ScanSendIcon, ScanReceiveIcon } from '../../components/inventory/ScanIcons';
 import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
 import FloatingNotification from '../../components/ui/FloatingNotification';
 
@@ -847,12 +848,12 @@ const Inventory = () => {
     };
 
     const tabs = [
-        { id: 'scan-send', label: '📤 Scan & Send', icon: '📤' },
-        { id: 'scan-receive', label: '📥 Scan & Receive', icon: '📥' },
-        { id: 'movements', label: '🚚 Movements', icon: '🚚' },
-        { id: 'warehouse-inventory', label: '📦 Warehouse Inventory', icon: '📦' },
-        { id: 'bin-management', label: '🗄️ Bin Management', icon: '🗄️' },
-        ...(isSuperAdmin ? [{ id: 'warehouses', label: '🏭 Warehouses', icon: '🏭' }] : []),
+        { id: 'scan-send', label: 'Scan & Send', icon: <ScanSendIcon className="w-4 h-4 text-amber-400" /> },
+        { id: 'scan-receive', label: 'Scan & Receive', icon: <ScanReceiveIcon className="w-4 h-4 text-emerald-400" /> },
+        { id: 'movements', label: 'Movements', icon: '🚚' },
+        { id: 'warehouse-inventory', label: 'Warehouse Inventory', icon: '📦' },
+        { id: 'bin-management', label: 'Bin Management', icon: '🗄️' },
+        ...(isSuperAdmin ? [{ id: 'warehouses', label: 'Warehouses', icon: '🏭' }] : []),
     ];
 
     return (
@@ -1014,32 +1015,50 @@ const Inventory = () => {
             }}>
                 {tabs.map(tab => {
                     const isActive = activeTab === tab.id;
+                    const isSend = tab.id === 'scan-send';
+                    const isReceive = tab.id === 'scan-receive';
+
+                    let activeBorder = '1px solid rgba(245, 158, 11, 0.5)';
+                    let activeBg = 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))';
+                    let activeColor = '#fbbf24';
+                    let activeShadow = '0 2px 10px rgba(245, 158, 11, 0.2)';
+
+                    if (isReceive) {
+                        activeBorder = '1px solid rgba(16, 185, 129, 0.5)';
+                        activeBg = 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))';
+                        activeColor = '#34d399';
+                        activeShadow = '0 2px 10px rgba(16, 185, 129, 0.2)';
+                    }
+
                     return (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             style={{
                                 padding: '10px 18px',
-                                border: isActive ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid transparent',
+                                border: isActive ? activeBorder : '1px solid transparent',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
                                 fontSize: '13px',
                                 fontWeight: isActive ? '600' : '500',
-                                background: isActive
-                                    ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))'
-                                    : 'transparent',
-                                color: isActive ? '#fbbf24' : '#94a3b8',
+                                background: isActive ? activeBg : 'transparent',
+                                color: isActive ? activeColor : '#94a3b8',
                                 transition: 'all 0.15s ease-in-out',
                                 whiteSpace: 'nowrap',
                                 flex: '0 0 auto',
-                                boxShadow: isActive ? '0 2px 10px rgba(245, 158, 11, 0.2)' : 'none',
+                                boxShadow: isActive ? activeShadow : 'none',
                                 WebkitTapHighlightColor: 'transparent',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px'
+                                gap: '8px'
                             }}
                         >
-                            {tab.label}
+                            {tab.icon && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                    {tab.icon}
+                                </span>
+                            )}
+                            <span>{tab.label}</span>
                         </button>
                     );
                 })}
@@ -1071,9 +1090,35 @@ const Inventory = () => {
                                         fontWeight: 'bold',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '8px'
+                                        gap: '10px'
                                     }}>
-                                        {activeTab === 'scan-send' ? '📤 Scan Product to SEND' : '📥 Scan Product to RECEIVE'}
+                                        {activeTab === 'scan-send' ? (
+                                            <>
+                                                <span style={{
+                                                    padding: '6px',
+                                                    background: 'rgba(245, 158, 11, 0.2)',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                    display: 'inline-flex'
+                                                }}>
+                                                    <ScanSendIcon className="w-5 h-5 text-amber-400" />
+                                                </span>
+                                                <span>Scan Product to SEND (Outbound Dispatch)</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span style={{
+                                                    padding: '6px',
+                                                    background: 'rgba(16, 185, 129, 0.2)',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                    display: 'inline-flex'
+                                                }}>
+                                                    <ScanReceiveIcon className="w-5 h-5 text-emerald-400" />
+                                                </span>
+                                                <span>Scan Product to RECEIVE (Inbound Reception)</span>
+                                            </>
+                                        )}
                                     </h3>
                                     <span style={{
                                         padding: '5px 12px',
@@ -1178,8 +1223,26 @@ const Inventory = () => {
                                             borderRadius: '10px',
                                             border: activeTab === 'scan-send' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)'
                                         }}>
-                                            <h4 style={{ margin: '0 0 14px 0', color: activeTab === 'scan-send' ? '#fbbf24' : '#34d399', fontSize: '15px', fontWeight: 'bold' }}>
-                                                {activeTab === 'scan-send' ? '📤 Dispatch Transfer to Branch' : '📥 Confirm Reception into Warehouse'}
+                                            <h4 style={{
+                                                margin: '0 0 14px 0',
+                                                color: activeTab === 'scan-send' ? '#fbbf24' : '#34d399',
+                                                fontSize: '15px',
+                                                fontWeight: 'bold',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}>
+                                                {activeTab === 'scan-send' ? (
+                                                    <>
+                                                        <ScanSendIcon className="w-5 h-5 text-amber-400" />
+                                                        <span>Dispatch Transfer to Branch</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ScanReceiveIcon className="w-5 h-5 text-emerald-400" />
+                                                        <span>Confirm Reception into Warehouse</span>
+                                                    </>
+                                                )}
                                             </h4>
 
                                             {/* Only show detect location for SEND mode */}
@@ -1458,7 +1521,17 @@ const Inventory = () => {
                                                 }}
                                             >
                                                 {loading ? '⏳ Processing Transaction...' : (
-                                                    activeTab === 'scan-send' ? '📤 DISPATCH 1 UNIT TO DESTINATION' : '📥 RECEIVE 1 UNIT INTO WAREHOUSE'
+                                                    activeTab === 'scan-send' ? (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                            <ScanSendIcon className="w-5 h-5 text-white" />
+                                                            <span>DISPATCH 1 UNIT TO DESTINATION</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                            <ScanReceiveIcon className="w-5 h-5 text-white" />
+                                                            <span>RECEIVE 1 UNIT INTO WAREHOUSE</span>
+                                                        </span>
+                                                    )
                                                 )}
                                             </button>
                                         </div>

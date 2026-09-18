@@ -4,6 +4,27 @@ import AdminTabs from '../admin/AdminTabs';
 import AIChatBot from '../admin/AIChatBot';
 import { useAuth } from '../../context/AuthContext';
 
+const formatCommitDate = (dateVal) => {
+  if (!dateVal || dateVal === '?' || dateVal === 'dev') return '—';
+  try {
+    const raw = String(dateVal).trim();
+    const normalized = raw.includes(' ')
+      ? raw.replace(' ', 'T').replace(/ ([+-]\d{2})(\d{2})$/, '$1:$2')
+      : raw;
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return '—';
+  }
+};
+
 const AdminLayout = () => {
   const { user, setUser } = useAuth();
   const [warehouseName, setWarehouseName] = useState(null);
@@ -91,7 +112,7 @@ const AdminLayout = () => {
                 <span className="text-[#8B2332]">⬤</span>
                 {typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'dev'}
                 <span className="text-gray-600">|</span>
-                {typeof __COMMIT_DATE__ !== 'undefined' ? new Date(__COMMIT_DATE__).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                {formatCommitDate(typeof __COMMIT_DATE__ !== 'undefined' ? __COMMIT_DATE__ : null)}
               </span>
             </div>
             {/* Display assigned warehouse */}

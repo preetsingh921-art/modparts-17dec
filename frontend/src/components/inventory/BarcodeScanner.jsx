@@ -20,19 +20,21 @@ const BarcodeScanner = ({
 }) => {
     const [scanMode, setScanMode] = useState('device'); // 'device' (USB) or 'camera'
     const [scanning, setScanning] = useState(false);
+    const [isStarting, setIsStarting] = useState(false);
     const [isNativeMode, setIsNativeMode] = useState(false);
     const [error, setError] = useState(null);
     const [manualInput, setManualInput] = useState('');
     const [hasCamera, setHasCamera] = useState(true);
     const [cameras, setCameras] = useState([]);
     const [selectedCameraId, setSelectedCameraId] = useState(null);
+    const [selectedFacingMode, setSelectedFacingMode] = useState('environment'); // 'environment' (rear) or 'user' (front)
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [lastScannedCode, setLastScannedCode] = useState('');
     const [scanStatus, setScanStatus] = useState('');
     const [flashOn, setFlashOn] = useState(false);
-    const [flashSupported, setFlashSupported] = useState(true);
+    const [flashSupported, setFlashSupported] = useState(false);
     const [deviceListening, setDeviceListening] = useState(true);
     const [deviceBuffer, setDeviceBuffer] = useState('');
     const [scanCount, setScanCount] = useState(0);
@@ -127,39 +129,30 @@ const BarcodeScanner = ({
         };
     }, [scanMode, deviceListening, playScanChime]);
 
-    // Detect Available Cameras on mount
-    useEffect(() => {
-        const detectCameras = async () => {
-            try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-                    setHasCamera(false);
-                    return;
-                }
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(d => d.kind === 'videoinput');
-                if (videoDevices.length > 0) {
-                    setCameras(videoDevices);
-                    const backCamera = videoDevices.find(d =>
-                        d.label.toLowerCase().includes('back') ||
-                        d.label.toLowerCase().includes('rear') ||
-                        d.label.toLowerCase().includes('environment')
-                    );
-                    setSelectedCameraId(backCamera?.deviceId || videoDevices[0].deviceId);
-                    setHasCamera(true);
-                } else {
-                    setHasCamera(false);
-                }
-            } catch (err) {
-                console.warn('Camera detection note:', err);
+    // Detect / Refresh Available Cameras
+    const refreshCameras = useCallback(async () => {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
                 setHasCamera(false);
+                return;
             }
-        };
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+            if (videoDevices.length > 0) {
+                setCameras(videoDevices);
+                setHasCamera(true);
+            }
+        } catch (err) {
+            console.warn('Camera detection note:', err);
+        }
+    }, []);
 
-        detectCameras();
+    useEffect(() => {
+        refreshCameras();
         return () => {
             stopScanning();
         };
-    }, []);
+    }, [refreshCameras]);
 
     // Handle Successful Scan
     const onScanSuccess = useCallback((decodedText, decodedResult) => {
@@ -183,92 +176,84 @@ const BarcodeScanner = ({
         lookupProduct(decodedText);
     }, [playScanChime]);
 
-    // Start Scanning (Native Hardware BarcodeDetector -> Fallback Html5Qrcode)
-    const startScanning = async () => {
+    // Active Video Track and Torch Helpers
+    const getActiveVideoTrack = useCallback(() => {
+        if (mediaStreamRef.current) {
+            const tracks = mediaStreamRef.current.getVideoTracks();
+            if (tracks.length > 0) return tracks[0];
+        }
+        const videoElem = document.querySelector('#barcode-scanner-region video');
+        if (videoElem && videoElem.srcObject) {
+            const tracks = videoElem.srcObject.getVideoTracks();
+            if (tracks.length > 0) return tracks[0];
+        }
+        return null;
+    }, []);
+
+    const checkTorchCapability = useCallback(() => {
+        const track = getActiveVideoTrack();
+        if (!track) {
+            setFlashSupported(false);
+            return false;
+        }
+        try {
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            const supported = Boolean(capabilities.torch);
+            setFlashSupported(supported);
+            return supported;
+        } catch (e) {
+            setFlashSupported(false);
+            return false;
+        }
+    }, [getActiveVideoTrack]);
+
+    // Toggle Flash (Torch)
+    const toggleFlash = async () => {
+        const track = getActiveVideoTrack();
+        if (!track) {
+            setScanStatus('⚠️ No active video stream found');
+            return;
+        }
+        try {
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            if (!capabilities.torch) {
+                setScanStatus('💡 Flashlight is not supported on this camera device');
+                return;
+            }
+            const nextFlash = !flashOn;
+            await track.applyConstraints({
+                advanced: [{ torch: nextFlash }]
+            });
+            setFlashOn(nextFlash);
+            setScanStatus(nextFlash ? '🔦 Flashlight turned ON' : '💡 Flashlight turned OFF');
+        } catch (err) {
+            console.warn('Torch toggle error:', err);
+            setScanStatus('⚠️ Flash toggle failed');
+        }
+    };
+
+    // Start Scanning (Tuned Html5Qrcode with hardware BarcodeDetector & robust viewport sizing)
+    const startScanningWithTarget = async (target) => {
         setError(null);
-        setScanStatus('🔄 Launching ultra-fast scanner...');
+        setIsStarting(true);
+        setScanStatus('🔄 Launching camera viewfinder...');
         scanningRef.current = true;
 
-        const hasNativeBarcodeDetector = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+        // Ensure container is fully visible and rendered in DOM before mounting scanner
+        setScanning(true);
+        await new Promise(r => setTimeout(r, 80));
 
-        // -------------------------------------------------------------
-        // STRATEGY 1: Hardware-Accelerated Native BarcodeDetector
-        // -------------------------------------------------------------
-        if (hasNativeBarcodeDetector) {
-            try {
-                console.log('🚀 Using Native BarcodeDetector (GPU/NPU Accelerated)');
-                const supportedFormats = await window.BarcodeDetector.getSupportedFormats();
-                const targetFormats = [
-                    'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code', 'data_matrix', 'itf'
-                ].filter(f => supportedFormats.includes(f));
-
-                const detector = new window.BarcodeDetector({
-                    formats: targetFormats.length > 0 ? targetFormats : supportedFormats
-                });
-
-                const constraints = {
-                    video: {
-                        deviceId: selectedCameraId ? { exact: selectedCameraId } : undefined,
-                        facingMode: selectedCameraId ? undefined : { ideal: 'environment' },
-                        width: { ideal: 1280, min: 640 },
-                        height: { ideal: 720, min: 480 },
-                        frameRate: { ideal: 30, max: 60 },
-                        advanced: [{ focusMode: 'continuous' }]
-                    },
-                    audio: false
-                };
-
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                mediaStreamRef.current = stream;
-
-                if (nativeVideoRef.current) {
-                    nativeVideoRef.current.srcObject = stream;
-                    await nativeVideoRef.current.play();
-                }
-
-                setIsNativeMode(true);
-                setScanning(true);
-                setScanStatus('📷 Scanning active (Native 60FPS)...');
-
-                // High-speed detection loop directly on video frame
-                const detectLoop = async () => {
-                    if (!scanningRef.current) return;
-                    if (nativeVideoRef.current && nativeVideoRef.current.readyState >= 2) {
-                        try {
-                            const barcodes = await detector.detect(nativeVideoRef.current);
-                            if (barcodes && barcodes.length > 0) {
-                                const detected = barcodes[0];
-                                onScanSuccess(detected.rawValue, {
-                                    result: { format: { formatName: detected.format } }
-                                });
-                                return;
-                            }
-                        } catch (detectErr) {
-                            // frame skip
-                        }
-                    }
-                    if (scanningRef.current) {
-                        animFrameRef.current = requestAnimationFrame(detectLoop);
-                    }
-                };
-
-                animFrameRef.current = requestAnimationFrame(detectLoop);
-                return;
-            } catch (nativeErr) {
-                console.warn('⚠️ Native BarcodeDetector stream failed, falling back to Html5Qrcode:', nativeErr);
-                // Clean up native stream if started
-                if (mediaStreamRef.current) {
-                    mediaStreamRef.current.getTracks().forEach(t => t.stop());
-                    mediaStreamRef.current = null;
-                }
-            }
-        }
-
-        // -------------------------------------------------------------
-        // STRATEGY 2: Tuned Fallback (Html5Qrcode with 720p resolution)
-        // -------------------------------------------------------------
         try {
-            setIsNativeMode(false);
+            if (html5QrCodeRef.current) {
+                try {
+                    if (html5QrCodeRef.current.isScanning) {
+                        await html5QrCodeRef.current.stop();
+                    }
+                    html5QrCodeRef.current.clear();
+                } catch (e) {}
+                html5QrCodeRef.current = null;
+            }
+
             const formatsToSupport = [
                 Html5QrcodeSupportedFormats.CODE_128,
                 Html5QrcodeSupportedFormats.CODE_39,
@@ -276,41 +261,38 @@ const BarcodeScanner = ({
                 Html5QrcodeSupportedFormats.EAN_8,
                 Html5QrcodeSupportedFormats.UPC_A,
                 Html5QrcodeSupportedFormats.UPC_E,
-                Html5QrcodeSupportedFormats.QR_CODE
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.DATA_MATRIX,
+                Html5QrcodeSupportedFormats.ITF
             ];
 
             html5QrCodeRef.current = new Html5Qrcode('barcode-scanner-region', {
                 formatsToSupport,
-                verbose: false
+                verbose: false,
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
             });
-
-            const dynamicConstraints = {
-                width: { ideal: 1280, min: 640 },
-                height: { ideal: 720, min: 480 },
-                advanced: [{ focusMode: 'continuous' }]
-            };
-
-            if (selectedCameraId) {
-                dynamicConstraints.deviceId = { exact: selectedCameraId };
-            } else {
-                dynamicConstraints.facingMode = 'environment';
-            }
 
             const config = {
                 fps: 25,
                 qrbox: (viewfinderWidth, viewfinderHeight) => {
                     const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
                     return {
-                        width: Math.floor(viewfinderWidth * 0.85),
-                        height: Math.floor(minEdge * 0.45)
+                        width: Math.floor(viewfinderWidth * 0.88),
+                        height: Math.floor(minEdge * 0.52)
                     };
                 },
-                aspectRatio: 1.777778,
+                aspectRatio: 1.333333,
                 disableFlip: false,
-                videoConstraints: dynamicConstraints
+                videoConstraints: {
+                    facingMode: typeof target === 'object' && target.facingMode ? target.facingMode : selectedFacingMode || 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
             };
 
-            const cameraTarget = selectedCameraId ? selectedCameraId : { facingMode: 'environment' };
+            const cameraTarget = target || (selectedCameraId ? selectedCameraId : { facingMode: selectedFacingMode || 'environment' });
 
             await html5QrCodeRef.current.start(
                 cameraTarget,
@@ -319,78 +301,103 @@ const BarcodeScanner = ({
                 () => {} // per-frame reject
             );
 
+            setIsStarting(false);
             setScanning(true);
             setFlashOn(false);
-            setScanStatus('📷 Scanning... Hold barcode inside the viewfinder');
+            setScanStatus('📷 Scanning active • Center barcode in the viewfinder');
+
+            // Re-enumerate cameras now that permission is granted & test torch
+            setTimeout(() => {
+                refreshCameras();
+                checkTorchCapability();
+            }, 350);
+
         } catch (err) {
             console.error('Scanner start error:', err);
-            setError(`Camera error: ${err.message || err}. Please ensure camera permission is granted.`);
+            setError(`Camera error: ${err.message || err}. Please ensure camera permission is granted in your browser.`);
             setScanStatus('');
             setScanning(false);
+            setIsStarting(false);
             scanningRef.current = false;
         }
+    };
+
+    const startScanning = () => {
+        const target = selectedCameraId ? selectedCameraId : { facingMode: selectedFacingMode || 'environment' };
+        return startScanningWithTarget(target);
     };
 
     // Stop Scanning
     const stopScanning = async () => {
         scanningRef.current = false;
+        setIsStarting(false);
 
-        if (animFrameRef.current) {
-            cancelAnimationFrame(animFrameRef.current);
-            animFrameRef.current = null;
-        }
-
-        if (mediaStreamRef.current) {
-            mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            mediaStreamRef.current = null;
-        }
-
-        if (nativeVideoRef.current) {
-            nativeVideoRef.current.srcObject = null;
-        }
-
-        if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-            try {
-                await html5QrCodeRef.current.stop();
-            } catch (e) {}
-        }
         if (html5QrCodeRef.current) {
             try {
+                if (html5QrCodeRef.current.isScanning) {
+                    await html5QrCodeRef.current.stop();
+                }
                 html5QrCodeRef.current.clear();
             } catch (e) {}
             html5QrCodeRef.current = null;
         }
 
+        if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(t => t.stop());
+            mediaStreamRef.current = null;
+        }
+
         setScanning(false);
-        setIsNativeMode(false);
+        setFlashOn(false);
         if (!error) {
             setScanStatus('');
         }
     };
 
-    // Toggle Flash (Torch)
-    const toggleFlash = async () => {
-        try {
-            if (mediaStreamRef.current) {
-                const track = mediaStreamRef.current.getVideoTracks()[0];
-                if (track && track.applyConstraints) {
-                    await track.applyConstraints({
-                        advanced: [{ torch: !flashOn }]
-                    });
-                    setFlashOn(!flashOn);
-                    return;
-                }
+    // Camera Switch and Flip Handlers
+    const handleCameraChange = async (newVal) => {
+        if (newVal === 'environment' || newVal === 'user') {
+            setSelectedFacingMode(newVal);
+            setSelectedCameraId(null);
+            if (scanning) {
+                await stopScanning();
+                setTimeout(() => startScanningWithTarget({ facingMode: newVal }), 150);
             }
-            if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-                await html5QrCodeRef.current.applyVideoConstraints({
-                    advanced: [{ torch: !flashOn }]
-                });
-                setFlashOn(!flashOn);
+        } else {
+            setSelectedCameraId(newVal);
+            const matchingCam = cameras.find(c => c.deviceId === newVal);
+            if (matchingCam) {
+                const label = matchingCam.label.toLowerCase();
+                setSelectedFacingMode(label.includes('front') || label.includes('user') ? 'user' : 'environment');
             }
-        } catch (err) {
-            console.warn('Flash not supported:', err);
-            setFlashSupported(false);
-            setError('Torch/Flash is not supported on this camera device.');
+            if (scanning) {
+                await stopScanning();
+                setTimeout(() => startScanningWithTarget(newVal), 150);
+            }
+        }
+    };
+
+    const handleFlipCamera = async () => {
+        let nextTarget = null;
+        if (cameras.length > 1) {
+            const currentIdx = cameras.findIndex(c => c.deviceId === selectedCameraId);
+            const nextIdx = (currentIdx + 1) % cameras.length;
+            const nextCam = cameras[nextIdx];
+            setSelectedCameraId(nextCam.deviceId);
+            const label = nextCam.label.toLowerCase();
+            const nextFacing = label.includes('front') || label.includes('user') ? 'user' : 'environment';
+            setSelectedFacingMode(nextFacing);
+            nextTarget = nextCam.deviceId;
+        } else {
+            const nextFacing = selectedFacingMode === 'environment' ? 'user' : 'environment';
+            setSelectedFacingMode(nextFacing);
+            setSelectedCameraId(null);
+            nextTarget = { facingMode: nextFacing };
+        }
+
+        if (scanning) {
+            await stopScanning();
+            setTimeout(() => startScanningWithTarget(nextTarget), 150);
         }
     };
 
@@ -771,220 +778,332 @@ const BarcodeScanner = ({
 
             {/* ===== CAMERA SCANNER MODE ===== */}
             {scanMode === 'camera' && showPreview && hasCamera && (
-                <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center' }}>
+                <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {/* Fixed-dimension, non-collapsing Viewfinder (Eliminates Black Box) */}
                     <div style={{
                         position: 'relative',
-                        width: `${width}px`,
-                        height: scanning ? `${height}px` : '0px',
-                        transition: 'height 0.3s ease',
-                        borderRadius: '10px',
+                        width: '100%',
+                        maxWidth: `${width}px`,
+                        height: `${height}px`,
+                        borderRadius: '12px',
                         overflow: 'hidden',
-                        backgroundColor: '#000'
+                        backgroundColor: '#090d16',
+                        border: `2px solid ${scanning ? '#2563eb' : '#334155'}`,
+                        boxShadow: scanning ? '0 0 20px rgba(37,99,235,0.25)' : 'none',
+                        transition: 'border-color 0.3s, box-shadow 0.3s'
                     }}>
                         <style>{`
                             @keyframes scanning-laser {
-                                0% { top: 12%; opacity: 0; }
-                                15% { opacity: 1; }
-                                85% { opacity: 1; }
-                                100% { top: 88%; opacity: 0; }
+                                0% { top: 15%; opacity: 0; }
+                                20% { opacity: 1; }
+                                80% { opacity: 1; }
+                                100% { top: 85%; opacity: 0; }
                             }
                             .laser-line {
                                 position: absolute;
-                                left: 8%;
-                                width: 84%;
+                                left: 6%;
+                                width: 88%;
                                 height: 3px;
-                                background-color: #ef4444;
-                                box-shadow: 0 0 12px 3px #ef4444;
+                                background: linear-gradient(90deg, transparent, #ef4444, #f87171, #ef4444, transparent);
+                                box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.7);
                                 z-index: 20;
-                                animation: scanning-laser 1.8s infinite linear;
+                                animation: scanning-laser 2s infinite ease-in-out;
                                 pointer-events: none;
                             }
                             .viewfinder-crosshairs {
                                 position: absolute;
-                                inset: 12px;
-                                border: 2px dashed rgba(255,255,255,0.3);
+                                inset: 16px;
+                                border: 2px dashed rgba(255,255,255,0.35);
                                 border-radius: 8px;
                                 pointer-events: none;
                                 z-index: 15;
                             }
+                            .corner-tl { position: absolute; top: 12px; left: 12px; width: 18px; height: 18px; border-top: 3px solid #60a5fa; border-left: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
+                            .corner-tr { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-top: 3px solid #60a5fa; border-right: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
+                            .corner-bl { position: absolute; bottom: 12px; left: 12px; width: 18px; height: 18px; border-bottom: 3px solid #60a5fa; border-left: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
+                            .corner-br { position: absolute; bottom: 12px; right: 12px; width: 18px; height: 18px; border-bottom: 3px solid #60a5fa; border-right: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
                         `}</style>
 
-                        {/* Native Hardware Video Feed */}
-                        <video
-                            ref={nativeVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            style={{
-                                display: isNativeMode && scanning ? 'block' : 'none',
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover'
-                            }}
-                        />
-
-                        {/* Html5Qrcode Fallback Region */}
+                        {/* Html5Qrcode scanner mount container */}
                         <div
                             id="barcode-scanner-region"
                             style={{
-                                display: !isNativeMode && scanning ? 'block' : 'none',
                                 width: '100%',
                                 height: '100%',
-                                overflow: 'hidden'
+                                display: scanning ? 'block' : 'none',
+                                position: 'absolute',
+                                inset: 0
                             }}
                         />
 
-                        {scanning && (
+                        {/* Standby Viewfinder Placeholder (Visible before scanning starts) */}
+                        {!scanning && !isStarting && (
+                            <div style={{
+                                width: '100%',
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '20px',
+                                background: 'radial-gradient(circle at center, #1e293b 0%, #090d16 85%)',
+                                position: 'relative'
+                            }}>
+                                <div className="corner-tl"></div>
+                                <div className="corner-tr"></div>
+                                <div className="corner-bl"></div>
+                                <div className="corner-br"></div>
+                                <div style={{
+                                    width: '60px',
+                                    height: '60px',
+                                    borderRadius: '50%',
+                                    background: 'rgba(37,99,235,0.15)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: '10px',
+                                    border: '1px solid rgba(37,99,235,0.4)'
+                                }}>
+                                    <CameraViewfinderIcon className="w-8 h-8 text-blue-400" />
+                                </div>
+                                <p style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: 'bold', margin: '0 0 4px 0' }}>
+                                    Camera Viewfinder Standby
+                                </p>
+                                <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0, maxWidth: '240px' }}>
+                                    Select camera lens below and tap Start Camera Scan
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Loading / Connecting Overlay */}
+                        {isStarting && (
+                            <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                zIndex: 30,
+                                background: 'rgba(9, 13, 22, 0.9)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <div className="animate-spin h-9 w-9 border-3 border-blue-500 border-t-transparent rounded-full mb-3"></div>
+                                <p style={{ color: '#93c5fd', fontSize: '13px', fontWeight: 'bold' }}>
+                                    Opening camera stream...
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Active Viewfinder Overlays */}
+                        {scanning && !isStarting && (
                             <>
                                 <div className="laser-line"></div>
                                 <div className="viewfinder-crosshairs"></div>
-                                {isNativeMode && (
-                                    <div style={{
-                                        position: 'absolute', top: '8px', left: '8px', zIndex: 25,
-                                        background: 'rgba(16, 185, 129, 0.85)', color: 'white',
-                                        fontSize: '10px', fontWeight: 'bold', padding: '2px 8px',
-                                        borderRadius: '4px', letterSpacing: '0.5px'
-                                    }}>
-                                        ⚡ ULTRA-FAST 60FPS
-                                    </div>
-                                )}
+                                <div className="corner-tl"></div>
+                                <div className="corner-tr"></div>
+                                <div className="corner-bl"></div>
+                                <div className="corner-br"></div>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '8px',
+                                    left: '8px',
+                                    zIndex: 25,
+                                    background: 'rgba(16, 185, 129, 0.9)',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    fontWeight: 'bold',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    letterSpacing: '0.5px'
+                                }}>
+                                    ⚡ LIVE SCANNER
+                                </div>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '8px',
+                                    right: '8px',
+                                    zIndex: 25,
+                                    background: 'rgba(15, 23, 42, 0.85)',
+                                    color: '#cbd5e1',
+                                    fontSize: '10px',
+                                    fontWeight: 'bold',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #334155'
+                                }}>
+                                    {selectedFacingMode === 'user' ? '🤳 Front Lens' : '📷 Rear Lens'}
+                                </div>
                             </>
                         )}
                     </div>
-                </div>
-            )}
 
-            {/* Scan Status Display */}
-            {scanStatus && (
-                <div style={{
-                    padding: '10px 14px',
-                    marginBottom: '10px',
-                    background: scanStatus.includes('✅') ? 'rgba(16, 185, 129, 0.15)' :
-                        scanStatus.includes('❌') ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                    color: scanStatus.includes('✅') ? '#34d399' :
-                        scanStatus.includes('❌') ? '#f87171' : '#60a5fa',
-                    border: `1px solid ${
-                        scanStatus.includes('✅') ? 'rgba(16, 185, 129, 0.4)' :
-                        scanStatus.includes('❌') ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.4)'
-                    }`,
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '600'
-                }}>
-                    {scanStatus}
-                </div>
-            )}
+                    {/* Scan Status Display */}
+                    {scanStatus && (
+                        <div style={{
+                            width: '100%',
+                            maxWidth: `${width}px`,
+                            padding: '9px 12px',
+                            margin: '10px 0',
+                            background: scanStatus.includes('✅') ? 'rgba(16, 185, 129, 0.15)' :
+                                scanStatus.includes('❌') ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                            color: scanStatus.includes('✅') ? '#34d399' :
+                                scanStatus.includes('❌') ? '#f87171' : '#60a5fa',
+                            border: `1px solid ${
+                                scanStatus.includes('✅') ? 'rgba(16, 185, 129, 0.4)' :
+                                scanStatus.includes('❌') ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.4)'
+                            }`,
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                        }}>
+                            {scanStatus}
+                        </div>
+                    )}
 
-            {/* Error Message */}
-            {error && (
-                <div style={{
-                    color: '#f87171',
-                    padding: '10px 14px',
-                    marginBottom: '10px',
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    textAlign: 'left'
-                }}>
-                    ⚠️ {error}
-                </div>
-            )}
+                    {/* Error Message */}
+                    {error && (
+                        <div style={{
+                            width: '100%',
+                            maxWidth: `${width}px`,
+                            color: '#f87171',
+                            padding: '9px 12px',
+                            margin: '10px 0',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            textAlign: 'left'
+                        }}>
+                            ⚠️ {error}
+                        </div>
+                    )}
 
-            {/* Camera Controls & Selection */}
-            {scanMode === 'camera' && hasCamera && (
-                <div style={{ marginBottom: '14px' }}>
-                    {cameras.length > 1 && (
-                        <div style={{ marginBottom: '10px' }}>
+                    {/* Camera Selector Dropdown and Flip Button ALWAYS VISIBLE */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        maxWidth: `${width}px`,
+                        marginBottom: '12px'
+                    }}>
+                        <div style={{ flex: 1, position: 'relative' }}>
                             <select
-                                value={selectedCameraId || ''}
-                                onChange={(e) => {
-                                    setSelectedCameraId(e.target.value);
-                                    if (scanning) {
-                                        stopScanning().then(() => setTimeout(startScanning, 150));
-                                    }
-                                }}
+                                value={selectedCameraId || selectedFacingMode}
+                                onChange={(e) => handleCameraChange(e.target.value)}
                                 style={{
-                                    padding: '8px 12px',
-                                    borderRadius: '6px',
+                                    width: '100%',
+                                    padding: '9px 12px',
+                                    borderRadius: '8px',
                                     border: '1px solid #475569',
-                                    fontSize: '13px',
+                                    fontSize: '12px',
                                     backgroundColor: '#0f172a',
-                                    color: '#f8fafc'
+                                    color: '#f8fafc',
+                                    cursor: 'pointer',
+                                    fontWeight: '500'
                                 }}
                             >
-                                {cameras.map(camera => (
-                                    <option key={camera.deviceId} value={camera.deviceId}>
-                                        📷 {camera.label || `Camera ${camera.deviceId.substring(0, 8)}`}
+                                <option value="environment">📷 Rear / Environment Camera (Recommended)</option>
+                                <option value="user">🤳 Front / Selfie Camera</option>
+                                {cameras.map((cam, idx) => (
+                                    <option key={cam.deviceId || idx} value={cam.deviceId}>
+                                        📷 {cam.label || `Camera ${idx + 1} (${cam.deviceId.slice(0, 8)})`}
                                     </option>
                                 ))}
                             </select>
                         </div>
-                    )}
-
-                    {!scanning ? (
                         <button
-                            onClick={startScanning}
                             type="button"
+                            onClick={handleFlipCamera}
                             style={{
-                                padding: '12px 28px',
-                                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                                color: 'white',
-                                border: 'none',
+                                padding: '9px 14px',
+                                background: '#1e293b',
+                                color: '#e2e8f0',
+                                border: '1px solid #475569',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
-                                fontSize: '15px',
+                                fontSize: '12px',
                                 fontWeight: 'bold',
-                                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)',
-                                display: 'inline-flex',
+                                display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px'
+                                gap: '5px',
+                                whiteSpace: 'nowrap'
                             }}
+                            title="Flip Camera Lens"
                         >
-                            <CameraViewfinderIcon className="w-5 h-5" /> Start Camera Scan
+                            <span>🔄</span> Flip
                         </button>
-                    ) : (
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                    </div>
+
+                    {/* Primary Action Buttons: Start / Stop / Flash */}
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        {!scanning ? (
                             <button
-                                onClick={stopScanning}
+                                onClick={startScanning}
+                                disabled={isStarting}
                                 type="button"
                                 style={{
-                                    padding: '12px 24px',
-                                    backgroundColor: '#ef4444',
+                                    padding: '12px 28px',
+                                    background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: '8px',
                                     cursor: 'pointer',
-                                    fontSize: '14px',
+                                    fontSize: '15px',
                                     fontWeight: 'bold',
-                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                 }}
                             >
-                                ⏹️ Stop Scanning
+                                <CameraViewfinderIcon className="w-5 h-5" /> Start Camera Scan
                             </button>
-
-                            {flashSupported && (
+                        ) : (
+                            <>
                                 <button
-                                    onClick={toggleFlash}
+                                    onClick={stopScanning}
                                     type="button"
                                     style={{
-                                        padding: '12px 18px',
-                                        backgroundColor: flashOn ? '#fbbf24' : '#334155',
-                                        color: flashOn ? '#000' : '#fff',
+                                        padding: '12px 22px',
+                                        backgroundColor: '#ef4444',
+                                        color: 'white',
                                         border: 'none',
                                         borderRadius: '8px',
                                         cursor: 'pointer',
                                         fontSize: '14px',
                                         fontWeight: 'bold',
-                                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                                        boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
                                     }}
-                                    title="Toggle Flash / Torch"
+                                >
+                                    ⏹️ Stop Scanning
+                                </button>
+
+                                <button
+                                    onClick={toggleFlash}
+                                    type="button"
+                                    style={{
+                                        padding: '12px 18px',
+                                        backgroundColor: flashOn ? '#f59e0b' : flashSupported ? '#334155' : '#1e293b',
+                                        color: flashOn ? '#000' : flashSupported ? '#fff' : '#94a3b8',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                    title={flashSupported ? (flashOn ? 'Turn Flash OFF' : 'Turn Flash ON') : 'Flash/Torch support depends on camera hardware'}
                                 >
                                     {flashOn ? '🔦 Flash ON' : '💡 Flash OFF'}
                                 </button>
-                            )}
-                        </div>
-                    )}
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
 

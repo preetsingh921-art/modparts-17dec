@@ -2,9 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { execSync } from 'child_process'
 
-// Capture git info at build time
-const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
-const commitDate = execSync('git log -1 --format=%ci').toString().trim()
+// Capture git info at build time with safe fallbacks and strict ISO-8601 (%cI)
+let commitHash = 'dev';
+let commitDate = new Date().toISOString();
+try {
+  commitHash = execSync('git rev-parse --short HEAD').toString().trim();
+  const gitDate = execSync('git log -1 --format=%cI').toString().trim();
+  if (gitDate && !isNaN(new Date(gitDate).getTime())) {
+    commitDate = gitDate;
+  }
+} catch (e) {
+  // Fallback to build time if git command fails
+  commitDate = new Date().toISOString();
+}
 
 // https://vite.dev/config/
 export default defineConfig({

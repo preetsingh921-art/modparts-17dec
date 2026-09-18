@@ -308,9 +308,14 @@ const WebImageSearchModal = ({
                       <img
                         src={item.thumbnail || item.image}
                         alt={item.title}
+                        referrerPolicy="no-referrer"
                         className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
                         onError={(e) => {
-                          e.target.style.display = 'none';
+                          if (item.image && e.target.src !== item.image) {
+                            e.target.src = item.image;
+                          } else {
+                            e.target.style.display = 'none';
+                          }
                         }}
                       />
 

@@ -12,20 +12,82 @@ try {
   // Cloudinary module not loaded
 }
 
+const ipv4Agent = new https.Agent({ keepAlive: true, family: 4, rejectUnauthorized: false });
+
+/**
+ * Filter out generic website icons, logos, SVGs, avatars, and placeholder badges
+ * Ensures users only see real, high-quality motorcycle part photographs.
+ */
+function isLikelyPartPhoto(url, title, width, height) {
+  if (!url) return false;
+  const lowerUrl = url.toLowerCase();
+  const lowerTitle = (title || '').toLowerCase();
+
+  // 1. Block vector/icon file formats
+  if (
+    lowerUrl.endsWith('.svg') ||
+    lowerUrl.endsWith('.ico') ||
+    lowerUrl.endsWith('.gif') ||
+    lowerUrl.includes('.svg?') ||
+    lowerUrl.includes('.ico?')
+  ) {
+    return false;
+  }
+
+  // 2. Block generic icon / logo / placeholder path patterns in URLs
+  const blockedPatterns = [
+    '/icon', 'icon/', '-icon', 'icon-', '_icon', 'icon_',
+    '/logo', 'logo/', '-logo', 'logo-', '_logo', 'logo_',
+    'placeholder', 'no-image', 'no_image', 'nophoto', 'notfound', 'not-found',
+    'image_not_available', 'imagenotavailable', 'default_product', 'default-image',
+    'default_part', 'avatar', 'favicon', 'badge', 'banner', 'loader', 'spinner',
+    'blank', 'transparent', 'pixel', 'spacer', 'sprite', 'button'
+  ];
+
+  for (const pat of blockedPatterns) {
+    if (lowerUrl.includes(pat)) return false;
+  }
+
+  // 3. Block titles that clearly indicate non-part icons
+  const blockedTitleWords = [
+    'vector logo', 'company logo', 'icon free', 'clipart', 'vector icon',
+    'placeholder image', 'no image available', 'wikimedia commons logo',
+    'road sign', 'traffic sign', 'warning sign', 'flag of', 'coat of arms'
+  ];
+  for (const word of blockedTitleWords) {
+    if (lowerTitle.includes(word)) return false;
+  }
+
+  // 4. Block tiny thumbnails/icons if dimensions are reported
+  if (width && height) {
+    const w = parseInt(width);
+    const h = parseInt(height);
+    if ((!isNaN(w) && w < 120) || (!isNaN(h) && h < 120)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /**
  * 1. Primary Engine: Bing Image Search Scraper
  * Extracts direct high-res image URLs, thumbnails, dimensions, and source domain from Bing HTML.
  */
 async function searchBingImages(query, limit = 16) {
   try {
-    const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2&first=1`;
+    // Append motorcycle qualifiers and negative keywords to prune generic website icons
+    const enhancedQuery = `${query} motorcycle -icon -logo -vector -clipart`.trim();
+    const url = `https://www.bing.com/images/search?q=${encodeURIComponent(enhancedQuery)}&form=HDRSC2&first=1`;
+
     const res = await axios.get(url, {
+      httpsAgent: ipv4Agent,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9'
       },
-      timeout: 10000
+      timeout: 8000
     });
 
     const html = res.data || '';
@@ -45,6 +107,16 @@ async function searchBingImages(query, limit = 16) {
         const data = JSON.parse(decoded);
         const imgUrl = data.murl;
         if (!imgUrl || seenUrls.has(imgUrl)) continue;
+
+        const title = (data.t || data.desc || 'Part Image').replace(/<[^>]*>?/gm, '');
+        const width = data.w || data.ow || null;
+        const height = data.h || data.oh || null;
+
+        // Apply strict filter for genuine part photos
+        if (!isLikelyPartPhoto(imgUrl, title, width, height)) {
+          continue;
+        }
+
         seenUrls.add(imgUrl);
 
         let source = 'Web';
@@ -55,12 +127,12 @@ async function searchBingImages(query, limit = 16) {
         }
 
         results.push({
-          title: (data.t || data.desc || 'Part Image').replace(/<[^>]*>?/gm, ''),
+          title,
           image: imgUrl,
           thumbnail: data.turl || imgUrl,
-          width: data.w || null,
-          height: data.h || null,
-          source: source
+          width,
+          height,
+          source
         });
       } catch (e) {}
     }
@@ -73,28 +145,33 @@ async function searchBingImages(query, limit = 16) {
 
 /**
  * 2. Secondary Engine: Wikimedia Commons API
- * Free public domain schematics, vintage motorcycle photos, and model images.
+ * Strictly filtered to real photographic images, rejecting SVG diagrams, logos, and icons.
  */
 async function searchWikimediaImages(query, limit = 8) {
   try {
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=${limit}&prop=imageinfo&iiprop=url|size|extmetadata&format=json&origin=*`;
+    const photoQuery = `${query} part photo`;
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(photoQuery)}&gsrnamespace=6&gsrlimit=${limit * 2}&prop=imageinfo&iiprop=url|size|extmetadata&format=json&origin=*`;
     const res = await axios.get(url, {
+      httpsAgent: ipv4Agent,
       headers: { 'User-Agent': 'ModParts/1.0 (admin@partsformyrd350.com)' },
-      timeout: 8000
+      timeout: 6000
     });
 
     const pages = res.data?.query?.pages || {};
-    return Object.values(pages).map(p => {
-      const info = p.imageinfo?.[0] || {};
-      return {
-        title: p.title.replace(/^File:/, '').replace(/\.[^/.]+$/, ''),
-        image: info.url,
-        thumbnail: info.thumburl || info.url,
-        width: info.width || null,
-        height: info.height || null,
-        source: 'Wikimedia Commons'
-      };
-    }).filter(item => item.image);
+    return Object.values(pages)
+      .map(p => {
+        const info = p.imageinfo?.[0] || {};
+        const title = p.title.replace(/^File:/, '').replace(/\.[^/.]+$/, '');
+        return {
+          title,
+          image: info.url,
+          thumbnail: info.thumburl || info.url,
+          width: info.width || null,
+          height: info.height || null,
+          source: 'Wikimedia Commons'
+        };
+      })
+      .filter(item => item.image && isLikelyPartPhoto(item.image, item.title, item.width, item.height));
   } catch (err) {
     console.warn('⚠️ Wikimedia image search failed:', err.message);
     return [];
@@ -119,14 +196,16 @@ async function searchCatalogImages(query, limit = 6) {
       LIMIT $2
     `;
     const { rows } = await db.query(sql, [searchQuery, limit]);
-    return rows.map(r => ({
-      title: `${r.name} (${r.part_number || 'N/A'})`,
-      image: r.image_url,
-      thumbnail: r.image_url,
-      width: null,
-      height: null,
-      source: 'Catalog DB'
-    }));
+    return rows
+      .map(r => ({
+        title: `${r.name} (${r.part_number || 'N/A'})`,
+        image: r.image_url,
+        thumbnail: r.image_url,
+        width: null,
+        height: null,
+        source: 'Catalog DB'
+      }))
+      .filter(item => isLikelyPartPhoto(item.image, item.title));
   } catch (err) {
     console.warn('⚠️ Catalog image search failed:', err.message);
     return [];
@@ -184,15 +263,14 @@ async function downloadAndSaveImage(imageUrl, identifier) {
   // 1. Download image buffer
   let buffer = null;
   try {
-    const agent = new https.Agent({ rejectUnauthorized: false });
     const response = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
         'Referer': imageUrl
       },
-      httpsAgent: agent,
+      httpsAgent: ipv4Agent,
       timeout: 15000,
       maxContentLength: 20 * 1024 * 1024 // 20MB limit
     });

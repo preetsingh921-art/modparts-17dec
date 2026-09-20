@@ -372,12 +372,10 @@ const BarcodeScanner = ({
                 }
             });
 
-            // CRITICAL FIX FOR 1D BARCODES:
-            // Do NOT specify qrbox cropping! Omission of qrbox processes the FULL video frame.
-            // This guarantees that left and right quiet zones (white margins) are never truncated.
+            // Fast decoding with widescreen video stream & uncropped full-frame view
             const config = {
                 fps: 25,
-                aspectRatio: 1.333333,
+                aspectRatio: 1.5,
                 disableFlip: false,
                 videoConstraints: {
                     deviceId: typeof target === 'string' ? { exact: target } : undefined,
@@ -412,7 +410,7 @@ const BarcodeScanner = ({
                 console.warn('Camera target failed, attempting environment fallback:', targetErr);
                 await html5QrCodeRef.current.start(
                     { facingMode: 'environment' },
-                    { fps: 25, aspectRatio: 1.333333, disableFlip: false },
+                    { fps: 25, aspectRatio: 1.5, disableFlip: false },
                     onScanSuccess,
                     () => {}
                 );
@@ -428,10 +426,21 @@ const BarcodeScanner = ({
                 refreshCameras();
                 checkTorchCapability();
                 checkZoomCapability();
-                if (zoomLevel > 1) {
-                    applyZoom(zoomLevel);
-                }
+                // Automatically set to 1.5x zoom for wide 1D barcodes
+                applyZoom(1.5);
             }, 350);
+
+            // Parallel Hardware BarcodeDetector loop directly on raw uncompressed video element
+            const tryStartNativeDetector = (retryCount = 0) => {
+                if (!scanningRef.current) return;
+                const videoEl = document.querySelector('#barcode-scanner-region video');
+                if (videoEl && videoEl.readyState >= 2) {
+                    startNativeDetectorLoop(videoEl);
+                } else if (retryCount < 10) {
+                    setTimeout(() => tryStartNativeDetector(retryCount + 1), 200);
+                }
+            };
+            setTimeout(() => tryStartNativeDetector(), 350);
 
         } catch (err) {
             console.error('Scanner start error:', err);
@@ -440,6 +449,45 @@ const BarcodeScanner = ({
             setScanning(false);
             setIsStarting(false);
             scanningRef.current = false;
+        }
+    };
+
+    // Parallel Native BarcodeDetector Engine (Hardware ML-accelerated, sub-15ms, full video texture)
+    const startNativeDetectorLoop = (videoEl) => {
+        if (!('BarcodeDetector' in window) || !videoEl) return;
+        try {
+            const formats = [
+                'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf', 'codabar', 'qr_code', 'data_matrix'
+            ];
+            const detector = new window.BarcodeDetector({ formats });
+            let isDetecting = false;
+
+            const detectFrame = async () => {
+                if (!scanningRef.current || !videoEl || isDetecting) return;
+                isDetecting = true;
+                try {
+                    const barcodes = await detector.detect(videoEl);
+                    if (barcodes && barcodes.length > 0 && scanningRef.current) {
+                        const code = barcodes[0].rawValue;
+                        const format = barcodes[0].format || 'Native';
+                        console.log('⚡ Hardware BarcodeDetector Instant Hit:', code, format);
+                        onScanSuccess(code, { result: { format: { formatName: format } } });
+                        return;
+                    }
+                } catch (e) {
+                    // Frame skip
+                } finally {
+                    isDetecting = false;
+                }
+
+                if (scanningRef.current) {
+                    animFrameRef.current = requestAnimationFrame(detectFrame);
+                }
+            };
+
+            animFrameRef.current = requestAnimationFrame(detectFrame);
+        } catch (err) {
+            console.warn('Native detector loop note:', err);
         }
     };
 
@@ -452,6 +500,11 @@ const BarcodeScanner = ({
     const stopScanning = async () => {
         scanningRef.current = false;
         setIsStarting(false);
+
+        if (animFrameRef.current) {
+            cancelAnimationFrame(animFrameRef.current);
+            animFrameRef.current = null;
+        }
 
         if (html5QrCodeRef.current) {
             try {
@@ -904,12 +957,12 @@ const BarcodeScanner = ({
             {/* ===== CAMERA SCANNER MODE ===== */}
             {scanMode === 'camera' && showPreview && hasCamera && (
                 <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    {/* Fixed-dimension, non-collapsing Viewfinder (Eliminates Black Box) */}
+                    {/* Responsive Widescreen Viewfinder (Preserves Full 1D Barcode Width) */}
                     <div style={{
                         position: 'relative',
                         width: '100%',
-                        maxWidth: `${width}px`,
-                        height: `${height}px`,
+                        maxWidth: typeof width === 'number' && width < 420 ? '420px' : `${width}px`,
+                        height: `${Math.max(height, 280)}px`,
                         borderRadius: '12px',
                         overflow: 'hidden',
                         backgroundColor: '#090d16',
@@ -926,8 +979,8 @@ const BarcodeScanner = ({
                             }
                             .laser-line {
                                 position: absolute;
-                                left: 6%;
-                                width: 88%;
+                                left: 2%;
+                                width: 96%;
                                 height: 3px;
                                 background: linear-gradient(90deg, transparent, #ef4444, #f87171, #ef4444, transparent);
                                 box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.7);
@@ -935,18 +988,23 @@ const BarcodeScanner = ({
                                 animation: scanning-laser 2s infinite ease-in-out;
                                 pointer-events: none;
                             }
+                            #barcode-scanner-region video {
+                                width: 100% !important;
+                                height: 100% !important;
+                                object-fit: contain !important; /* CRITICAL: Never crop barcode edges with object-fit: cover */
+                            }
                             .viewfinder-crosshairs {
                                 position: absolute;
-                                inset: 16px;
+                                inset: 12px;
                                 border: 2px dashed rgba(255,255,255,0.35);
                                 border-radius: 8px;
                                 pointer-events: none;
                                 z-index: 15;
                             }
-                            .corner-tl { position: absolute; top: 12px; left: 12px; width: 18px; height: 18px; border-top: 3px solid #60a5fa; border-left: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
-                            .corner-tr { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-top: 3px solid #60a5fa; border-right: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
-                            .corner-bl { position: absolute; bottom: 12px; left: 12px; width: 18px; height: 18px; border-bottom: 3px solid #60a5fa; border-left: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
-                            .corner-br { position: absolute; bottom: 12px; right: 12px; width: 18px; height: 18px; border-bottom: 3px solid #60a5fa; border-right: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
+                            .corner-tl { position: absolute; top: 8px; left: 8px; width: 22px; height: 22px; border-top: 3px solid #60a5fa; border-left: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
+                            .corner-tr { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-top: 3px solid #60a5fa; border-right: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
+                            .corner-bl { position: absolute; bottom: 8px; left: 8px; width: 22px; height: 22px; border-bottom: 3px solid #60a5fa; border-left: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
+                            .corner-br { position: absolute; bottom: 8px; right: 8px; width: 22px; height: 22px; border-bottom: 3px solid #60a5fa; border-right: 3px solid #60a5fa; pointer-events: none; z-index: 18; }
                         `}</style>
 
                         {/* Html5Qrcode scanner mount container */}
@@ -1107,34 +1165,39 @@ const BarcodeScanner = ({
                     {scanning && (
                         <div style={{
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px',
-                            margin: '4px 0 10px 0',
+                            gap: '4px',
+                            margin: '6px 0 10px 0',
                             width: '100%',
-                            maxWidth: `${width}px`
+                            maxWidth: typeof width === 'number' && width < 420 ? '420px' : `${width}px`
                         }}>
-                            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>🔍 Zoom:</span>
-                            {[1, 1.5, 2, 2.5].map((lvl) => (
-                                <button
-                                    key={lvl}
-                                    type="button"
-                                    onClick={() => applyZoom(lvl)}
-                                    style={{
-                                        padding: '4px 12px',
-                                        borderRadius: '16px',
-                                        border: zoomLevel === lvl ? '1px solid #3b82f6' : '1px solid #334155',
-                                        background: zoomLevel === lvl ? '#2563eb' : '#1e293b',
-                                        color: zoomLevel === lvl ? '#ffffff' : '#94a3b8',
-                                        fontSize: '11px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease'
-                                    }}
-                                >
-                                    {lvl}x
-                                </button>
-                            ))}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>🔍 Zoom:</span>
+                                {[1, 1.5, 2, 2.5].map((lvl) => (
+                                    <button
+                                        key={lvl}
+                                        type="button"
+                                        onClick={() => applyZoom(lvl)}
+                                        style={{
+                                            padding: '4px 12px',
+                                            borderRadius: '16px',
+                                            border: zoomLevel === lvl ? '1px solid #3b82f6' : '1px solid #334155',
+                                            background: zoomLevel === lvl ? '#2563eb' : '#1e293b',
+                                            color: zoomLevel === lvl ? '#ffffff' : '#94a3b8',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        {lvl}x
+                                    </button>
+                                ))}
+                            </div>
+                            <p style={{ margin: '2px 0 0 0', fontSize: '10px', color: '#64748b', textAlign: 'center' }}>
+                                📏 For wide barcodes, align along the red laser at 1.5x zoom (20–30 cm away)
+                            </p>
                         </div>
                     )}
 

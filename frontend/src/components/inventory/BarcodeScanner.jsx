@@ -35,6 +35,8 @@ const BarcodeScanner = ({
     const [scanStatus, setScanStatus] = useState('');
     const [flashOn, setFlashOn] = useState(false);
     const [flashSupported, setFlashSupported] = useState(false);
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [zoomSupported, setZoomSupported] = useState(false);
     const [deviceListening, setDeviceListening] = useState(true);
     const [deviceBuffer, setDeviceBuffer] = useState('');
     const [scanCount, setScanCount] = useState(0);
@@ -129,7 +131,42 @@ const BarcodeScanner = ({
         };
     }, [scanMode, deviceListening, playScanChime]);
 
-    // Detect / Refresh Available Cameras
+    // Categorize and prioritize camera lenses:
+    // Rank 0: Main 1x rear camera (optimal for 1D barcodes)
+    // Rank 1: Other standard rear cameras
+    // Rank 2: Telephoto (zoom)
+    // Rank 3: Ultra-wide (0.5x - causes blur & barrel distortion on barcodes)
+    // Rank 4: Front / selfie camera
+    const categorizeCamera = (camera) => {
+        const label = (camera.label || '').toLowerCase();
+        const isFront = label.includes('front') || label.includes('user') || label.includes('selfie') || label.includes('facing front');
+        const isUltraWide = label.includes('ultra') || label.includes('0.5') || label.includes('wide-angle') || label.includes('super wide');
+        const isTele = label.includes('tele') || label.includes('zoom') || label.includes('2x') || label.includes('3x') || label.includes('5x');
+
+        let displayName = camera.label || `Camera (${camera.deviceId ? camera.deviceId.slice(0, 8) : '1'})`;
+        let rank = 1;
+        let isMain = false;
+
+        if (isFront) {
+            displayName = `🤳 ${camera.label || 'Front Camera'}`;
+            rank = 4;
+        } else if (isUltraWide) {
+            displayName = `📷 ${camera.label || 'Ultra Wide Camera'} (0.5x - Blurry for barcodes)`;
+            rank = 3;
+        } else if (isTele) {
+            displayName = `📷 ${camera.label || 'Telephoto Camera'} (Zoom)`;
+            rank = 2;
+        } else {
+            // Main wide camera (1x)
+            isMain = true;
+            displayName = `📷 ${camera.label || 'Main Camera'} (1x - Recommended)`;
+            rank = 0;
+        }
+
+        return { ...camera, displayName, rank, isMain, isUltraWide, isFront };
+    };
+
+    // Detect / Refresh Available Cameras with Intelligent Prioritization
     const refreshCameras = useCallback(async () => {
         try {
             if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
@@ -139,8 +176,16 @@ const BarcodeScanner = ({
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(d => d.kind === 'videoinput');
             if (videoDevices.length > 0) {
-                setCameras(videoDevices);
+                const categorized = videoDevices.map(categorizeCamera).sort((a, b) => a.rank - b.rank);
+                setCameras(categorized);
                 setHasCamera(true);
+
+                // Automatically prioritize and select the Main 1x Camera (never Ultra-Wide)
+                setSelectedCameraId(prev => {
+                    if (prev && categorized.some(c => c.deviceId === prev)) return prev;
+                    const mainCam = categorized.find(c => c.isMain) || categorized[0];
+                    return mainCam ? mainCam.deviceId : null;
+                });
             }
         } catch (err) {
             console.warn('Camera detection note:', err);
@@ -207,6 +252,57 @@ const BarcodeScanner = ({
         }
     }, [getActiveVideoTrack]);
 
+    // Check Hardware Zoom Capability
+    const checkZoomCapability = useCallback(() => {
+        const track = getActiveVideoTrack();
+        if (!track) {
+            setZoomSupported(false);
+            return false;
+        }
+        try {
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            const supported = Boolean(capabilities.zoom);
+            setZoomSupported(supported);
+            return supported;
+        } catch (e) {
+            setZoomSupported(false);
+            return false;
+        }
+    }, [getActiveVideoTrack]);
+
+    // Apply Hardware / Optical or Digital Sensor Zoom (1x, 1.5x, 2x, 2.5x)
+    const applyZoom = async (level) => {
+        setZoomLevel(level);
+        const track = getActiveVideoTrack();
+        let hardwareApplied = false;
+
+        if (track) {
+            try {
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                if (capabilities.zoom) {
+                    const min = capabilities.zoom.min || 1;
+                    const max = capabilities.zoom.max || 5;
+                    const clamped = Math.max(min, Math.min(level, max));
+                    await track.applyConstraints({
+                        advanced: [{ zoom: clamped }]
+                    });
+                    hardwareApplied = true;
+                    setScanStatus(`🔍 Zoom set to ${clamped}x`);
+                }
+            } catch (err) {
+                console.warn('Hardware zoom apply error:', err);
+            }
+        }
+
+        // Apply visual zoom transform on video element as backup
+        const videoEl = document.querySelector('#barcode-scanner-region video');
+        if (videoEl) {
+            videoEl.style.transform = hardwareApplied ? 'none' : (level > 1 ? `scale(${level})` : 'none');
+            videoEl.style.transformOrigin = 'center center';
+            videoEl.style.transition = 'transform 0.2s ease-out';
+        }
+    };
+
     // Toggle Flash (Torch)
     const toggleFlash = async () => {
         const track = getActiveVideoTrack();
@@ -232,7 +328,7 @@ const BarcodeScanner = ({
         }
     };
 
-    // Start Scanning (Tuned Html5Qrcode with hardware BarcodeDetector & robust viewport sizing)
+    // Start Scanning (Tuned Html5Qrcode with hardware BarcodeDetector & uncropped full-frame view)
     const startScanningWithTarget = async (target) => {
         setError(null);
         setIsStarting(true);
@@ -254,6 +350,7 @@ const BarcodeScanner = ({
                 html5QrCodeRef.current = null;
             }
 
+            // High-speed 1D & 2D formats prioritized for auto parts inventory
             const formatsToSupport = [
                 Html5QrcodeSupportedFormats.CODE_128,
                 Html5QrcodeSupportedFormats.CODE_39,
@@ -263,7 +360,8 @@ const BarcodeScanner = ({
                 Html5QrcodeSupportedFormats.UPC_E,
                 Html5QrcodeSupportedFormats.QR_CODE,
                 Html5QrcodeSupportedFormats.DATA_MATRIX,
-                Html5QrcodeSupportedFormats.ITF
+                Html5QrcodeSupportedFormats.ITF,
+                Html5QrcodeSupportedFormats.CODABAR
             ];
 
             html5QrCodeRef.current = new Html5Qrcode('barcode-scanner-region', {
@@ -274,42 +372,65 @@ const BarcodeScanner = ({
                 }
             });
 
+            // CRITICAL FIX FOR 1D BARCODES:
+            // Do NOT specify qrbox cropping! Omission of qrbox processes the FULL video frame.
+            // This guarantees that left and right quiet zones (white margins) are never truncated.
             const config = {
                 fps: 25,
-                qrbox: (viewfinderWidth, viewfinderHeight) => {
-                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    return {
-                        width: Math.floor(viewfinderWidth * 0.88),
-                        height: Math.floor(minEdge * 0.52)
-                    };
-                },
                 aspectRatio: 1.333333,
                 disableFlip: false,
                 videoConstraints: {
-                    facingMode: typeof target === 'object' && target.facingMode ? target.facingMode : selectedFacingMode || 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+                    deviceId: typeof target === 'string' ? { exact: target } : undefined,
+                    facingMode: typeof target === 'object' && target.facingMode ? target.facingMode : (typeof target === 'string' ? undefined : (selectedFacingMode || 'environment')),
+                    width: { ideal: 1920, min: 1280 },
+                    height: { ideal: 1080, min: 720 },
+                    advanced: [{ focusMode: 'continuous' }]
                 }
             };
 
-            const cameraTarget = target || (selectedCameraId ? selectedCameraId : { facingMode: selectedFacingMode || 'environment' });
+            let cameraTarget = target;
+            if (!cameraTarget) {
+                if (selectedCameraId) {
+                    cameraTarget = selectedCameraId;
+                } else if (cameras.length > 0) {
+                    const mainCam = cameras.find(c => c.isMain) || cameras[0];
+                    cameraTarget = mainCam ? mainCam.deviceId : { facingMode: selectedFacingMode || 'environment' };
+                } else {
+                    cameraTarget = { facingMode: selectedFacingMode || 'environment' };
+                }
+            }
 
-            await html5QrCodeRef.current.start(
-                cameraTarget,
-                config,
-                onScanSuccess,
-                () => {} // per-frame reject
-            );
+            try {
+                await html5QrCodeRef.current.start(
+                    cameraTarget,
+                    config,
+                    onScanSuccess,
+                    () => {} // per-frame reject
+                );
+            } catch (targetErr) {
+                // If starting with specific deviceId failed (e.g. OverconstrainedError on Safari), fallback to facingMode
+                console.warn('Camera target failed, attempting environment fallback:', targetErr);
+                await html5QrCodeRef.current.start(
+                    { facingMode: 'environment' },
+                    { fps: 25, aspectRatio: 1.333333, disableFlip: false },
+                    onScanSuccess,
+                    () => {}
+                );
+            }
 
             setIsStarting(false);
             setScanning(true);
             setFlashOn(false);
             setScanStatus('📷 Scanning active • Center barcode in the viewfinder');
 
-            // Re-enumerate cameras now that permission is granted & test torch
+            // Re-enumerate cameras & detect torch and zoom
             setTimeout(() => {
                 refreshCameras();
                 checkTorchCapability();
+                checkZoomCapability();
+                if (zoomLevel > 1) {
+                    applyZoom(zoomLevel);
+                }
             }, 350);
 
         } catch (err) {
@@ -367,7 +488,7 @@ const BarcodeScanner = ({
             setSelectedCameraId(newVal);
             const matchingCam = cameras.find(c => c.deviceId === newVal);
             if (matchingCam) {
-                const label = matchingCam.label.toLowerCase();
+                const label = (matchingCam.label || '').toLowerCase();
                 setSelectedFacingMode(label.includes('front') || label.includes('user') ? 'user' : 'environment');
             }
             if (scanning) {
@@ -381,13 +502,17 @@ const BarcodeScanner = ({
         let nextTarget = null;
         if (cameras.length > 1) {
             const currentIdx = cameras.findIndex(c => c.deviceId === selectedCameraId);
-            const nextIdx = (currentIdx + 1) % cameras.length;
-            const nextCam = cameras[nextIdx];
-            setSelectedCameraId(nextCam.deviceId);
-            const label = nextCam.label.toLowerCase();
-            const nextFacing = label.includes('front') || label.includes('user') ? 'user' : 'environment';
-            setSelectedFacingMode(nextFacing);
-            nextTarget = nextCam.deviceId;
+            const isCurrentlyFront = currentIdx !== -1 && cameras[currentIdx]?.isFront;
+            const frontCam = cameras.find(c => c.isFront);
+            const mainCam = cameras.find(c => c.isMain) || cameras.find(c => !c.isFront);
+
+            // Toggle cleanly between front camera and the Main 1x rear camera
+            const nextCam = isCurrentlyFront ? (mainCam || cameras[0]) : (frontCam || cameras[(currentIdx + 1) % cameras.length]);
+            if (nextCam) {
+                setSelectedCameraId(nextCam.deviceId);
+                setSelectedFacingMode(nextCam.isFront ? 'user' : 'environment');
+                nextTarget = nextCam.deviceId;
+            }
         } else {
             const nextFacing = selectedFacingMode === 'environment' ? 'user' : 'environment';
             setSelectedFacingMode(nextFacing);
@@ -978,6 +1103,41 @@ const BarcodeScanner = ({
                         </div>
                     )}
 
+                    {/* Quick Sensor Zoom Pills (1x, 1.5x, 2x, 2.5x) */}
+                    {scanning && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            margin: '4px 0 10px 0',
+                            width: '100%',
+                            maxWidth: `${width}px`
+                        }}>
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>🔍 Zoom:</span>
+                            {[1, 1.5, 2, 2.5].map((lvl) => (
+                                <button
+                                    key={lvl}
+                                    type="button"
+                                    onClick={() => applyZoom(lvl)}
+                                    style={{
+                                        padding: '4px 12px',
+                                        borderRadius: '16px',
+                                        border: zoomLevel === lvl ? '1px solid #3b82f6' : '1px solid #334155',
+                                        background: zoomLevel === lvl ? '#2563eb' : '#1e293b',
+                                        color: zoomLevel === lvl ? '#ffffff' : '#94a3b8',
+                                        fontSize: '11px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease'
+                                    }}
+                                >
+                                    {lvl}x
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Camera Selector Dropdown and Flip Button ALWAYS VISIBLE */}
                     <div style={{
                         display: 'flex',
@@ -1004,13 +1164,18 @@ const BarcodeScanner = ({
                                     fontWeight: '500'
                                 }}
                             >
-                                <option value="environment">📷 Rear / Environment Camera (Recommended)</option>
-                                <option value="user">🤳 Front / Selfie Camera</option>
-                                {cameras.map((cam, idx) => (
-                                    <option key={cam.deviceId || idx} value={cam.deviceId}>
-                                        📷 {cam.label || `Camera ${idx + 1} (${cam.deviceId.slice(0, 8)})`}
-                                    </option>
-                                ))}
+                                {cameras.length === 0 ? (
+                                    <>
+                                        <option value="environment">📷 Rear / Environment Camera (Recommended)</option>
+                                        <option value="user">🤳 Front / Selfie Camera</option>
+                                    </>
+                                ) : (
+                                    cameras.map((cam, idx) => (
+                                        <option key={cam.deviceId || idx} value={cam.deviceId}>
+                                            {cam.displayName || cam.label || `Camera ${idx + 1}`}
+                                        </option>
+                                    ))
+                                )}
                             </select>
                         </div>
                         <button

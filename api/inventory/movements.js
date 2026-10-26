@@ -428,6 +428,198 @@ module.exports = async function handler(req, res) {
                 return res.json({ message: resultMessage });
             }
 
+            // Bulk Intake - Add multiple products (including new SKUs) to inventory in batch
+            if (action === 'bulk-intake') {
+                const { warehouse_id, items, default_bin } = req.body;
+
+                if (!warehouse_id) {
+                    return res.status(400).json({ message: 'Target warehouse ID is required' });
+                }
+
+                if (!Array.isArray(items) || items.length === 0) {
+                    return res.status(400).json({ message: 'Items array cannot be empty' });
+                }
+
+                const client = await db.pool.connect();
+                try {
+                    await client.query('BEGIN');
+
+                    let updatedCount = 0;
+                    let createdCount = 0;
+                    const processedItems = [];
+
+                    for (const item of items) {
+                        const rawSku = (item.part_number || item.barcode || '').trim();
+                        const barcode = (item.barcode || rawSku).trim();
+                        const partNumber = (item.part_number || rawSku).trim();
+                        const qty = Math.max(1, parseInt(item.quantity) || 1);
+                        const bin = (item.bin_number || default_bin || null)?.trim() || null;
+                        const name = (item.name || `Part ${rawSku}`).trim();
+                        const price = parseFloat(item.price) >= 0 ? parseFloat(item.price) : 0.00;
+                        const categoryId = item.category_id ? parseInt(item.category_id) : null;
+                        const condition = item.condition_status || 'New';
+                        const description = item.description || null;
+
+                        // Clean comparison helper string
+                        const cleanCode = rawSku.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+                        // Check if product exists in the target warehouse
+                        const localMatch = await client.query(`
+                            SELECT id, quantity, name, part_number, barcode, bin_number 
+                            FROM products
+                            WHERE warehouse_id = $1 
+                              AND (
+                                part_number = $2 
+                                OR barcode = $3 
+                                OR REPLACE(REPLACE(part_number, '-', ''), ' ', '') = $4
+                                OR REPLACE(REPLACE(barcode, '-', ''), ' ', '') = $4
+                              )
+                            ORDER BY quantity DESC, id DESC
+                            LIMIT 1
+                        `, [warehouse_id, partNumber, barcode, cleanCode]);
+
+                        let finalProductId;
+
+                        if (localMatch.rows.length > 0) {
+                            // CASE 1: Product exists in this warehouse -> increment quantity
+                            const target = localMatch.rows[0];
+                            finalProductId = target.id;
+                            const newQty = target.quantity + qty;
+
+                            await client.query(`
+                                UPDATE products 
+                                SET quantity = $1, 
+                                    bin_number = COALESCE($2, bin_number),
+                                    updated_at = NOW()
+                                WHERE id = $3
+                            `, [newQty, bin, target.id]);
+
+                            updatedCount++;
+                            processedItems.push({
+                                id: target.id,
+                                part_number: target.part_number,
+                                name: target.name,
+                                quantity_added: qty,
+                                total_quantity: newQty,
+                                status: 'stock_incremented'
+                            });
+                        } else {
+                            // Check if product exists globally in any other warehouse/catalog
+                            const globalMatch = await client.query(`
+                                SELECT id, name, description, price, category_id, barcode, part_number, image_url, condition_status, images
+                                FROM products
+                                WHERE part_number = $1 
+                                   OR barcode = $2
+                                   OR REPLACE(REPLACE(part_number, '-', ''), ' ', '') = $3
+                                   OR REPLACE(REPLACE(barcode, '-', ''), ' ', '') = $3
+                                ORDER BY id ASC
+                                LIMIT 1
+                            `, [partNumber, barcode, cleanCode]);
+
+                            if (globalMatch.rows.length > 0) {
+                                // CASE 2: Product exists in catalog/other warehouse -> create local warehouse inventory entry
+                                const gm = globalMatch.rows[0];
+                                const res = await client.query(`
+                                    INSERT INTO products (
+                                        part_number, name, description, price, category_id, barcode, 
+                                        image_url, images, warehouse_id, bin_number, quantity, condition_status,
+                                        created_at, updated_at
+                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+                                    RETURNING id, name, part_number, quantity
+                                `, [
+                                    gm.part_number || partNumber,
+                                    name !== `Part ${rawSku}` ? name : gm.name,
+                                    description || gm.description,
+                                    price > 0 ? price : gm.price,
+                                    categoryId || gm.category_id,
+                                    gm.barcode || barcode,
+                                    gm.image_url,
+                                    gm.images ? JSON.stringify(gm.images) : '[]',
+                                    warehouse_id,
+                                    bin,
+                                    qty,
+                                    condition || gm.condition_status || 'New'
+                                ]);
+
+                                finalProductId = res.rows[0].id;
+                                createdCount++;
+                                processedItems.push({
+                                    id: finalProductId,
+                                    part_number: gm.part_number || partNumber,
+                                    name: gm.name,
+                                    quantity_added: qty,
+                                    total_quantity: qty,
+                                    status: 'warehouse_entry_created'
+                                });
+                            } else {
+                                // CASE 3: Brand NEW SKU -> create fresh product record
+                                const res = await client.query(`
+                                    INSERT INTO products (
+                                        name, description, part_number, barcode, condition_status, 
+                                        price, quantity, category_id, warehouse_id, bin_number, 
+                                        images, created_at, updated_at
+                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '[]'::jsonb, NOW(), NOW())
+                                    RETURNING id, name, part_number, quantity
+                                `, [
+                                    name,
+                                    description,
+                                    partNumber,
+                                    barcode,
+                                    condition,
+                                    price,
+                                    qty,
+                                    categoryId,
+                                    warehouse_id,
+                                    bin
+                                ]);
+
+                                finalProductId = res.rows[0].id;
+                                createdCount++;
+                                processedItems.push({
+                                    id: finalProductId,
+                                    part_number: partNumber,
+                                    name: name,
+                                    quantity_added: qty,
+                                    total_quantity: qty,
+                                    status: 'new_sku_created'
+                                });
+                            }
+                        }
+
+                        // Create inventory movement record for audit trail
+                        try {
+                            const adminId = decoded?.userId || decoded?.id || null;
+                            await client.query(`
+                                INSERT INTO inventory_movements (
+                                    product_id, to_warehouse_id, to_bin, quantity, 
+                                    movement_type, status, notes, scanned_at, received_at, received_by,
+                                    created_at, updated_at
+                                ) VALUES ($1, $2, $3, $4, 'receive', 'received', 'Bulk scan intake batch', NOW(), NOW(), $5, NOW(), NOW())
+                            `, [finalProductId, warehouse_id, bin, qty, adminId]);
+                        } catch (movErr) {
+                            console.warn('⚠️ Could not log movement audit record:', movErr.message);
+                        }
+                    }
+
+                    await client.query('COMMIT');
+
+                    return res.json({
+                        success: true,
+                        message: `Successfully processed ${items.length} items (${updatedCount} stock updated, ${createdCount} created)`,
+                        processedCount: items.length,
+                        updatedCount,
+                        createdCount,
+                        items: processedItems
+                    });
+                } catch (txErr) {
+                    await client.query('ROLLBACK');
+                    console.error('❌ Bulk intake transaction failed:', txErr);
+                    return res.status(500).json({ message: 'Bulk intake failed: ' + txErr.message });
+                } finally {
+                    client.release();
+                }
+            }
+
             return res.status(400).json({ message: 'Invalid action' });
         }
 

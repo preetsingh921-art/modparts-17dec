@@ -197,6 +197,11 @@ const ProductDetail = () => {
                 />
               </div>
               <p className="text-[#A8A090]">Category: {product.category_name}</p>
+              {product.created_at && (
+                <p className="text-[#A8A090] text-xs mt-1">
+                  Listed on: {new Date(product.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              )}
             </div>
 
             <div className="mb-6">

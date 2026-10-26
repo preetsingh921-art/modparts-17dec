@@ -482,11 +482,15 @@ const AdminProductDetail = () => {
                         </div>
                         <div>
                             <p className="text-gray-500">Created</p>
-                            <p className="text-white">{product.created_at ? new Date(product.created_at).toLocaleDateString() : 'N/A'}</p>
+                            <p className="text-white">
+                                {product.created_at ? `${new Date(product.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(product.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
+                            </p>
                         </div>
                         <div>
                             <p className="text-gray-500">Last Updated</p>
-                            <p className="text-white">{product.updated_at ? new Date(product.updated_at).toLocaleDateString() : 'N/A'}</p>
+                            <p className="text-white">
+                                {product.updated_at ? `${new Date(product.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(product.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
+                            </p>
                         </div>
                     </div>
                 </div>

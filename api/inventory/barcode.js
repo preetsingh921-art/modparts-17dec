@@ -18,7 +18,12 @@ module.exports = async function handler(req, res) {
           FROM products p
           LEFT JOIN categories c ON p.category_id = c.id
           LEFT JOIN warehouses w ON p.warehouse_id = w.id
-          WHERE p.barcode = $1 OR p.part_number = $1
+          WHERE p.barcode = $1 
+             OR p.part_number = $1
+             OR p.ref_no = $1
+             OR REPLACE(REPLACE(p.barcode, '-', ''), ' ', '') = REPLACE(REPLACE($1, '-', ''), ' ', '')
+             OR REPLACE(REPLACE(p.part_number, '-', ''), ' ', '') = REPLACE(REPLACE($1, '-', ''), ' ', '')
+             OR REPLACE(REPLACE(COALESCE(p.ref_no, ''), '-', ''), ' ', '') = REPLACE(REPLACE($1, '-', ''), ' ', '')
           ORDER BY 
             (CASE WHEN $2::text IS NOT NULL AND p.warehouse_id::text = $2::text THEN 0 ELSE 1 END),
             (CASE WHEN p.quantity > 0 THEN 0 ELSE 1 END),

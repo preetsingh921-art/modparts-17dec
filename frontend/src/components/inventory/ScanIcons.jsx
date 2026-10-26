@@ -137,10 +137,38 @@ export const QuickScanIcon = ({ className = "w-5 h-5", ...props }) => (
   </svg>
 );
 
+/**
+ * Scan & Bulk Intake Icon
+ * Represents batch scanning multiple items and stocking into inventory.
+ */
+export const ScanBulkIcon = ({ className = "w-5 h-5", color = "currentColor", ...props }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    {/* Barcode lines */}
+    <path d="M4 3v3M7 3v2M10 3v3M13 3v2M16 3v3M19 3v3" strokeWidth="1.8" />
+    {/* Multiple stacked inventory items */}
+    <path d="M4 9h16v3H4z" strokeWidth="1.8" />
+    <path d="M4 14h16v3H4z" strokeWidth="1.8" />
+    <path d="M4 19h16v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2z" strokeWidth="1.8" />
+    {/* Lightning / quick intake badge */}
+    <path d="M12 9.5l-1.5 3h2.5l-1 3.5 3-4h-2.5l1.5-2.5z" fill="#f59e0b" stroke="#f59e0b" strokeWidth="0.8" />
+  </svg>
+);
+
 export default {
   ScanSendIcon,
   ScanReceiveIcon,
   BarcodeGunIcon,
   CameraViewfinderIcon,
-  QuickScanIcon
+  QuickScanIcon,
+  ScanBulkIcon
 };

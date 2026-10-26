@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { barcodeAPI, warehouseAPI, binAPI, movementsAPI, binContentsAPI } from '../../api/inventory';
 import { useAuth } from '../../context/AuthContext';
 import BarcodeScanner from '../../components/inventory/BarcodeScanner';
-import { ScanSendIcon, ScanReceiveIcon } from '../../components/inventory/ScanIcons';
+import { ScanSendIcon, ScanReceiveIcon, ScanBulkIcon } from '../../components/inventory/ScanIcons';
 import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
 import FloatingNotification from '../../components/ui/FloatingNotification';
+import BulkScanIntake from '../../components/inventory/BulkScanIntake';
 
 /**
  * Inventory Management Page
@@ -14,7 +15,14 @@ const Inventory = () => {
     const { user } = useAuth();
     const isSuperAdmin = user?.role?.toLowerCase() === 'superadmin';
     const adminWarehouseId = user?.warehouse_id;
-    const [activeTab, setActiveTab] = useState('scan-send');
+    const [activeTab, setActiveTab] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const tabParam = params.get('tab');
+            if (tabParam) return tabParam;
+        }
+        return 'bulk-intake';
+    });
     const [warehouses, setWarehouses] = useState([]);
     const [bins, setBins] = useState([]);
     const [movements, setMovements] = useState([]);
@@ -848,6 +856,7 @@ const Inventory = () => {
     };
 
     const tabs = [
+        { id: 'bulk-intake', label: 'Bulk Intake', icon: <ScanBulkIcon className="w-4 h-4 text-purple-400" /> },
         { id: 'scan-send', label: 'Scan & Send', icon: <ScanSendIcon className="w-4 h-4 text-amber-400" /> },
         { id: 'scan-receive', label: 'Scan & Receive', icon: <ScanReceiveIcon className="w-4 h-4 text-emerald-400" /> },
         { id: 'movements', label: 'Movements', icon: '🚚' },
@@ -1015,6 +1024,7 @@ const Inventory = () => {
             }}>
                 {tabs.map(tab => {
                     const isActive = activeTab === tab.id;
+                    const isBulk = tab.id === 'bulk-intake';
                     const isSend = tab.id === 'scan-send';
                     const isReceive = tab.id === 'scan-receive';
 
@@ -1023,7 +1033,12 @@ const Inventory = () => {
                     let activeColor = '#fbbf24';
                     let activeShadow = '0 2px 10px rgba(245, 158, 11, 0.2)';
 
-                    if (isReceive) {
+                    if (isBulk) {
+                        activeBorder = '1px solid rgba(168, 85, 247, 0.5)';
+                        activeBg = 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(126, 34, 206, 0.15))';
+                        activeColor = '#c084fc';
+                        activeShadow = '0 2px 10px rgba(168, 85, 247, 0.2)';
+                    } else if (isReceive) {
                         activeBorder = '1px solid rgba(16, 185, 129, 0.5)';
                         activeBg = 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))';
                         activeColor = '#34d399';
@@ -1066,6 +1081,21 @@ const Inventory = () => {
 
             {/* Tab Content */}
             <div className="tab-content">
+                {/* BULK SCAN INTAKE TAB */}
+                {activeTab === 'bulk-intake' && (
+                    <BulkScanIntake
+                        warehouses={warehouses}
+                        activeWarehouseId={effectiveWarehouseId}
+                        bins={bins}
+                        onIntakeComplete={() => {
+                            fetchMovements();
+                            if (effectiveWarehouseId) {
+                                fetchWarehouseInventory(effectiveWarehouseId);
+                            }
+                        }}
+                    />
+                )}
+
                 {/* SCAN & SEND / SCAN & RECEIVE TAB */}
                 {(activeTab === 'scan-send' || activeTab === 'scan-receive') && (
                     <div className={activeTab === 'scan-send' ? 'scan-send-tab' : 'scan-receive-tab'}>

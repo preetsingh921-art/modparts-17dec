@@ -39,9 +39,10 @@ module.exports = async function handler(req, res) {
         let idx = startIndex;
 
         if (search) {
-          clauses.push(`(p.name ILIKE $${idx} OR p.description ILIKE $${idx} OR p.part_number ILIKE $${idx} OR p.barcode ILIKE $${idx} OR p.ref_no ILIKE $${idx} OR p.part_number = $${idx + 1})`);
-          params.push(`%${search}%`, search);
-          idx += 2;
+          const cleanSearch = search.replace(/[^a-zA-Z0-9]/g, '');
+          clauses.push(`(p.name ILIKE $${idx} OR p.description ILIKE $${idx} OR p.part_number ILIKE $${idx} OR p.barcode ILIKE $${idx} OR p.ref_no ILIKE $${idx} OR p.part_number = $${idx + 1} OR REPLACE(REPLACE(COALESCE(p.part_number, ''), '-', ''), ' ', '') ILIKE $${idx + 2} OR REPLACE(REPLACE(COALESCE(p.barcode, ''), '-', ''), ' ', '') ILIKE $${idx + 2})`);
+          params.push(`%${search}%`, search, `%${cleanSearch}%`);
+          idx += 3;
         }
         if (category) {
           clauses.push(`p.category_id = $${idx}`);

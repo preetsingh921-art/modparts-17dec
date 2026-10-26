@@ -644,6 +644,14 @@ const Products = () => {
             </button>
           )}
           <Link
+            to="/admin/inventory?tab=bulk-intake"
+            className="flex items-center justify-center bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-500 w-full sm:w-auto transition-colors font-medium shadow-sm"
+            title="Scan multiple parts in continuous batch and add to inventory"
+          >
+            <span className="mr-2 text-base">📦⚡</span>
+            Bulk Scan Intake
+          </Link>
+          <Link
             to="/admin/products/add"
             className="flex items-center justify-center bg-midnight-700 text-midnight-50 px-4 py-2 rounded hover:bg-midnight-600 w-full sm:w-auto transition-colors"
           >
@@ -1047,6 +1055,7 @@ const Products = () => {
                   <th className="text-center p-4 text-white min-w-[80px]">Stock</th>
                   <th className="text-center p-4 text-white min-w-[140px]">Warehouse</th>
                   <th className="text-center p-4 text-white min-w-[100px]">Condition</th>
+                  <th className="text-center p-4 text-white min-w-[130px]">Added</th>
                   <th className="text-center p-4 text-white min-w-[120px]">Actions</th>
                 </tr>
               </thead>
@@ -1127,6 +1136,20 @@ const Products = () => {
                       </span>
                     </td>
                     <td className="p-4 text-center">
+                      {product.created_at ? (
+                        <div className="text-xs">
+                          <span className="text-gray-300 font-medium block">
+                            {new Date(product.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                          <span className="text-gray-500 font-mono text-[11px] block mt-0.5">
+                            {new Date(product.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-xs italic">N/A</span>
+                      )}
+                    </td>
+                    <td className="p-4 text-center">
                       <div className="flex justify-center space-x-2">
                         <Link
                           to={`/admin/products/view/${product.id}`}
@@ -1205,6 +1228,11 @@ const Products = () => {
                         <span className={`text-xs font-semibold ${product.quantity <= 0 ? 'text-red-400' : product.quantity <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
                           Stock: {product.quantity}
                         </span>
+                        {product.created_at && (
+                          <span className="text-[11px] text-gray-400 font-mono">
+                            • Added: {new Date(product.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1259,6 +1287,12 @@ const Products = () => {
                       <div className="col-span-2">
                         <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Part Number</span>
                         <span className="text-white font-mono text-sm">{product.part_number || 'N/A'}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-midnight-400 block text-xs uppercase tracking-wider mb-1">Added On</span>
+                        <span className="text-white text-sm">
+                          {product.created_at ? `${new Date(product.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(product.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
+                        </span>
                       </div>
                     </div>
                     {product.part_number && (

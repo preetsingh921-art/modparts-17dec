@@ -16,7 +16,9 @@ const BarcodeScanner = ({
     showPreview = true,
     width = 340,
     height = 280,
-    warehouseId = null
+    warehouseId = null,
+    continuous = false,
+    autoStart = false
 }) => {
     const [scanMode, setScanMode] = useState('device'); // 'device' (USB) or 'camera'
     const [scanning, setScanning] = useState(false);
@@ -204,7 +206,8 @@ const BarcodeScanner = ({
         if (!decodedText || decodedText === lastScannedRef.current) return;
         lastScannedRef.current = decodedText;
         setLastScannedCode(decodedText);
-        setTimeout(() => { lastScannedRef.current = ''; setLastScannedCode(''); }, 2000);
+        const debounceTime = continuous ? 1200 : 2000;
+        setTimeout(() => { lastScannedRef.current = ''; setLastScannedCode(''); }, debounceTime);
 
         console.log('⚡ Barcode Detected Instantly:', decodedText, decodedResult?.result?.format?.formatName || 'Native');
 
@@ -216,10 +219,14 @@ const BarcodeScanner = ({
         setManualInput(decodedText);
         setError(null);
         setScanStatus(`✅ Scanned: ${decodedText}`);
+        setScanCount(prev => prev + 1);
+        setScanHistory(prev => [{ code: decodedText, time: new Date() }, ...prev].slice(0, 20));
 
-        stopScanning();
+        if (!continuous) {
+            stopScanning();
+        }
         lookupProduct(decodedText);
-    }, [playScanChime]);
+    }, [playScanChime, continuous]);
 
     // Active Video Track and Torch Helpers
     const getActiveVideoTrack = useCallback(() => {
@@ -678,8 +685,12 @@ const BarcodeScanner = ({
                 setScanStatus(`✅ Found: ${product.name}`);
                 if (onScan) onScan(barcodeValue, product);
             } else {
-                setScanStatus(`❌ No product found for: ${barcodeValue}`);
-                setError(`No product matches "${barcodeValue}". Ensure this part number is registered.`);
+                if (continuous) {
+                    setScanStatus(`✨ New SKU: ${barcodeValue}`);
+                } else {
+                    setScanStatus(`❌ No product found for: ${barcodeValue}`);
+                    setError(`No product matches "${barcodeValue}". Ensure this part number is registered.`);
+                }
                 if (onScan) onScan(barcodeValue, null);
             }
         } catch (err) {

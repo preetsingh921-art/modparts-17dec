@@ -286,6 +286,23 @@ export const movementsAPI = {
     return data;
   },
 
+  // Bulk Intake: Commit multiple items (existing stock & new SKUs) into warehouse inventory
+  bulkIntake: async ({ warehouseId, items, defaultBin = null }) => {
+    const payload = {
+      warehouse_id: warehouseId,
+      items,
+      default_bin: defaultBin,
+    };
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=bulk-intake`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to process bulk intake');
+    return data;
+  },
+
   // Update movement status through pipeline (picked → packed → customs_review → in_transit → arrived → completed)
   updateStatus: async ({ movement_id, new_status, tracking_number, customs_status, notes }) => {
     const response = await fetch(`${API_BASE_URL}/inventory/movements?action=update-status`, {

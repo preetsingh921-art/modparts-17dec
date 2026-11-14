@@ -196,7 +196,26 @@ module.exports = async function handler(req, res) {
 
             // Receive product - only allow receiving shipments destined for admin's warehouse
             if (action === 'receive') {
-                const { movement_id, bin_number, warehouse_id } = req.body;
+                let { movement_id, bin_number, warehouse_id, barcode, part_number } = req.body;
+
+                // Fallback: If movement_id was omitted but barcode/part_number provided, find matching in-transit movement
+                if (!movement_id && (barcode || part_number) && warehouse_id) {
+                    const searchVal = (barcode || part_number).trim();
+                    const cleanVal = searchVal.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                    const matchedMov = await db.query(`
+                        SELECT m.id 
+                        FROM inventory_movements m
+                        JOIN products p ON m.product_id = p.id
+                        WHERE m.to_warehouse_id = $1 
+                          AND m.status = 'in_transit'
+                          AND (p.part_number = $2 OR p.barcode = $2 OR REPLACE(REPLACE(COALESCE(p.barcode, ''), '-', ''), ' ', '') = $3)
+                        ORDER BY m.created_at ASC
+                        LIMIT 1
+                    `, [warehouse_id, searchVal, cleanVal]);
+                    if (matchedMov.rows.length > 0) {
+                        movement_id = matchedMov.rows[0].id;
+                    }
+                }
 
                 if (!movement_id) {
                     return res.status(400).json({ message: 'Movement ID required to receive a shipment' });
@@ -234,11 +253,14 @@ module.exports = async function handler(req, res) {
 
                 const quantity = movement.quantity || 1;
 
-                // Check if product with same part_number exists in destination warehouse
+                // Check if product with same part_number or barcode exists in destination warehouse
+                const cleanBarcode = (movement.barcode || movement.part_number || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
                 const existingProduct = await db.query(`
                     SELECT id, quantity FROM products 
-                    WHERE part_number = $1 AND warehouse_id = $2
-                `, [movement.part_number, warehouse_id]);
+                    WHERE (part_number = $1 OR barcode = $3 OR REPLACE(REPLACE(COALESCE(barcode, ''), '-', ''), ' ', '') = $4)
+                      AND warehouse_id = $2
+                    LIMIT 1
+                `, [movement.part_number, warehouse_id, movement.barcode, cleanBarcode]);
 
                 let resultMessage;
                 if (existingProduct.rows.length > 0) {

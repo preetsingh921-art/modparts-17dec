@@ -6,6 +6,7 @@ import { ScanSendIcon, ScanReceiveIcon, ScanBulkIcon } from '../../components/in
 import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
 import FloatingNotification from '../../components/ui/FloatingNotification';
 import BulkScanIntake from '../../components/inventory/BulkScanIntake';
+import MovementReceiptModal from '../../components/inventory/MovementReceiptModal';
 
 /**
  * Inventory Management Page
@@ -72,6 +73,9 @@ const Inventory = () => {
     const [pendingMovement, setPendingMovement] = useState(null); // Matched movement for receive
     const [showUnexpectedConfirm, setShowUnexpectedConfirm] = useState(false); // Confirm unexpected receive
     const [receiveQuantity, setReceiveQuantity] = useState(1); // Quantity for unexpected receive
+    const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+    const [receiptModalData, setReceiptModalData] = useState(null);
+    const [receiptModalType, setReceiptModalType] = useState('dispatch');
 
     // Bin Inventory View State
     const [binInventory, setBinInventory] = useState([]);
@@ -611,21 +615,69 @@ const Inventory = () => {
     };
 
     const handleReceive = async (binNumber) => {
-        if (!scannedProduct?.barcode) return;
+        if (!scannedProduct) return;
 
         setLoading(true);
         try {
-            const result = await movementsAPI.receive({
-                barcode: scannedProduct.barcode,
-                binNumber: binNumber,
-                warehouseId: effectiveWarehouseId
-            });
+            if (pendingMovement) {
+                await movementsAPI.receive({
+                    movementId: pendingMovement.id,
+                    binNumber: binNumber,
+                    warehouseId: effectiveWarehouseId
+                });
+                setMessage({
+                    type: 'success',
+                    text: `✅ Received ${pendingMovement.quantity || 1} unit(s) from ${pendingMovement.from_warehouse_name || 'source'} → Bin: ${binNumber || 'Unassigned'}`
+                });
+                setReceiptModalData({
+                    id: pendingMovement.id,
+                    product_name: pendingMovement.product_name || scannedProduct.name,
+                    part_number: pendingMovement.part_number || scannedProduct.part_number,
+                    barcode: pendingMovement.barcode || scannedProduct.barcode,
+                    from_warehouse_name: pendingMovement.from_warehouse_name,
+                    to_warehouse_name: warehouses.find(w => String(w.id) === String(effectiveWarehouseId))?.name || 'Active Warehouse',
+                    quantity: pendingMovement.quantity || 1,
+                    to_bin: binNumber,
+                    received_at: new Date().toISOString(),
+                    status: 'completed'
+                });
+                setReceiptModalType('grn');
+                setReceiptModalOpen(true);
+                setPendingMovement(null);
+            } else {
+                await movementsAPI.addUnexpected({
+                    partNumber: scannedProduct.part_number || scannedProduct.barcode,
+                    warehouseId: effectiveWarehouseId,
+                    binNumber: binNumber,
+                    quantity: receiveQuantity || 1
+                });
+                setMessage({
+                    type: 'success',
+                    text: `✅ Received ${receiveQuantity || 1} unit(s) of ${scannedProduct.name} into warehouse → Bin: ${binNumber || 'Unassigned'}`
+                });
+                setReceiptModalData({
+                    id: Date.now().toString().slice(-4),
+                    product_name: scannedProduct.name,
+                    part_number: scannedProduct.part_number,
+                    barcode: scannedProduct.barcode,
+                    from_warehouse_name: 'Inbound Floor Intake',
+                    to_warehouse_name: warehouses.find(w => String(w.id) === String(effectiveWarehouseId))?.name || 'Active Warehouse',
+                    quantity: receiveQuantity || 1,
+                    to_bin: binNumber,
+                    received_at: new Date().toISOString(),
+                    status: 'completed'
+                });
+                setReceiptModalType('grn');
+                setReceiptModalOpen(true);
+            }
 
-            setMessage({ type: 'success', text: result.message });
             setScannedProduct(null);
             fetchMovements();
+            fetchWarehouses();
+            if (effectiveWarehouseId) fetchBins(effectiveWarehouseId);
         } catch (error) {
-            setMessage({ type: 'error', text: 'Error receiving product' });
+            console.error('Error receiving product:', error);
+            setMessage({ type: 'error', text: 'Error receiving product: ' + (error.message || 'Unknown error') });
         }
         setLoading(false);
     };
@@ -1364,7 +1416,7 @@ const Inventory = () => {
                                                         }
                                                     </select>
 
-                                                    {/* Remaining Stock Display */}
+                                                    {/* Remaining Stock Display & Quantity Selector */}
                                                     <div style={{
                                                         marginTop: '16px',
                                                         padding: '14px 18px',
@@ -1383,8 +1435,66 @@ const Inventory = () => {
                                                                 <span style={{ color: '#94a3b8', fontSize: '12px' }}>units available</span>
                                                             </div>
                                                         </div>
+
+                                                        {/* Quantity to send */}
+                                                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                                                            <label style={{ fontSize: '13px', color: '#f1f5f9', fontWeight: '600' }}>
+                                                                🔢 Dispatch Quantity:
+                                                            </label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSendQuantity(q => Math.max(1, (q || 1) - 1))}
+                                                                    style={{
+                                                                        width: '32px',
+                                                                        height: '32px',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #475569',
+                                                                        background: '#334155',
+                                                                        color: '#fff',
+                                                                        fontWeight: 'bold',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >-</button>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max={scannedProduct?.quantity || 1}
+                                                                    value={sendQuantity}
+                                                                    onChange={(e) => {
+                                                                        const val = parseInt(e.target.value) || 1;
+                                                                        setSendQuantity(Math.max(1, Math.min(val, scannedProduct?.quantity || 1)));
+                                                                    }}
+                                                                    style={{
+                                                                        width: '64px',
+                                                                        textAlign: 'center',
+                                                                        padding: '6px',
+                                                                        background: '#0b0f17',
+                                                                        color: '#fbbf24',
+                                                                        border: '1px solid #f59e0b',
+                                                                        borderRadius: '6px',
+                                                                        fontWeight: 'bold',
+                                                                        fontSize: '15px'
+                                                                    }}
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSendQuantity(q => Math.min(scannedProduct?.quantity || 1, (q || 1) + 1))}
+                                                                    style={{
+                                                                        width: '32px',
+                                                                        height: '32px',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #475569',
+                                                                        background: '#334155',
+                                                                        color: '#fff',
+                                                                        fontWeight: 'bold',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >+</button>
+                                                            </div>
+                                                        </div>
                                                         <div style={{ marginTop: '8px', fontSize: '12px', color: '#94a3b8' }}>
-                                                            💡 1 unit will be deducted from source and dispatched in-transit to destination.
+                                                            💡 {sendQuantity || 1} unit(s) will be deducted from source and dispatched in-transit to destination.
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1461,8 +1571,9 @@ const Inventory = () => {
                                                     setLoading(true);
                                                     try {
                                                         if (activeTab === 'scan-send') {
-                                                            if (scannedProduct.quantity < 1) {
-                                                                setMessage({ type: 'error', text: `Cannot send - no stock available (0 remaining).` });
+                                                            const qtyToSend = Math.max(1, Math.min(Number(sendQuantity) || 1, scannedProduct.quantity || 0));
+                                                            if ((scannedProduct.quantity || 0) < qtyToSend) {
+                                                                setMessage({ type: 'error', text: `Cannot send ${qtyToSend} - only ${scannedProduct.quantity || 0} remaining.` });
                                                                 setLoading(false);
                                                                 return;
                                                             }
@@ -1472,18 +1583,41 @@ const Inventory = () => {
                                                                 setLoading(false);
                                                                 return;
                                                             }
-                                                            await movementsAPI.ship(
+                                                            const shipResult = await movementsAPI.ship(
                                                                 [scannedProduct.id],
                                                                 sourceWhId,
                                                                 destinationWarehouse,
-                                                                `Shipped 1 via barcode scan`,
-                                                                1
+                                                                `Shipped ${qtyToSend} via barcode scan`,
+                                                                qtyToSend
                                                             );
                                                             const destWarehouse = warehouses.find(w => String(w.id) === String(destinationWarehouse));
+                                                            const srcWarehouse = warehouses.find(w => String(w.id) === String(sourceWhId));
                                                             setMessage({
                                                                 type: 'success',
-                                                                text: `✅ 1 unit shipped to ${destWarehouse?.name || 'destination'}! (${scannedProduct.quantity - 1} remaining)`
+                                                                text: `✅ ${qtyToSend} unit(s) shipped to ${destWarehouse?.name || 'destination'}! (${scannedProduct.quantity - qtyToSend} remaining)`
                                                             });
+
+                                                            // Generate and open Transfer Dispatch Packing Slip
+                                                            const movItem = (shipResult?.movements && shipResult.movements[0]) || {};
+                                                            setReceiptModalData({
+                                                                id: movItem.id || Date.now().toString().slice(-4),
+                                                                product_name: scannedProduct.name,
+                                                                part_number: scannedProduct.part_number,
+                                                                barcode: scannedProduct.barcode,
+                                                                from_warehouse_name: srcWarehouse?.name || 'Origin Warehouse',
+                                                                from_warehouse_country: srcWarehouse?.country,
+                                                                to_warehouse_name: destWarehouse?.name || 'Destination Warehouse',
+                                                                to_warehouse_country: destWarehouse?.country,
+                                                                quantity: qtyToSend,
+                                                                from_bin_number: scannedProduct.bin_number,
+                                                                tracking_number: movItem.tracking_number,
+                                                                created_at: new Date().toISOString(),
+                                                                status: 'in_transit'
+                                                            });
+                                                            setReceiptModalType('dispatch');
+                                                            setReceiptModalOpen(true);
+
+                                                            setSendQuantity(1);
                                                             fetchMovements();
                                                             fetchWarehouses();
                                                             if (effectiveWarehouseId) fetchBins(effectiveWarehouseId);
@@ -1498,8 +1632,25 @@ const Inventory = () => {
                                                                 });
                                                                 setMessage({
                                                                     type: 'success',
-                                                                    text: `✅ Received ${receiveQuantity} unit(s) from ${pendingMovement.from_warehouse_name}${selectedBin ? ` → Bin: ${selectedBin}` : ''}!`
+                                                                    text: `✅ Received ${pendingMovement.quantity || receiveQuantity || 1} unit(s) from ${pendingMovement.from_warehouse_name}${selectedBin ? ` → Bin: ${selectedBin}` : ''}!`
                                                                 });
+                                                                
+                                                                setReceiptModalData({
+                                                                    id: pendingMovement.id,
+                                                                    product_name: pendingMovement.product_name || scannedProduct.name,
+                                                                    part_number: pendingMovement.part_number || scannedProduct.part_number,
+                                                                    barcode: pendingMovement.barcode || scannedProduct.barcode,
+                                                                    from_warehouse_name: pendingMovement.from_warehouse_name,
+                                                                    from_warehouse_country: pendingMovement.from_warehouse_country,
+                                                                    to_warehouse_name: myWarehouse?.name || 'Active Warehouse',
+                                                                    to_warehouse_country: myWarehouse?.country,
+                                                                    quantity: pendingMovement.quantity || receiveQuantity || 1,
+                                                                    to_bin: selectedBin || null,
+                                                                    received_at: new Date().toISOString(),
+                                                                    status: 'completed'
+                                                                });
+                                                                setReceiptModalType('grn');
+                                                                setReceiptModalOpen(true);
                                                                 setPendingMovement(null);
                                                             } else {
                                                                 await movementsAPI.addUnexpected({
@@ -1513,6 +1664,22 @@ const Inventory = () => {
                                                                     type: 'success',
                                                                     text: `✅ Received ${receiveQuantity} unit(s) of ${scannedProduct.name} into ${myWarehouse?.name || 'warehouse'}${selectedBin ? ` → Bin: ${selectedBin}` : ''}! New total: ${newQty}`
                                                                 });
+
+                                                                setReceiptModalData({
+                                                                    id: Date.now().toString().slice(-4),
+                                                                    product_name: scannedProduct.name,
+                                                                    part_number: scannedProduct.part_number,
+                                                                    barcode: scannedProduct.barcode,
+                                                                    from_warehouse_name: 'Inbound Floor Intake',
+                                                                    to_warehouse_name: myWarehouse?.name || 'Active Warehouse',
+                                                                    to_warehouse_country: myWarehouse?.country,
+                                                                    quantity: receiveQuantity,
+                                                                    to_bin: selectedBin || scannedProduct.bin_number || null,
+                                                                    received_at: new Date().toISOString(),
+                                                                    status: 'completed'
+                                                                });
+                                                                setReceiptModalType('grn');
+                                                                setReceiptModalOpen(true);
                                                             }
                                                             setSelectedBin('');
                                                             setReceiveQuantity(1);
@@ -1946,42 +2113,69 @@ const Inventory = () => {
                                                             {m.created_by_name && <span>by {m.created_by_name}</span>}
                                                         </div>
                                                     </td>
-                                                    {/* Actions: Advance Status */}
+                                                    {/* Actions: Advance Status & View/Print Slip */}
                                                     <td style={{ padding: '12px', textAlign: 'center' }}>
-                                                        {nextStatus && m.status !== 'completed' && m.status !== 'cancelled' ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                            {nextStatus && m.status !== 'completed' && m.status !== 'cancelled' && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        if (!confirm(`Advance to "${nextStatus.label}"?`)) return;
+                                                                        try {
+                                                                            await movementsAPI.updateStatus({
+                                                                                movement_id: m.id,
+                                                                                new_status: nextStatus.key
+                                                                            });
+                                                                            fetchMovements();
+                                                                            setMessage({ type: 'success', text: `✅ Status advanced to ${nextStatus.label}` });
+                                                                        } catch (err) {
+                                                                            setMessage({ type: 'error', text: 'Failed to update status' });
+                                                                        }
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '5px 10px',
+                                                                        fontSize: '11px',
+                                                                        background: 'linear-gradient(135deg, #1976d2, #1565c0)',
+                                                                        color: 'white',
+                                                                        border: 'none',
+                                                                        borderRadius: '4px',
+                                                                        cursor: 'pointer',
+                                                                        whiteSpace: 'nowrap'
+                                                                    }}
+                                                                    title={`Advance to: ${nextStatus.label}`}
+                                                                >
+                                                                    → {nextStatus.icon} {nextStatus.label}
+                                                                </button>
+                                                            )}
                                                             <button
-                                                                onClick={async () => {
-                                                                    if (!confirm(`Advance to "${nextStatus.label}"?`)) return;
-                                                                    try {
-                                                                        await movementsAPI.updateStatus({
-                                                                            movement_id: m.id,
-                                                                            new_status: nextStatus.key
-                                                                        });
-                                                                        fetchMovements();
-                                                                        setMessage({ type: 'success', text: `✅ Status advanced to ${nextStatus.label}` });
-                                                                    } catch (err) {
-                                                                        setMessage({ type: 'error', text: 'Failed to update status' });
-                                                                    }
+                                                                onClick={() => {
+                                                                    setReceiptModalData(m);
+                                                                    setReceiptModalType(m.status === 'completed' ? 'grn' : 'dispatch');
+                                                                    setReceiptModalOpen(true);
                                                                 }}
                                                                 style={{
                                                                     padding: '5px 10px',
                                                                     fontSize: '11px',
-                                                                    background: 'linear-gradient(135deg, #1976d2, #1565c0)',
-                                                                    color: 'white',
-                                                                    border: 'none',
+                                                                    background: 'linear-gradient(135deg, #334155, #1e293b)',
+                                                                    color: '#f8fafc',
+                                                                    border: '1px solid #475569',
                                                                     borderRadius: '4px',
                                                                     cursor: 'pointer',
-                                                                    whiteSpace: 'nowrap'
+                                                                    whiteSpace: 'nowrap',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
                                                                 }}
-                                                                title={`Advance to: ${nextStatus.label}`}
+                                                                title="View / Print Movement Slip (BOL or GRN)"
                                                             >
-                                                                → {nextStatus.icon} {nextStatus.label}
+                                                                📄 {m.status === 'completed' ? 'GRN' : 'Slip'}
                                                             </button>
-                                                        ) : (
-                                                            <span style={{ fontSize: '11px', color: '#4caf50' }}>
-                                                                {m.status === 'completed' ? '✅ Done' : m.status === 'cancelled' ? '❌' : '-'}
-                                                            </span>
-                                                        )}
+                                                            {m.status === 'completed' && (
+                                                                <span style={{ fontSize: '11px', color: '#4caf50' }}>✅ Done</span>
+                                                            )}
+                                                            {m.status === 'cancelled' && (
+                                                                <span style={{ fontSize: '11px', color: '#ef4444' }}>❌</span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -3469,6 +3663,14 @@ const Inventory = () => {
                     </div>
                 )}
             </div>
+
+            {/* Transfer Dispatch Packing Slip & GRN Modal */}
+            <MovementReceiptModal
+                isOpen={receiptModalOpen}
+                onClose={() => setReceiptModalOpen(false)}
+                initialType={receiptModalType}
+                data={receiptModalData}
+            />
         </div>
     );
 };

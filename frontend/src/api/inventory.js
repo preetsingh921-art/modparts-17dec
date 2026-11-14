@@ -213,12 +213,13 @@ export const movementsAPI = {
     return data;
   },
 
-  // Receive product at destination (requires movement_id and warehouse_id for validation)
-  receive: async ({ movementId, binNumber, warehouseId }) => {
+  // Receive product at destination (accepts movementId or movement_id, and optional barcode/part_number)
+  receive: async ({ movementId, movement_id, barcode, binNumber, bin_number, warehouseId, warehouse_id }) => {
     const payload = {
-      movement_id: movementId,
-      bin_number: binNumber,
-      warehouse_id: warehouseId,
+      movement_id: movementId || movement_id,
+      barcode,
+      bin_number: binNumber || bin_number,
+      warehouse_id: warehouseId || warehouse_id,
     };
     console.log("🚀 [FRONTEND API] Sending receive payload:", payload);
     const response = await fetch(`${API_BASE_URL}/inventory/movements?action=receive`, {

@@ -94,7 +94,15 @@ export const getProducts = async (params = {}) => {
       bin_number = '',  // Add bin_number support
       country = '',      // Geo-IP country filter
       created_after = '',
-      created_before = ''
+      created_before = '',
+      minPrice,
+      maxPrice,
+      min_price,
+      max_price,
+      in_stock,
+      out_of_stock,
+      availability,
+      stock_status
     } = params;
 
     const queryParams = new URLSearchParams({
@@ -113,6 +121,26 @@ export const getProducts = async (params = {}) => {
     if (country) queryParams.append('country', country);            // Pass country to API
     if (created_after) queryParams.append('created_after', created_after);
     if (created_before) queryParams.append('created_before', created_before);
+
+    // Price range filters
+    const effectiveMinPrice = minPrice !== undefined ? minPrice : min_price;
+    const effectiveMaxPrice = maxPrice !== undefined ? maxPrice : max_price;
+    if (effectiveMinPrice !== undefined && effectiveMinPrice !== null && effectiveMinPrice !== '') {
+      queryParams.append('minPrice', effectiveMinPrice.toString());
+    }
+    if (effectiveMaxPrice !== undefined && effectiveMaxPrice !== null && effectiveMaxPrice !== '') {
+      queryParams.append('maxPrice', effectiveMaxPrice.toString());
+    }
+
+    // Availability / stock filters
+    if (in_stock !== undefined && in_stock !== null && in_stock !== '') {
+      queryParams.append('in_stock', in_stock.toString());
+    }
+    if (out_of_stock !== undefined && out_of_stock !== null && out_of_stock !== '') {
+      queryParams.append('out_of_stock', out_of_stock.toString());
+    }
+    if (availability) queryParams.append('availability', availability);
+    if (stock_status) queryParams.append('stock_status', stock_status);
 
     const url = `/products?${queryParams}`;
     console.log('🔍 getProducts: Making request to:', url);

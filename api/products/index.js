@@ -14,8 +14,14 @@ module.exports = async function handler(req, res) {
       const categories = req.query.categories || ''; // Multiple categories comma-separated
       const sortBy = req.query.sortBy || 'created_at';
       const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC';
-      const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice) : null;
-      const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
+      const rawMinPrice = req.query.minPrice !== undefined ? req.query.minPrice : req.query.min_price;
+      const rawMaxPrice = req.query.maxPrice !== undefined ? req.query.maxPrice : req.query.max_price;
+      const minPrice = (rawMinPrice !== undefined && rawMinPrice !== null && rawMinPrice !== '' && !isNaN(parseFloat(rawMinPrice))) ? parseFloat(rawMinPrice) : null;
+      const maxPrice = (rawMaxPrice !== undefined && rawMaxPrice !== null && rawMaxPrice !== '' && !isNaN(parseFloat(rawMaxPrice))) ? parseFloat(rawMaxPrice) : null;
+
+      const inStock = req.query.in_stock === 'true' || req.query.availability === 'in_stock' || req.query.stock_status === 'in_stock';
+      const outOfStock = req.query.out_of_stock === 'true' || req.query.availability === 'out_of_stock' || req.query.stock_status === 'out_of_stock';
+
       const warehouseId = req.query.warehouse_id || null; // Filter by warehouse
       const globalCatalog = req.query.global_catalog === 'true'; // Fetch global unique catalog
       const createdAfter = req.query.created_after || req.query.from_date || null;
@@ -25,7 +31,7 @@ module.exports = async function handler(req, res) {
       const visitorCountry = req.query.country || req.headers['cf-ipcountry'] || req.headers['x-visitor-country'] || null;
 
       console.log('🔍 Products API called with filters (Neon):', {
-        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId, globalCatalog, visitorCountry, createdAfter, createdBefore
+        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId, globalCatalog, visitorCountry, createdAfter, createdBefore, inStock, outOfStock
       });
 
       // Calculate offset
@@ -92,6 +98,31 @@ module.exports = async function handler(req, res) {
           clauses.push(`p.created_at <= $${idx}::timestamp`);
           params.push(createdBefore);
           idx++;
+        }
+        if (inStock && !outOfStock) {
+          if (globalCatalog) {
+            clauses.push(`EXISTS (
+              SELECT 1 FROM products p_tot 
+              WHERE (p_tot.part_number = p.part_number OR (p.part_number IS NULL AND p_tot.barcode = p.barcode))
+              AND p_tot.quantity > 0
+            )`);
+          } else if (warehouseId && warehouseId !== 'unassigned' && warehouseId !== 'null') {
+            clauses.push(`p.quantity > 0`);
+          } else {
+            clauses.push(`p.quantity > 0`);
+          }
+        } else if (outOfStock && !inStock) {
+          if (globalCatalog) {
+            clauses.push(`NOT EXISTS (
+              SELECT 1 FROM products p_tot 
+              WHERE (p_tot.part_number = p.part_number OR (p.part_number IS NULL AND p_tot.barcode = p.barcode))
+              AND p_tot.quantity > 0
+            )`);
+          } else if (warehouseId && warehouseId !== 'unassigned' && warehouseId !== 'null') {
+            clauses.push(`(p.quantity <= 0 OR p.quantity IS NULL)`);
+          } else {
+            clauses.push(`(p.quantity <= 0 OR p.quantity IS NULL)`);
+          }
         }
 
         const whereSql = clauses.length > 0 ? ' AND ' + clauses.join(' AND ') : '';
@@ -198,27 +229,39 @@ module.exports = async function handler(req, res) {
       // Add Sorting
       const allowedSortColumns = ['name', 'price', 'created_at', 'updated_at', 'quantity'];
       const safeSortBy = allowedSortColumns.includes(sortBy) ? `p.${sortBy}` : 'p.created_at';
-
-      let orderClause = '';
-      if (globalCatalog) {
-        orderClause = ` ORDER BY COALESCE(p.barcode, p.part_number), ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
-      } else {
-        orderClause = ` ORDER BY ${geoSortPrefix}${safeSortBy} ${sortOrder}`;
-      }
+      const effectiveGeoPrefix = (sortBy === 'created_at' || !sortBy) ? geoSortPrefix : '';
+      const outerGeoSortPrefix = effectiveGeoPrefix.replace(/w\.country/g, 'p.warehouse_country');
 
       const limitParamIdx = mainFilter.nextIndex;
       const offsetParamIdx = mainFilter.nextIndex + 1;
       queryParams.push(limit, offset);
 
-      const queryText = `
-        ${selectClause}
-        FROM products p
-        LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN warehouses w ON p.warehouse_id = w.id
-        WHERE 1=1${mainFilter.whereSql}
-        ${orderClause}
-        LIMIT $${limitParamIdx} OFFSET $${offsetParamIdx}
-      `;
+      let queryText = '';
+      if (globalCatalog) {
+        queryText = `
+          SELECT * FROM (
+            ${selectClause}
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN warehouses w ON p.warehouse_id = w.id
+            WHERE 1=1${mainFilter.whereSql}
+            ORDER BY COALESCE(p.barcode, p.part_number), CASE WHEN p.quantity > 0 THEN 0 ELSE 1 END, ${geoSortPrefix}p.created_at DESC
+          ) p
+          ORDER BY ${outerGeoSortPrefix}${safeSortBy} ${sortOrder}
+          LIMIT $${limitParamIdx} OFFSET $${offsetParamIdx}
+        `;
+      } else {
+        const orderClause = ` ORDER BY ${effectiveGeoPrefix}${safeSortBy} ${sortOrder}`;
+        queryText = `
+          ${selectClause}
+          FROM products p
+          LEFT JOIN categories c ON p.category_id = c.id
+          LEFT JOIN warehouses w ON p.warehouse_id = w.id
+          WHERE 1=1${mainFilter.whereSql}
+          ${orderClause}
+          LIMIT $${limitParamIdx} OFFSET $${offsetParamIdx}
+        `;
+      }
 
       console.log('🔍 Executing Neon Query:', queryText);
       console.log('🔍 Executing Count Query:', countQueryText);

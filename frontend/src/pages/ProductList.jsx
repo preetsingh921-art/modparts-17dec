@@ -139,16 +139,38 @@ const ProductList = () => {
             console.log('🔍 Using selected categories:', selectedCategories);
           }
 
+          // In stock / out of stock parameters
+          const inStockOnly = availabilityFilters.inStock && !availabilityFilters.outOfStock;
+          const outOfStockOnly = !availabilityFilters.inStock && availabilityFilters.outOfStock;
+
+          let backendSortBy = 'created_at';
+          let backendSortOrder = 'desc';
+          if (sortOption === 'price-asc') {
+            backendSortBy = 'price';
+            backendSortOrder = 'asc';
+          } else if (sortOption === 'price-desc') {
+            backendSortBy = 'price';
+            backendSortOrder = 'desc';
+          } else if (sortOption === 'name-asc') {
+            backendSortBy = 'name';
+            backendSortOrder = 'asc';
+          } else if (sortOption === 'name-desc') {
+            backendSortBy = 'name';
+            backendSortOrder = 'desc';
+          }
+
           // Use new paginated API for product listing with category filters and global catalog deduplication
           result = await getProducts({
             page: currentPage,
             limit: itemsPerPage,
-            sortBy: 'created_at',
-            sortOrder: 'desc',
+            sortBy: backendSortBy,
+            sortOrder: backendSortOrder,
             global_catalog: true, // Unified customer view: 1 card per SKU with total available stock
             categories: categoriesToFilter.length > 0 ? categoriesToFilter.join(',') : undefined,
             minPrice: priceRange.min > 0 ? priceRange.min : undefined,
             maxPrice: priceRange.max < 99999 ? priceRange.max : undefined,
+            in_stock: inStockOnly ? 'true' : undefined,
+            out_of_stock: outOfStockOnly ? 'true' : undefined,
             country: geoCountry || undefined // Geo-IP warehouse routing
           });
 
@@ -176,9 +198,7 @@ const ProductList = () => {
     };
 
     fetchProducts();
-  }, [categoryId, searchQuery, currentPage, itemsPerPage, selectedCategories, priceRange, geoCountry]);
-
-
+  }, [categoryId, searchQuery, currentPage, itemsPerPage, selectedCategories, priceRange, availabilityFilters, sortOption, geoCountry]);
 
   // Clear all filters
   const clearAllFilters = () => {
@@ -196,6 +216,7 @@ const ProductList = () => {
     });
 
     setSelectedCategory('all');
+    setCurrentPage(1);
   };
 
   // Toggle section expansion
@@ -206,18 +227,17 @@ const ProductList = () => {
     }));
   };
 
-  // We'll use this directly in the onClick handler
-
   // Multi-select category filter handler
-  const handleCategoryCheckboxChange = (categoryId) => {
+  const handleCategoryCheckboxChange = (catId) => {
     setSelectedCategories(prev => {
       // If category is already selected, remove it
-      if (prev.includes(categoryId)) {
-        return prev.filter(id => id !== categoryId);
+      if (prev.includes(catId)) {
+        return prev.filter(id => id !== catId);
       }
       // Otherwise add it
-      return [...prev, categoryId];
+      return [...prev, catId];
     });
+    setCurrentPage(1);
   };
 
   // Price range slider handler
@@ -228,6 +248,7 @@ const ProductList = () => {
   // Apply price range when slider stops
   const handlePriceRangeApply = (values) => {
     setPriceRange(values);
+    setCurrentPage(1);
   };
 
   // Availability filter handlers
@@ -236,47 +257,55 @@ const ProductList = () => {
       ...prev,
       [filter]: !prev[filter]
     }));
+    setCurrentPage(1);
   };
 
   // Sort products
   const handleSortChange = (e) => {
     setSortOption(e.target.value);
+    setCurrentPage(1);
   };
 
+  // Apply filters and sorting:
+  // If search query is used (unpaginated search), filter & sort on client.
+  // Otherwise, backend handles filtering, sorting and pagination.
+  const filteredAndSortedProducts = searchQuery
+    ? [...products]
+        .filter(product => {
+          let categoryMatch = true;
+          if (selectedCategories.length > 0) {
+            categoryMatch = selectedCategories.includes(String(product.category_id));
+          }
+          let priceMatch = true;
+          const price = parseFloat(product.price) || 0;
+          if (priceRange.min > 0 && price < priceRange.min) priceMatch = false;
+          if (priceRange.max < 99999 && price > priceRange.max) priceMatch = false;
 
+          let availabilityFilter = true;
+          const qty = parseInt(product.quantity) || 0;
+          if (availabilityFilters.inStock && !availabilityFilters.outOfStock) {
+            availabilityFilter = qty > 0;
+          } else if (!availabilityFilters.inStock && availabilityFilters.outOfStock) {
+            availabilityFilter = qty <= 0;
+          }
 
-  // Apply filters and sorting (category and price filtering are now done on backend)
-  const filteredAndSortedProducts = [...products]
-    .filter(product => {
-      // Availability filtering with checkboxes (still done on frontend)
-      let availabilityFilter = true;
-
-      // If both checkboxes are checked or both are unchecked, show all products
-      if (availabilityFilters.inStock && !availabilityFilters.outOfStock) {
-        // Only show in-stock products
-        availabilityFilter = product.quantity > 0;
-      } else if (!availabilityFilters.inStock && availabilityFilters.outOfStock) {
-        // Only show out-of-stock products
-        availabilityFilter = product.quantity <= 0;
-      }
-
-      // Apply remaining filters (category and price filtering are handled by backend)
-      return availabilityFilter;
-    })
-    .sort((a, b) => {
-      switch (sortOption) {
-        case 'name-asc':
-          return a.name.localeCompare(b.name);
-        case 'name-desc':
-          return b.name.localeCompare(a.name);
-        case 'price-asc':
-          return parseFloat(a.price) - parseFloat(b.price);
-        case 'price-desc':
-          return parseFloat(b.price) - parseFloat(a.price);
-        default:
-          return 0;
-      }
-    });
+          return categoryMatch && priceMatch && availabilityFilter;
+        })
+        .sort((a, b) => {
+          switch (sortOption) {
+            case 'name-asc':
+              return a.name.localeCompare(b.name);
+            case 'name-desc':
+              return b.name.localeCompare(a.name);
+            case 'price-asc':
+              return parseFloat(a.price) - parseFloat(b.price);
+            case 'price-desc':
+              return parseFloat(b.price) - parseFloat(a.price);
+            default:
+              return 0;
+          }
+        })
+    : products;
 
   // Debug filtered results
   console.log('🔍 ProductList: After filtering:', {
@@ -601,6 +630,7 @@ const ProductList = () => {
                             const defaultRange = { min: 0, max: 99999 };
                             setPriceRange(defaultRange);
                             setCurrentPriceRange(defaultRange);
+                            setCurrentPage(1);
                           }}
                           className="ml-1 text-emerald-300 hover:text-white"
                           title="Clear price filter"
@@ -677,9 +707,18 @@ const ProductList = () => {
               </div>
             ) : (
               <>
-                <div className="mb-4 text-sm text-gray-600">
-                  Showing {filteredAndSortedProducts.length} {filteredAndSortedProducts.length === 1 ? 'product' : 'products'}
-                  {products.length > filteredAndSortedProducts.length && ` (filtered from ${products.length})`}
+                <div className="mb-4 text-sm text-gray-400">
+                  {pagination ? (
+                    <span>
+                      Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.totalItems)} of {pagination.totalItems} products
+                      {availabilityFilters.inStock && !availabilityFilters.outOfStock && <span className="text-emerald-400 ml-1 font-medium">(In Stock)</span>}
+                      {!availabilityFilters.inStock && availabilityFilters.outOfStock && <span className="text-gray-400 ml-1 font-medium">(Out of Stock)</span>}
+                    </span>
+                  ) : (
+                    <span>
+                      Showing {filteredAndSortedProducts.length} {filteredAndSortedProducts.length === 1 ? 'product' : 'products'}
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredAndSortedProducts.filter(product => product && product.id && product.name).map(product => (

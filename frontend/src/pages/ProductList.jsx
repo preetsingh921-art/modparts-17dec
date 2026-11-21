@@ -139,12 +139,13 @@ const ProductList = () => {
             console.log('🔍 Using selected categories:', selectedCategories);
           }
 
-          // Use new paginated API for product listing with category filters
+          // Use new paginated API for product listing with category filters and global catalog deduplication
           result = await getProducts({
             page: currentPage,
             limit: itemsPerPage,
             sortBy: 'created_at',
             sortOrder: 'desc',
+            global_catalog: true, // Unified customer view: 1 card per SKU with total available stock
             categories: categoriesToFilter.length > 0 ? categoriesToFilter.join(',') : undefined,
             minPrice: priceRange.min > 0 ? priceRange.min : undefined,
             maxPrice: priceRange.max < 99999 ? priceRange.max : undefined,

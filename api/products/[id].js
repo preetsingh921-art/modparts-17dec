@@ -12,17 +12,39 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Get single product with category name
+      // Get single product with category name and multi-warehouse stock breakdown
       const query = `
         SELECT 
           p.id, p.name, p.description, p.condition_status, p.price, p.quantity, 
           p.image_url, 
           COALESCE(p.images, CASE WHEN p.image_url IS NOT NULL AND p.image_url != '' THEN json_build_array(p.image_url)::jsonb ELSE '[]'::jsonb END) as images,
           p.part_number, p.barcode, p.ref_no, p.created_at, p.updated_at, 
-          p.category_id,
-          c.name as category_name
+          p.category_id, p.warehouse_id, p.bin_number,
+          c.name as category_name,
+          w.name as warehouse_name,
+          w.location as warehouse_location,
+          w.country as warehouse_country,
+          (
+            SELECT COALESCE(SUM(p_tot.quantity), 0)
+            FROM products p_tot
+            WHERE (p_tot.part_number = p.part_number OR (p.part_number IS NULL AND p_tot.barcode = p.barcode))
+          ) as total_stock,
+          (
+            SELECT json_agg(json_build_object(
+              'warehouse_id', p_wh.warehouse_id,
+              'warehouse_name', w_sub.name,
+              'warehouse_code', w_sub.code,
+              'country', w_sub.country,
+              'bin_number', p_wh.bin_number,
+              'quantity', p_wh.quantity
+            ))
+            FROM products p_wh
+            LEFT JOIN warehouses w_sub ON p_wh.warehouse_id = w_sub.id
+            WHERE (p_wh.part_number = p.part_number OR (p.part_number IS NULL AND p_wh.barcode = p.barcode))
+          ) as warehouse_stock
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN warehouses w ON p.warehouse_id = w.id
         WHERE p.id = $1
       `;
 
@@ -36,7 +58,10 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         message: 'Product retrieved successfully',
-        data: product
+        data: {
+          ...product,
+          warehouse_stock: Array.isArray(product.warehouse_stock) ? product.warehouse_stock.filter(Boolean) : []
+        }
       });
 
     } else if (req.method === 'PUT') {
@@ -51,39 +76,26 @@ module.exports = async function handler(req, res) {
       console.log('[PRODUCT UPDATE] Updating product ID:', id);
       console.log('[PRODUCT UPDATE] Data received:', { name, price, quantity, part_number, barcode, bin_number, warehouse_id });
 
-      let finalName = name;
-      let finalCondition = condition_status;
-      let finalPrice = price;
-      let finalQuantity = quantity;
-      let finalCategoryId = category_id;
-      let finalPartNumber = part_number;
-      let finalBarcode = barcode;
-      let finalRefNo = ref_no;
-      let finalImageUrl = image_url;
-      let finalImages = images;
-      let finalBinNumber = bin_number;
-      let finalWarehouseId = warehouse_id;
-
-      // Support partial update (e.g. updating bin_number or stock only)
-      if (!finalName || !finalCondition || finalPrice === undefined || finalQuantity === undefined) {
-        const existing = await db.query('SELECT * FROM products WHERE id = $1', [id]);
-        if (existing.rows.length === 0) {
-          return res.status(404).json({ message: 'Product not found' });
-        }
-        const cur = existing.rows[0];
-        finalName = finalName || cur.name;
-        finalCondition = finalCondition || cur.condition_status;
-        finalPrice = finalPrice !== undefined ? finalPrice : cur.price;
-        finalQuantity = finalQuantity !== undefined ? finalQuantity : cur.quantity;
-        finalCategoryId = finalCategoryId !== undefined ? finalCategoryId : cur.category_id;
-        finalPartNumber = finalPartNumber !== undefined ? finalPartNumber : cur.part_number;
-        finalBarcode = finalBarcode !== undefined ? finalBarcode : cur.barcode;
-        finalRefNo = finalRefNo !== undefined ? finalRefNo : cur.ref_no;
-        finalImageUrl = finalImageUrl !== undefined ? finalImageUrl : cur.image_url;
-        finalImages = finalImages !== undefined ? finalImages : cur.images;
-        finalBinNumber = finalBinNumber !== undefined ? finalBinNumber : cur.bin_number;
-        finalWarehouseId = finalWarehouseId !== undefined ? finalWarehouseId : cur.warehouse_id;
+      // Retrieve current product state to compare changes and provide fallbacks
+      const existing = await db.query('SELECT * FROM products WHERE id = $1', [id]);
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ message: 'Product not found' });
       }
+      const cur = existing.rows[0];
+      const prevQty = parseInt(cur.quantity) || 0;
+
+      let finalName = name !== undefined ? name : cur.name;
+      let finalCondition = condition_status !== undefined ? condition_status : cur.condition_status;
+      let finalPrice = price !== undefined ? price : cur.price;
+      let finalQuantity = quantity !== undefined ? quantity : cur.quantity;
+      let finalCategoryId = category_id !== undefined ? category_id : cur.category_id;
+      let finalPartNumber = part_number !== undefined ? part_number : cur.part_number;
+      let finalBarcode = barcode !== undefined ? barcode : cur.barcode;
+      let finalRefNo = ref_no !== undefined ? ref_no : cur.ref_no;
+      let finalImageUrl = image_url !== undefined ? image_url : cur.image_url;
+      let finalImages = images !== undefined ? images : cur.images;
+      let finalBinNumber = bin_number !== undefined ? bin_number : cur.bin_number;
+      let finalWarehouseId = warehouse_id !== undefined ? warehouse_id : cur.warehouse_id;
 
       if (!finalName || !finalCondition || finalPrice < 0 || finalQuantity < 0) {
         return res.status(400).json({
@@ -156,6 +168,29 @@ module.exports = async function handler(req, res) {
         }
 
         console.log('[PRODUCT UPDATE SUCCESS] Product ID:', id);
+
+        // Audit Trail: Log stock count changes if quantity was modified
+        const newQty = parseInt(finalQuantity);
+        if (prevQty !== newQty) {
+          const delta = newQty - prevQty;
+          try {
+            await db.query(`
+              INSERT INTO inventory_movements 
+              (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at, received_at, quantity, from_bin_number, to_bin)
+              VALUES ($1, $2, $2, 'adjustment', 'completed', $3, $4, NOW(), NOW(), $5, $6, $6)
+            `, [
+              id,
+              finalWarehouseId ? parseInt(finalWarehouseId) : null,
+              `Manual stock adjustment: ${prevQty} → ${newQty} (${delta > 0 ? '+' : ''}${delta} units)`,
+              adminUser.id,
+              Math.abs(delta),
+              finalBinNumber || null
+            ]);
+            console.log(`📝 Logged stock adjustment for product ${id}: ${prevQty} -> ${newQty}`);
+          } catch (auditErr) {
+            console.warn('⚠️ Could not log stock adjustment in inventory_movements:', auditErr.message);
+          }
+        }
 
         return res.status(200).json({
           message: 'Product updated successfully',

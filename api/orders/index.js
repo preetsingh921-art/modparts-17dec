@@ -129,7 +129,7 @@ module.exports = async function handler(req, res) {
 
         for (const item of items) {
           // Check Product Stock & Price
-          const productQuery = 'SELECT id, price, quantity FROM products WHERE id = $1 FOR UPDATE';
+          const productQuery = 'SELECT id, price, quantity, warehouse_id, bin_number FROM products WHERE id = $1 FOR UPDATE';
           const { rows: productRows } = await client.query(productQuery, [item.product_id]);
           const product = productRows[0];
 
@@ -156,6 +156,24 @@ module.exports = async function handler(req, res) {
             UPDATE products SET quantity = quantity - $1 WHERE id = $2
           `;
           await client.query(updateStockQuery, [item.quantity, item.product_id]);
+
+          // Log stock deduction in inventory_movements for complete audit trail
+          try {
+            await client.query(`
+              INSERT INTO inventory_movements 
+              (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at, received_at, quantity, from_bin_number)
+              VALUES ($1, $2, $2, 'sale', 'completed', $3, $4, NOW(), NOW(), $5, $6)
+            `, [
+              item.product_id,
+              product.warehouse_id || null,
+              `Customer Order #${orderId} purchase (${item.quantity} units)`,
+              userId,
+              item.quantity,
+              product.bin_number || null
+            ]);
+          } catch (saleErr) {
+            console.warn('⚠️ Could not log sale in inventory_movements:', saleErr.message);
+          }
         }
 
         // 3. Update Order Total

@@ -18,12 +18,14 @@ module.exports = async function handler(req, res) {
       const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
       const warehouseId = req.query.warehouse_id || null; // Filter by warehouse
       const globalCatalog = req.query.global_catalog === 'true'; // Fetch global unique catalog
+      const createdAfter = req.query.created_after || req.query.from_date || null;
+      const createdBefore = req.query.created_before || req.query.to_date || null;
 
       // Geo-IP: detect visitor country for warehouse-scoped stock routing
       const visitorCountry = req.query.country || req.headers['cf-ipcountry'] || req.headers['x-visitor-country'] || null;
 
       console.log('🔍 Products API called with filters (Neon):', {
-        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId, globalCatalog, visitorCountry
+        page, limit, search, category, categories, sortBy, sortOrder, minPrice, maxPrice, warehouseId, globalCatalog, visitorCountry, createdAfter, createdBefore
       });
 
       // Calculate offset
@@ -68,13 +70,27 @@ module.exports = async function handler(req, res) {
           idx++;
         }
         if (warehouseId && !globalCatalog) {
-          clauses.push(`p.warehouse_id = $${idx}`);
-          params.push(parseInt(warehouseId));
-          idx++;
+          if (warehouseId === 'unassigned' || warehouseId === 'null') {
+            clauses.push(`p.warehouse_id IS NULL`);
+          } else {
+            clauses.push(`p.warehouse_id = $${idx}`);
+            params.push(parseInt(warehouseId));
+            idx++;
+          }
         }
         if (binNumber) {
           clauses.push(`p.bin_number = $${idx}`);
           params.push(binNumber);
+          idx++;
+        }
+        if (createdAfter) {
+          clauses.push(`p.created_at >= $${idx}::timestamp`);
+          params.push(createdAfter);
+          idx++;
+        }
+        if (createdBefore) {
+          clauses.push(`p.created_at <= $${idx}::timestamp`);
+          params.push(createdBefore);
           idx++;
         }
 
@@ -103,7 +119,25 @@ module.exports = async function handler(req, res) {
           c.description as category_description,
           w.name as warehouse_name,
           w.location as warehouse_location,
-          w.country as warehouse_country
+          w.country as warehouse_country,
+          (
+            SELECT COALESCE(SUM(p_tot.quantity), 0)
+            FROM products p_tot
+            WHERE (p_tot.part_number = p.part_number OR (p.part_number IS NULL AND p_tot.barcode = p.barcode))
+          ) as total_stock,
+          (
+            SELECT json_agg(json_build_object(
+              'warehouse_id', p_wh.warehouse_id,
+              'warehouse_name', w_sub.name,
+              'warehouse_code', w_sub.code,
+              'country', w_sub.country,
+              'bin_number', p_wh.bin_number,
+              'quantity', p_wh.quantity
+            ))
+            FROM products p_wh
+            LEFT JOIN warehouses w_sub ON p_wh.warehouse_id = w_sub.id
+            WHERE (p_wh.part_number = p.part_number OR (p.part_number IS NULL AND p_wh.barcode = p.barcode))
+          ) as warehouse_stock
       `;
 
       if (globalCatalog) {
@@ -114,7 +148,25 @@ module.exports = async function handler(req, res) {
           c.description as category_description,
           w.name as warehouse_name,
           w.location as warehouse_location,
-          w.country as warehouse_country`;
+          w.country as warehouse_country,
+          (
+            SELECT COALESCE(SUM(p_tot.quantity), 0)
+            FROM products p_tot
+            WHERE (p_tot.part_number = p.part_number OR (p.part_number IS NULL AND p_tot.barcode = p.barcode))
+          ) as total_stock,
+          (
+            SELECT json_agg(json_build_object(
+              'warehouse_id', p_wh.warehouse_id,
+              'warehouse_name', w_sub.name,
+              'warehouse_code', w_sub.code,
+              'country', w_sub.country,
+              'bin_number', p_wh.bin_number,
+              'quantity', p_wh.quantity
+            ))
+            FROM products p_wh
+            LEFT JOIN warehouses w_sub ON p_wh.warehouse_id = w_sub.id
+            WHERE (p_wh.part_number = p.part_number OR (p.part_number IS NULL AND p_wh.barcode = p.barcode))
+          ) as warehouse_stock`;
 
         if (warehouseId) {
           queryParams.push(parseInt(warehouseId)); // $1
@@ -188,17 +240,29 @@ module.exports = async function handler(req, res) {
       // And frontend often maps it. 
 
       const formattedProducts = products.map(p => {
-        // For global catalog view, override fields with local warehouse values if requested
-        const qty = p.local_quantity !== undefined ? parseInt(p.local_quantity) : p.quantity;
+        // Calculate unified total stock across all warehouses
+        const totalStock = p.total_stock !== undefined ? parseInt(p.total_stock) : (parseInt(p.quantity) || 0);
+        
+        // Quantity determination:
+        // - If filtering for a specific warehouse: use that warehouse's local stock
+        // - If viewing global catalog (storefront or all locations): use total available stock
+        // - Otherwise fallback to row quantity
+        let qty = p.local_quantity !== undefined ? parseInt(p.local_quantity) : (parseInt(p.quantity) || 0);
+        if (globalCatalog && !warehouseId) {
+          qty = totalStock;
+        }
+
         const prodId = p.local_id !== undefined ? (p.local_id || p.id) : p.id;
         const wId = p.local_warehouse_id !== undefined ? p.local_warehouse_id : p.warehouse_id;
         
         return {
           ...p,
           quantity: qty,
+          total_stock: totalStock,
+          warehouse_stock: Array.isArray(p.warehouse_stock) ? p.warehouse_stock.filter(Boolean) : [],
           id: prodId,
           warehouse_id: wId,
-          not_in_local_warehouse: p.local_warehouse_id === null, // true if product doesn't exist in local warehouse
+          not_in_local_warehouse: warehouseId ? (p.local_warehouse_id === null || p.local_quantity === 0) : false,
           categories: {
             id: p.category_id,
             name: p.category_name,

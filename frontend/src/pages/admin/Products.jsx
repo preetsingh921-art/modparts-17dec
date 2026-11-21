@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getProducts, deleteProduct, bulkCreateProducts } from '../../api/products';
 import { getCategories } from '../../api/categories';
+import { warehouseAPI } from '../../api/inventory';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -17,10 +18,17 @@ import InlineBarcode from '../../components/ui/InlineBarcode';
 import BarcodeScanner from '../../components/inventory/BarcodeScanner';
 import { printBulkBarcodeLabels, BROTHER_TAPE_PRESETS, getSavedLabelSettings, saveLabelSettings } from '../../utils/barcodeUtils';
 import WebImageSearchModal from '../../components/admin/WebImageSearchModal';
+import ItemMovementAuditModal from '../../components/inventory/ItemMovementAuditModal';
+import MovementReceiptModal from '../../components/inventory/MovementReceiptModal';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState('all'); // 'all', 'unassigned', or warehouse ID
+  const [createdDateFilter, setCreatedDateFilter] = useState('all'); // 'all', 'today', '7d', '30d', '90d', 'custom'
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' is a string
@@ -29,6 +37,12 @@ const Products = () => {
   const { success, error: showError } = useToast();
   const { user, isSuperAdmin } = useAuth();
   const { isOpen, confirm, handleClose, handleConfirm, dialogProps } = useConfirm();
+
+  // Audit and Receipt Modal states
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditProduct, setAuditProduct] = useState(null);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptModalData, setReceiptModalData] = useState(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -74,18 +88,25 @@ const Products = () => {
     const fetchData = async (retryCount = 0) => {
       setLoading(true);
       try {
-        // Superadmin sees ALL products, regular admin sees global catalog with their local stock
-        const fetchParams = { limit: 1000 };
+        // Fetch products with global catalog deduplication so each distinct SKU is represented with multi-location stock
+        const fetchParams = { limit: 2500, global_catalog: true };
         if (!isSuperAdmin() && user?.warehouse_id) {
           fetchParams.warehouse_id = user.warehouse_id;
-          fetchParams.global_catalog = true;
         }
-        const [productsResult, categoriesData] = await Promise.all([
-          getProducts(fetchParams), // Warehouse-scoped for regular admins
-          getCategories()
+        const [productsResult, categoriesData, warehousesData] = await Promise.all([
+          getProducts(fetchParams),
+          getCategories(),
+          warehouseAPI.getAll().catch(() => ({ warehouses: [] }))
         ]);
 
         const productsData = productsResult.products || productsResult; // Handle both old and new API format
+        const activeWhs = warehousesData.warehouses || [];
+        setWarehouses(activeWhs);
+
+        // If regular admin with assigned warehouse, pre-select their warehouse
+        if (!isSuperAdmin() && user?.warehouse_id && selectedWarehouse === 'all') {
+          setSelectedWarehouse(String(user.warehouse_id));
+        }
 
         // If we got zero products and haven't retried yet, retry once after a delay
         // (handles transient rate-limit or network hiccups)
@@ -305,41 +326,99 @@ const Products = () => {
     return [...new Set(terms)]; // deduplicate
   };
 
-  // Filter products by category and search query
-  const filteredProducts = useMemo(() => {
-    console.log('Filtering products with selectedCategory:', selectedCategory);
+  // Helper to calculate effective display stock based on currently selected warehouse filter
+  const getDisplayStock = (product) => {
+    if (selectedWarehouse === 'all') {
+      const breakdown = Array.isArray(product.warehouse_stock) 
+        ? product.warehouse_stock.filter(w => w && w.warehouse_id && w.quantity > 0)
+        : [];
+      const total = product.total_stock !== undefined ? product.total_stock : (product.quantity || 0);
+      return {
+        qty: total,
+        isTotal: true,
+        breakdown
+      };
+    }
+    if (selectedWarehouse === 'unassigned') {
+      return {
+        qty: product.quantity || 0,
+        isTotal: false,
+        breakdown: []
+      };
+    }
+    const whEntry = Array.isArray(product.warehouse_stock) 
+      ? product.warehouse_stock.find(w => String(w.warehouse_id) === String(selectedWarehouse))
+      : null;
+    const localQty = whEntry ? whEntry.quantity : (String(product.warehouse_id) === String(selectedWarehouse) ? product.quantity : 0);
+    return {
+      qty: localQty,
+      isTotal: false,
+      breakdown: []
+    };
+  };
 
+  // Filter products by category, search query, location/warehouse, and creation date
+  const filteredProducts = useMemo(() => {
     return processedProducts.filter(product => {
-      // Category filtering
+      // 1. Category filtering
       const matchesCategory = selectedCategory === 'all' ||
         (product.category_id === selectedCategory);
 
-      // Search filtering — check name, description, part_number, and barcode
+      // 2. Search filtering — check name, description, part_number, and barcode
       const productName = (product.name || '').toLowerCase();
       const productDesc = (product.description || '').toLowerCase();
       const productPartNumber = (product.part_number || '').toLowerCase();
       const productBarcode = (product.barcode || '').toLowerCase();
       const searchableText = `${productName} ${productDesc} ${productPartNumber} ${productBarcode}`;
 
-      // Expand search terms with synonyms for intelligent matching
       const expandedTerms = getExpandedSearchTerms(searchQuery);
       const matchesSearch = expandedTerms.length === 0 || expandedTerms.some(term =>
         searchableText.includes(term)
       );
 
-      // For debugging specific products
-      if (!matchesCategory && selectedCategory !== 'all') {
-        console.log(`Product ${product.name} doesn't match category. Product category: ${product.category_id}, Selected: ${selectedCategory}`);
+      // 3. Location / Warehouse filtering
+      let matchesWarehouse = true;
+      if (selectedWarehouse !== 'all') {
+        if (selectedWarehouse === 'unassigned') {
+          matchesWarehouse = !product.warehouse_id && (!product.warehouse_stock || product.warehouse_stock.length === 0 || product.warehouse_stock.every(w => !w.warehouse_id));
+        } else {
+          const directMatch = String(product.warehouse_id) === String(selectedWarehouse);
+          const stockMatch = Array.isArray(product.warehouse_stock) && product.warehouse_stock.some(w => String(w.warehouse_id) === String(selectedWarehouse) && (w.quantity > 0 || directMatch));
+          matchesWarehouse = directMatch || stockMatch;
+        }
       }
 
-      return matchesCategory && matchesSearch;
-    });
-  }, [processedProducts, selectedCategory, searchQuery, SEARCH_SYNONYMS]);
+      // 4. Creation Date filtering
+      let matchesDate = true;
+      if (createdDateFilter !== 'all' && product.created_at) {
+        const prodTime = new Date(product.created_at).getTime();
+        const now = Date.now();
+        if (createdDateFilter === 'today') {
+          matchesDate = prodTime >= (now - 24 * 60 * 60 * 1000);
+        } else if (createdDateFilter === '7d') {
+          matchesDate = prodTime >= (now - 7 * 24 * 60 * 60 * 1000);
+        } else if (createdDateFilter === '30d') {
+          matchesDate = prodTime >= (now - 30 * 24 * 60 * 60 * 1000);
+        } else if (createdDateFilter === '90d') {
+          matchesDate = prodTime >= (now - 90 * 24 * 60 * 60 * 1000);
+        } else if (createdDateFilter === 'custom') {
+          if (customStartDate && prodTime < new Date(customStartDate).getTime()) {
+            matchesDate = false;
+          }
+          if (customEndDate && prodTime > new Date(customEndDate + 'T23:59:59').getTime()) {
+            matchesDate = false;
+          }
+        }
+      }
 
-  // Reset to first page when filters change
+      return matchesCategory && matchesSearch && matchesWarehouse && matchesDate;
+    });
+  }, [processedProducts, selectedCategory, searchQuery, selectedWarehouse, createdDateFilter, customStartDate, customEndDate, SEARCH_SYNONYMS]);
+
+  // Reset to first page when any filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, selectedWarehouse, createdDateFilter, customStartDate, customEndDate]);
 
   // Get current products for pagination
   // If itemsPerPage is -1, show all products
@@ -867,50 +946,83 @@ const Products = () => {
         </div>
       )}
 
-      <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow p-6 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 gap-4">
-          <div className="w-full md:w-1/3">
-            <label className="block text-white mb-2">Filter by Category</label>
+      <div className="bg-midnight-900 border border-midnight-700 rounded-lg shadow p-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Category Filter */}
+          <div>
+            <label className="block text-white mb-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+              🏷️ Category
+            </label>
             <select
-              className="w-full p-2 border border-midnight-600 bg-midnight-800 text-white rounded"
+              className="w-full p-2.5 border border-midnight-600 bg-midnight-800 text-white rounded-lg text-sm outline-none focus:border-amber-500"
               value={selectedCategory}
-              onChange={(e) => {
-                // Log the selected value and its type
-                const selectedValue = e.target.value;
-                console.log('Category selected:', selectedValue, typeof selectedValue);
-
-                // Set the selected category
-                setSelectedCategory(selectedValue);
-              }}
+              onChange={(e) => setSelectedCategory(e.target.value)}
             >
               <option value="all">All Categories</option>
-              {categories.filter(category => category && category.id && category.name).map(category => {
-                // Convert category.id to string to ensure consistent type
-                const categoryId = String(category.id);
-                console.log(`Rendering category option: ${category.name}, ID: ${categoryId}, Type: ${typeof categoryId}`);
-
-                return (
-                  <option key={categoryId} value={categoryId}>
-                    {category.name}
-                  </option>
-                );
-              })}
+              {categories.filter(category => category && category.id && category.name).map(category => (
+                <option key={String(category.id)} value={String(category.id)}>
+                  {category.name}
+                </option>
+              ))}
             </select>
           </div>
 
-          <div className="w-full md:w-1/2">
-            <label className="block text-white mb-2">Search Products</label>
+          {/* Location / Warehouse Filter */}
+          <div>
+            <label className="block text-white mb-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+              📍 Location / Warehouse
+            </label>
+            <select
+              className="w-full p-2.5 border border-midnight-600 bg-midnight-800 text-white rounded-lg text-sm outline-none focus:border-blue-500"
+              value={selectedWarehouse}
+              onChange={(e) => setSelectedWarehouse(e.target.value)}
+            >
+              <option value="all">🌐 All Locations (Total Stock)</option>
+              {warehouses.map(w => (
+                <option key={w.id} value={String(w.id)}>
+                  {w.country === 'IND' ? '🇮🇳 ' : w.country === 'CAN' ? '🇨🇦 ' : '🏢 '}
+                  {w.name} {w.total_units !== undefined ? `(${w.total_units} units)` : ''}
+                </option>
+              ))}
+              <option value="unassigned">📦 Unassigned Floor Intake</option>
+            </select>
+          </div>
+
+          {/* Creation Date Filter */}
+          <div>
+            <label className="block text-white mb-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+              📅 Date of First Creation
+            </label>
+            <select
+              className="w-full p-2.5 border border-midnight-600 bg-midnight-800 text-white rounded-lg text-sm outline-none focus:border-emerald-500"
+              value={createdDateFilter}
+              onChange={(e) => setCreatedDateFilter(e.target.value)}
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today (Last 24 Hours)</option>
+              <option value="7d">This Week (Last 7 Days)</option>
+              <option value="30d">This Month (Last 30 Days)</option>
+              <option value="90d">Last 90 Days</option>
+              <option value="custom">Custom Date Range...</option>
+            </select>
+          </div>
+
+          {/* Search Products */}
+          <div>
+            <label className="block text-white mb-2 text-xs font-bold uppercase tracking-wider text-slate-300">
+              🔍 Search Catalog
+            </label>
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Search by name, part number, or barcode..."
-                className="flex-1 p-2 border border-midnight-600 bg-midnight-800 text-white rounded placeholder-gray-400"
+                placeholder="Search name, part #, barcode..."
+                className="flex-1 p-2.5 border border-midnight-600 bg-midnight-800 text-white rounded-lg text-sm placeholder-gray-400 outline-none focus:border-amber-500"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <button
                 onClick={() => setShowScanner(!showScanner)}
-                className={`px-3 py-2 rounded font-medium text-sm transition-colors flex items-center gap-1 ${
+                className={`px-3 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-1 ${
                   showScanner
                     ? 'bg-red-600 text-white hover:bg-red-700'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -922,41 +1034,121 @@ const Products = () => {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
-                    Close
                   </>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
-                    Scan
                   </>
                 )}
               </button>
             </div>
-
-            {/* Barcode Scanner Panel */}
-            {showScanner && (
-              <div className="mt-3 p-4 bg-midnight-800 border border-midnight-600 rounded-lg">
-                <BarcodeScanner
-                  onScan={(barcode, product) => {
-                    if (product) {
-                      setSearchQuery(product.part_number || product.barcode || product.name);
-                      success(`Found: ${product.name}`);
-                    } else {
-                      setSearchQuery(barcode);
-                    }
-                    setShowScanner(false);
-                  }}
-                  onError={(err) => showError('Scan failed: ' + err.message)}
-                  showPreview={true}
-                  width={280}
-                  height={220}
-                />
-              </div>
-            )}
           </div>
         </div>
+
+        {/* Custom Date Range Pickers (if custom selected) */}
+        {createdDateFilter === 'custom' && (
+          <div className="mt-4 pt-3 border-t border-midnight-700/80 flex flex-wrap items-center gap-4 text-xs text-white">
+            <span className="font-semibold text-slate-300">📅 Specify Date Range:</span>
+            <div className="flex items-center gap-2">
+              <label className="text-slate-400">From:</label>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="p-1.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-slate-400">To:</label>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="p-1.5 bg-midnight-800 border border-midnight-600 rounded-lg text-white outline-none focus:border-emerald-500"
+              />
+            </div>
+            {(customStartDate || customEndDate) && (
+              <button
+                type="button"
+                onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
+                className="text-amber-400 hover:underline font-medium"
+              >
+                Clear Dates
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Active Filter Chips and Reset Button */}
+        {(selectedCategory !== 'all' || selectedWarehouse !== 'all' || createdDateFilter !== 'all' || searchQuery) && (
+          <div className="mt-4 pt-3 border-t border-midnight-700/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-slate-400 font-semibold">Active Filters:</span>
+              {selectedCategory !== 'all' && (
+                <span className="px-2.5 py-1 rounded-full bg-midnight-700 text-amber-300 border border-midnight-600 flex items-center gap-1.5 font-medium">
+                  Category: {categories.find(c => String(c.id) === selectedCategory)?.name || selectedCategory}
+                  <button type="button" onClick={() => setSelectedCategory('all')} className="hover:text-white font-bold">✕</button>
+                </span>
+              )}
+              {selectedWarehouse !== 'all' && (
+                <span className="px-2.5 py-1 rounded-full bg-midnight-700 text-blue-300 border border-midnight-600 flex items-center gap-1.5 font-medium">
+                  Location: {selectedWarehouse === 'unassigned' ? 'Unassigned' : (warehouses.find(w => String(w.id) === selectedWarehouse)?.name || selectedWarehouse)}
+                  <button type="button" onClick={() => setSelectedWarehouse('all')} className="hover:text-white font-bold">✕</button>
+                </span>
+              )}
+              {createdDateFilter !== 'all' && (
+                <span className="px-2.5 py-1 rounded-full bg-midnight-700 text-emerald-300 border border-midnight-600 flex items-center gap-1.5 font-medium">
+                  Created: {createdDateFilter === 'custom' ? `${customStartDate || 'Start'} to ${customEndDate || 'End'}` : createdDateFilter}
+                  <button type="button" onClick={() => { setCreatedDateFilter('all'); setCustomStartDate(''); setCustomEndDate(''); }} className="hover:text-white font-bold">✕</button>
+                </span>
+              )}
+              {searchQuery && (
+                <span className="px-2.5 py-1 rounded-full bg-midnight-700 text-purple-300 border border-midnight-600 flex items-center gap-1.5 font-medium">
+                  Search: "{searchQuery}"
+                  <button type="button" onClick={() => setSearchQuery('')} className="hover:text-white font-bold">✕</button>
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory('all');
+                setSelectedWarehouse('all');
+                setCreatedDateFilter('all');
+                setCustomStartDate('');
+                setCustomEndDate('');
+                setSearchQuery('');
+              }}
+              className="text-amber-400 hover:text-amber-300 underline font-semibold transition"
+            >
+              Reset All Filters
+            </button>
+          </div>
+        )}
+
+        {/* Barcode Scanner Panel */}
+        {showScanner && (
+          <div className="mt-4 p-4 bg-midnight-800 border border-midnight-600 rounded-lg">
+            <BarcodeScanner
+              onScan={(barcode, product) => {
+                if (product) {
+                  setSearchQuery(product.part_number || product.barcode || product.name);
+                  success(`Found: ${product.name}`);
+                } else {
+                  setSearchQuery(barcode);
+                }
+                setShowScanner(false);
+              }}
+              onError={(err) => showError('Scan failed: ' + err.message)}
+              showPreview={true}
+              width={280}
+              height={220}
+            />
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -1112,22 +1304,56 @@ const Products = () => {
                     </td>
                     <td className="p-4 text-center text-white">${parseFloat(product.price).toFixed(2)}</td>
                     <td className="p-4 text-center">
-                      <span className={`font-semibold ${product.not_in_local_warehouse ? 'text-gray-500' : product.quantity <= 0 ? 'text-red-400' : product.quantity <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
-                        {product.not_in_local_warehouse ? '0' : product.quantity}
-                      </span>
+                      {(() => {
+                        const stockInfo = getDisplayStock(product);
+                        return (
+                          <div>
+                            <span className={`font-bold text-base ${stockInfo.qty <= 0 ? 'text-red-400' : stockInfo.qty <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
+                              {stockInfo.qty}
+                            </span>
+                            {stockInfo.isTotal && stockInfo.breakdown.length > 0 && (
+                              <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                                {stockInfo.breakdown.map((b, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-[10px] px-1.5 py-0.5 bg-midnight-700 text-slate-300 rounded border border-midnight-600 font-mono"
+                                    title={`${b.warehouse_name || 'Warehouse'}: ${b.quantity} units`}
+                                  >
+                                    {b.country === 'IND' ? '🇮🇳' : b.country === 'CAN' ? '🇨🇦' : '🏢'} {b.quantity}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-4 text-center">
-                      {product.not_in_local_warehouse ? (
-                        <span className="text-yellow-500 text-sm italic">Not in your warehouse</span>
-                      ) : product.warehouse_name ? (
-                        <div className="text-sm">
-                          <span className="text-blue-400">📍 {product.warehouse_name}</span>
-                          {product.bin_number && (
-                            <span className="text-gray-400 block">Bin: {product.bin_number}</span>
-                          )}
-                        </div>
+                      {selectedWarehouse === 'all' ? (
+                        Array.isArray(product.warehouse_stock) && product.warehouse_stock.filter(w => w && w.warehouse_id && w.quantity > 0).length > 0 ? (
+                          <div className="text-xs space-y-1">
+                            {product.warehouse_stock.filter(w => w && w.warehouse_id && w.quantity > 0).map((w, i) => (
+                              <div key={i} className="text-blue-400 font-medium">
+                                <span>{w.country === 'IND' ? '🇮🇳' : w.country === 'CAN' ? '🇨🇦' : '🏢'}</span> {w.warehouse_name || 'Warehouse'}
+                                {w.bin_number && <span className="text-gray-400 block text-[10px] font-mono">Bin: {w.bin_number}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : product.warehouse_name ? (
+                          <div className="text-xs">
+                            <span className="text-blue-400 font-medium">📍 {product.warehouse_name}</span>
+                            {product.bin_number && <span className="text-gray-400 block text-[11px] font-mono">Bin: {product.bin_number}</span>}
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 text-xs italic">Unassigned Intake</span>
+                        )
+                      ) : selectedWarehouse === 'unassigned' ? (
+                        <span className="text-amber-400 text-xs italic">Unassigned Floor</span>
                       ) : (
-                        <span className="text-gray-500 text-sm italic">Not assigned</span>
+                        <div className="text-xs">
+                          <span className="text-blue-400 font-medium">📍 {warehouses.find(w => String(w.id) === selectedWarehouse)?.name || product.warehouse_name}</span>
+                          {product.bin_number && <span className="text-gray-400 block text-[11px] font-mono">Bin: {product.bin_number}</span>}
+                        </div>
                       )}
                     </td>
                     <td className="p-4 text-center">
@@ -1150,7 +1376,7 @@ const Products = () => {
                       )}
                     </td>
                     <td className="p-4 text-center">
-                      <div className="flex justify-center space-x-2">
+                      <div className="flex justify-center items-center space-x-2">
                         <Link
                           to={`/admin/products/view/${product.id}`}
                           className="text-green-400 hover:text-green-300"
@@ -1161,6 +1387,17 @@ const Products = () => {
                             <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                           </svg>
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuditProduct(product);
+                            setAuditModalOpen(true);
+                          }}
+                          className="text-amber-400 hover:text-amber-300 transition-colors p-1 rounded hover:bg-midnight-700"
+                          title="View Movement & Stock Count Audit Trail"
+                        >
+                          <span className="text-base leading-none">🕒</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => setImageSearchProduct(product)}
@@ -1225,9 +1462,14 @@ const Products = () => {
                         <span className="text-[10px] text-midnight-300 bg-midnight-700 px-2 py-0.5 rounded uppercase tracking-wider">
                           {product.category_name || 'Uncategorized'}
                         </span>
-                        <span className={`text-xs font-semibold ${product.quantity <= 0 ? 'text-red-400' : product.quantity <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
-                          Stock: {product.quantity}
-                        </span>
+                        {(() => {
+                          const stockInfo = getDisplayStock(product);
+                          return (
+                            <span className={`text-xs font-semibold ${stockInfo.qty <= 0 ? 'text-red-400' : stockInfo.qty <= 5 ? 'text-yellow-400' : 'text-green-400'}`}>
+                              Stock: {stockInfo.qty}
+                            </span>
+                          );
+                        })()}
                         {product.created_at && (
                           <span className="text-[11px] text-gray-400 font-mono">
                             • Added: {new Date(product.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -1249,7 +1491,18 @@ const Products = () => {
                 {/* Always visible quick actions line */}
                 <div className="mt-4 flex items-center justify-between border-t border-midnight-700 pt-3">
                   <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
-                  <div className="flex space-x-4">
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuditProduct(product);
+                        setAuditModalOpen(true);
+                      }}
+                      className="text-amber-400 text-xs flex items-center gap-1 font-semibold hover:text-amber-300"
+                      title="View Movement & Stock Audit"
+                    >
+                      🕒 Audit
+                    </button>
                     <Link to={`/admin/products/view/${product.id}`} className="text-green-400">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
                     </Link>
@@ -1347,6 +1600,28 @@ const Products = () => {
           }}
         />
       )}
+
+      {/* Item Movement & Stock Count Audit Modal */}
+      <ItemMovementAuditModal
+        isOpen={auditModalOpen}
+        onClose={() => {
+          setAuditModalOpen(false);
+          setAuditProduct(null);
+        }}
+        product={auditProduct}
+        onOpenSlip={(movement) => {
+          setReceiptModalData(movement);
+          setReceiptModalOpen(true);
+        }}
+      />
+
+      {/* Movement Receipt Modal for slips triggered from audit */}
+      <MovementReceiptModal
+        isOpen={receiptModalOpen}
+        onClose={() => setReceiptModalOpen(false)}
+        initialType="dispatch"
+        data={receiptModalData}
+      />
     </div>
   );
 };

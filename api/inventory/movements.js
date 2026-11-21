@@ -5,7 +5,7 @@ module.exports = async function handler(req, res) {
     try {
         // GET - List movements (filtered by warehouse if provided)
         if (req.method === 'GET') {
-            const { status, product_id, warehouse_id, limit = 50 } = req.query;
+            const { status, product_id, warehouse_id, part_number, barcode, limit = 50 } = req.query;
 
             let queryText = `
         SELECT 
@@ -49,6 +49,14 @@ module.exports = async function handler(req, res) {
                 queryText += ` AND m.product_id = $${paramCount}`;
                 params.push(product_id);
                 paramCount++;
+            }
+
+            if (part_number || barcode) {
+                const searchCode = (part_number || barcode).trim();
+                const cleanCode = searchCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                queryText += ` AND (p.part_number = $${paramCount} OR p.barcode = $${paramCount} OR REPLACE(REPLACE(COALESCE(p.barcode, ''), '-', ''), ' ', '') = $${paramCount + 1})`;
+                params.push(searchCode, cleanCode);
+                paramCount += 2;
             }
 
             queryText += ` ORDER BY m.created_at DESC LIMIT $${paramCount}`;

@@ -195,6 +195,20 @@ export const movementsAPI = {
     return response.json();
   },
 
+  // Get movement & audit history for a specific product or part number
+  getProductHistory: async ({ productId, partNumber, barcode }) => {
+    const params = new URLSearchParams();
+    if (productId) params.append('product_id', productId);
+    if (partNumber) params.append('part_number', partNumber);
+    if (barcode) params.append('barcode', barcode);
+    params.append('limit', '100');
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?${params}`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    return response.json();
+  },
+
   // Ship products with optional quantity (default 1)
   ship: async (productIds, fromWarehouseId = 1, toWarehouseId = 2, notes = null, quantity = 1) => {
     const response = await fetch(`${API_BASE_URL}/inventory/movements?action=ship`, {

@@ -92,7 +92,9 @@ export const getProducts = async (params = {}) => {
       warehouse_id = '',
       global_catalog = false, // Add global_catalog support
       bin_number = '',  // Add bin_number support
-      country = ''       // Geo-IP country filter
+      country = '',      // Geo-IP country filter
+      created_after = '',
+      created_before = ''
     } = params;
 
     const queryParams = new URLSearchParams({
@@ -109,6 +111,8 @@ export const getProducts = async (params = {}) => {
     if (global_catalog) queryParams.append('global_catalog', 'true'); // Pass global_catalog to API
     if (bin_number) queryParams.append('bin_number', bin_number);  // Pass bin_number to API
     if (country) queryParams.append('country', country);            // Pass country to API
+    if (created_after) queryParams.append('created_after', created_after);
+    if (created_before) queryParams.append('created_before', created_before);
 
     const url = `/products?${queryParams}`;
     console.log('🔍 getProducts: Making request to:', url);

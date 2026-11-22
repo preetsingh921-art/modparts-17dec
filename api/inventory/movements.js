@@ -5,7 +5,20 @@ module.exports = async function handler(req, res) {
     try {
         // GET - List movements (filtered by warehouse if provided)
         if (req.method === 'GET') {
-            const { status, product_id, warehouse_id, part_number, barcode, limit = 50 } = req.query;
+            const { 
+                status, 
+                product_id, 
+                warehouse_id, 
+                from_warehouse_id, 
+                to_warehouse_id, 
+                direction,
+                movement_type,
+                from_date,
+                to_date,
+                part_number, 
+                barcode, 
+                limit = 200 
+            } = req.query;
 
             let queryText = `
         SELECT 
@@ -32,16 +45,55 @@ module.exports = async function handler(req, res) {
             const params = [];
             let paramCount = 1;
 
-            // Filter by warehouse - show only movements where warehouse is sender OR receiver
-            if (warehouse_id) {
-                queryText += ` AND (m.from_warehouse_id = $${paramCount} OR m.to_warehouse_id = $${paramCount})`;
-                params.push(warehouse_id);
+            // Direct from/to warehouse filters
+            if (from_warehouse_id) {
+                queryText += ` AND m.from_warehouse_id = $${paramCount}`;
+                params.push(from_warehouse_id);
+                paramCount++;
+            } else if (to_warehouse_id) {
+                queryText += ` AND m.to_warehouse_id = $${paramCount}`;
+                params.push(to_warehouse_id);
+                paramCount++;
+            } else if (warehouse_id) {
+                if (direction === 'sent') {
+                    queryText += ` AND m.from_warehouse_id = $${paramCount}`;
+                    params.push(warehouse_id);
+                    paramCount++;
+                } else if (direction === 'received') {
+                    queryText += ` AND m.to_warehouse_id = $${paramCount}`;
+                    params.push(warehouse_id);
+                    paramCount++;
+                } else {
+                    // Default: show movements where warehouse is either sender OR receiver
+                    queryText += ` AND (m.from_warehouse_id = $${paramCount} OR m.to_warehouse_id = $${paramCount})`;
+                    params.push(warehouse_id);
+                    paramCount++;
+                }
+            }
+
+            if (direction === 'in_transit') {
+                queryText += ` AND m.status = 'in_transit'`;
+            } else if (status) {
+                queryText += ` AND m.status = $${paramCount}`;
+                params.push(status);
                 paramCount++;
             }
 
-            if (status) {
-                queryText += ` AND m.status = $${paramCount}`;
-                params.push(status);
+            if (movement_type) {
+                queryText += ` AND m.movement_type = $${paramCount}`;
+                params.push(movement_type);
+                paramCount++;
+            }
+
+            if (from_date) {
+                queryText += ` AND (m.shipped_at >= $${paramCount}::timestamp OR m.created_at >= $${paramCount}::timestamp)`;
+                params.push(from_date);
+                paramCount++;
+            }
+
+            if (to_date) {
+                queryText += ` AND (m.shipped_at <= $${paramCount}::timestamp OR m.created_at <= $${paramCount}::timestamp)`;
+                params.push(to_date);
                 paramCount++;
             }
 
@@ -59,8 +111,9 @@ module.exports = async function handler(req, res) {
                 paramCount += 2;
             }
 
-            queryText += ` ORDER BY m.created_at DESC LIMIT $${paramCount}`;
-            params.push(parseInt(limit));
+            const queryLimit = Math.min(parseInt(limit) || 200, 2000);
+            queryText += ` ORDER BY COALESCE(m.shipped_at, m.created_at) DESC LIMIT $${paramCount}`;
+            params.push(queryLimit);
 
             try {
                 const result = await db.query(queryText, params);
@@ -83,7 +136,7 @@ module.exports = async function handler(req, res) {
                     LEFT JOIN users cu ON m.created_by = cu.id
                     ORDER BY m.created_at DESC LIMIT $1
                 `;
-                const fallbackResult = await db.query(fallbackQuery, [parseInt(limit)]);
+                const fallbackResult = await db.query(fallbackQuery, [queryLimit]);
                 return res.json({ movements: fallbackResult.rows });
             }
         }

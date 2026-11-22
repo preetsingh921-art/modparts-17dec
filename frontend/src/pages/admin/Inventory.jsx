@@ -7,6 +7,8 @@ import BarcodeGenerator from '../../components/inventory/BarcodeGenerator';
 import FloatingNotification from '../../components/ui/FloatingNotification';
 import BulkScanIntake from '../../components/inventory/BulkScanIntake';
 import MovementReceiptModal from '../../components/inventory/MovementReceiptModal';
+import PipelineGuideModal from '../../components/inventory/PipelineGuideModal';
+import WarehouseMovementChart from '../../components/inventory/WarehouseMovementChart';
 
 /**
  * Inventory Management Page
@@ -94,11 +96,15 @@ const Inventory = () => {
     const [showEditBinModal, setShowEditBinModal] = useState(false); // Edit bin modal
     const [editBinData, setEditBinData] = useState({ id: null, bin_number: '', description: '' });
     const [binScannerActive, setBinScannerActive] = useState(false); // Scanner mode for bin search
-    // Movements filters
+    // Movements filters and hub state
     const [movementsSearch, setMovementsSearch] = useState('');
     const [movementsSourceFilter, setMovementsSourceFilter] = useState('');
     const [movementsDestFilter, setMovementsDestFilter] = useState('');
     const [movementsDateFilter, setMovementsDateFilter] = useState('');
+    const [isPipelineGuideOpen, setIsPipelineGuideOpen] = useState(false);
+    const [movementLogTab, setMovementLogTab] = useState('all'); // 'all', 'sent', 'received', 'in_transit'
+    const [movementWarehouseFilter, setMovementWarehouseFilter] = useState('all');
+    const [movementTimeFilter, setMovementTimeFilter] = useState('all'); // '7d', '30d', '90d', 'all'
 
     // Geolocation state
     const [userLocation, setUserLocation] = useState(null);
@@ -265,7 +271,7 @@ const Inventory = () => {
 
     const fetchMovements = async () => {
         try {
-            const params = { status: 'in_transit' };
+            const params = { limit: '500' };
             if (!isSuperAdmin && effectiveWarehouseId) {
                 params.warehouse_id = effectiveWarehouseId;
             }
@@ -1930,262 +1936,528 @@ const Inventory = () => {
                 )}
 
                 {/* MOVEMENTS TAB */}
-                {activeTab === 'movements' && (
-                    <div className="movements-tab">
-                        <h3>In-Transit Shipments ({movements.length})</h3>
+                {activeTab === 'movements' && (() => {
+                    // Filter movements by time range preset
+                    const filterByTimeRange = (list) => {
+                        if (movementTimeFilter === 'all') return list;
+                        const now = new Date();
+                        const days = movementTimeFilter === '7d' ? 7 : movementTimeFilter === '30d' ? 30 : 90;
+                        const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+                        return list.filter(m => {
+                            const ts = new Date(m.shipped_at || m.created_at);
+                            return ts >= cutoff;
+                        });
+                    };
 
-                        {/* Filters */}
-                        <div style={{ marginBottom: '20px', padding: '15px', background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)', borderRadius: '8px', border: '1px solid #B8860B' }}>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-                                <input
-                                    type="text"
-                                    placeholder="🔍 Search product/part#..."
-                                    value={movementsSearch}
-                                    onChange={(e) => setMovementsSearch(e.target.value)}
-                                    style={{ flex: '1', minWidth: '180px', padding: '10px', borderRadius: '6px', border: '1px solid #B8860B', background: '#1a1a1a', color: '#F5F0E1', fontSize: '14px' }}
-                                />
-                                <select
-                                    value={movementsSourceFilter}
-                                    onChange={(e) => setMovementsSourceFilter(e.target.value)}
-                                    style={{ padding: '10px', borderRadius: '6px', border: '1px solid #B8860B', background: '#1a1a1a', color: '#F5F0E1', minWidth: '140px' }}
-                                >
-                                    <option value="">All Sources</option>
-                                    {warehouses.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
-                                </select>
-                                <select
-                                    value={movementsDestFilter}
-                                    onChange={(e) => setMovementsDestFilter(e.target.value)}
-                                    style={{ padding: '10px', borderRadius: '6px', border: '1px solid #B8860B', background: '#1a1a1a', color: '#F5F0E1', minWidth: '140px' }}
-                                >
-                                    <option value="">All Destinations</option>
-                                    {warehouses.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
-                                </select>
-                                <input
-                                    type="date"
-                                    value={movementsDateFilter}
-                                    onChange={(e) => setMovementsDateFilter(e.target.value)}
-                                    style={{ padding: '10px', borderRadius: '6px', border: '1px solid #B8860B', background: '#1a1a1a', color: '#F5F0E1' }}
-                                />
-                                {(movementsSearch || movementsSourceFilter || movementsDestFilter || movementsDateFilter) && (
+                    // Filter movements by warehouse
+                    const filterByWarehouse = (list) => {
+                        if (movementWarehouseFilter === 'all') return list;
+                        const wId = String(movementWarehouseFilter);
+                        return list.filter(m => String(m.from_warehouse_id) === wId || String(m.to_warehouse_id) === wId);
+                    };
+
+                    const timeFilteredMovements = filterByTimeRange(movements);
+                    const scopedMovements = filterByWarehouse(timeFilteredMovements);
+
+                    // Sent / Received / In-Transit classification
+                    const isSentMovement = (m) => {
+                        if (movementWarehouseFilter === 'all') {
+                            return m.movement_type === 'transfer' || !!m.from_warehouse_id;
+                        }
+                        return String(m.from_warehouse_id) === String(movementWarehouseFilter);
+                    };
+
+                    const isReceivedMovement = (m) => {
+                        if (movementWarehouseFilter === 'all') {
+                            return m.status === 'completed' || m.status === 'arrived';
+                        }
+                        return String(m.to_warehouse_id) === String(movementWarehouseFilter) && (m.status === 'completed' || m.status === 'arrived');
+                    };
+
+                    const isInTransitMovement = (m) => {
+                        return m.status === 'in_transit';
+                    };
+
+                    const totalSentUnits = scopedMovements.filter(isSentMovement).reduce((acc, m) => acc + (parseInt(m.quantity) || 1), 0);
+                    const totalReceivedUnits = scopedMovements.filter(isReceivedMovement).reduce((acc, m) => acc + (parseInt(m.quantity) || 1), 0);
+                    const totalInTransitUnits = scopedMovements.filter(isInTransitMovement).reduce((acc, m) => acc + (parseInt(m.quantity) || 1), 0);
+
+                    const completedMovements = scopedMovements.filter(m => m.status === 'completed' && m.shipped_at && m.received_at);
+                    let avgDaysText = '—';
+                    if (completedMovements.length > 0) {
+                        const totalDurationMs = completedMovements.reduce((sum, m) => {
+                            return sum + (new Date(m.received_at) - new Date(m.shipped_at));
+                        }, 0);
+                        const avgDays = (totalDurationMs / completedMovements.length / (1000 * 60 * 60 * 24)).toFixed(1);
+                        avgDaysText = `${avgDays} Days`;
+                    }
+
+                    // Counts for the sub-tabs
+                    const allCount = scopedMovements.length;
+                    const sentCount = scopedMovements.filter(isSentMovement).length;
+                    const receivedCount = scopedMovements.filter(isReceivedMovement).length;
+                    const inTransitCount = scopedMovements.filter(isInTransitMovement).length;
+
+                    // Apply log tab filter
+                    let tabFiltered = scopedMovements;
+                    if (movementLogTab === 'sent') tabFiltered = scopedMovements.filter(isSentMovement);
+                    else if (movementLogTab === 'received') tabFiltered = scopedMovements.filter(isReceivedMovement);
+                    else if (movementLogTab === 'in_transit') tabFiltered = scopedMovements.filter(isInTransitMovement);
+
+                    // Apply search, source, dest, and specific date filters
+                    const finalFilteredMovements = tabFiltered.filter(m => {
+                        const matchSearch = !movementsSearch ||
+                            (m.product_name || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
+                            (m.part_number || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
+                            (m.barcode || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
+                            (m.tracking_number || '').toLowerCase().includes(movementsSearch.toLowerCase());
+                        const matchSource = !movementsSourceFilter || m.from_warehouse_name === movementsSourceFilter;
+                        const matchDest = !movementsDestFilter || m.to_warehouse_name === movementsDestFilter;
+                        const matchDate = !movementsDateFilter || (m.shipped_at || m.created_at || '').startsWith(movementsDateFilter);
+                        return matchSearch && matchSource && matchDest && matchDate;
+                    });
+
+                    const selectedWarehouseObj = warehouses.find(w => String(w.id) === String(movementWarehouseFilter));
+                    const selectedWarehouseName = selectedWarehouseObj ? selectedWarehouseObj.name : 'All Warehouses';
+
+                    return (
+                        <div className="movements-tab space-y-6">
+                            {/* Top Hub Header & Scope Controls */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-[#333] gap-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-[#F5F0E1] tracking-wide uppercase flex items-center gap-2" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                                        <span>🚚</span> Movements & Logistics Hub
+                                    </h2>
+                                    <p className="text-xs text-[#A8A090] mt-0.5">
+                                        Track dispatched, received, and in-transit items across warehouses with verified timestamps
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    {/* Warehouse Filter */}
+                                    <div className="flex items-center gap-1.5 bg-[#242424] border border-[#B8860B]/60 rounded-lg px-2.5 py-1.5">
+                                        <span className="text-xs text-[#B8860B] font-semibold">Warehouse:</span>
+                                        <select
+                                            value={movementWarehouseFilter}
+                                            onChange={(e) => setMovementWarehouseFilter(e.target.value)}
+                                            className="bg-transparent text-[#F5F0E1] text-xs font-medium focus:outline-none cursor-pointer"
+                                        >
+                                            <option value="all" className="bg-[#1c1c1c] text-[#F5F0E1]">All Warehouses</option>
+                                            {warehouses.map(w => (
+                                                <option key={w.id} value={w.id} className="bg-[#1c1c1c] text-[#F5F0E1]">
+                                                    {w.name} {w.country === 'CAN' ? '(🇨🇦 Canada)' : w.country === 'IND' ? '(🇮🇳 India)' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Time Range Preset */}
+                                    <div className="flex items-center gap-1.5 bg-[#242424] border border-[#444] rounded-lg px-2.5 py-1.5">
+                                        <span className="text-xs text-gray-400">Period:</span>
+                                        <select
+                                            value={movementTimeFilter}
+                                            onChange={(e) => setMovementTimeFilter(e.target.value)}
+                                            className="bg-transparent text-[#F5F0E1] text-xs focus:outline-none cursor-pointer"
+                                        >
+                                            <option value="all" className="bg-[#1c1c1c]">All Time</option>
+                                            <option value="7d" className="bg-[#1c1c1c]">Last 7 Days</option>
+                                            <option value="30d" className="bg-[#1c1c1c]">Last 30 Days</option>
+                                            <option value="90d" className="bg-[#1c1c1c]">Last 90 Days</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Pipeline Guide Button */}
                                     <button
-                                        onClick={() => { setMovementsSearch(''); setMovementsSourceFilter(''); setMovementsDestFilter(''); setMovementsDateFilter(''); }}
-                                        style={{ padding: '10px 15px', background: '#555', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
-                                    >Clear Filters</button>
-                                )}
+                                        type="button"
+                                        onClick={() => setIsPipelineGuideOpen(true)}
+                                        className="px-3 py-1.5 bg-[#2d2d2d] hover:bg-[#383838] border border-[#B8860B] text-[#F5F0E1] text-xs rounded-lg flex items-center gap-1.5 transition-colors font-medium shadow"
+                                        title="Explain what each pipeline status check mark means"
+                                    >
+                                        <span className="text-amber-400">ℹ️</span>
+                                        <span>Pipeline Guide</span>
+                                    </button>
+                                </div>
                             </div>
-                        </div>
 
-                        {movements.filter(m => {
-                            const matchSearch = !movementsSearch ||
-                                (m.product_name || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
-                                (m.part_number || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
-                                (m.barcode || '').toLowerCase().includes(movementsSearch.toLowerCase());
-                            const matchSource = !movementsSourceFilter || m.from_warehouse_name === movementsSourceFilter;
-                            const matchDest = !movementsDestFilter || m.to_warehouse_name === movementsDestFilter;
-                            const matchDate = !movementsDateFilter || (m.shipped_at || m.created_at).startsWith(movementsDateFilter);
-                            return matchSearch && matchSource && matchDest && matchDate;
-                        }).length === 0 ? (
-                            <p style={{ color: '#666', padding: '20px' }}>No shipments found matching filters</p>
-                        ) : (
-                            <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', minWidth: '900px' }}>
-                                    <thead>
-                                        <tr style={{ background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)' }}>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Product</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Part#</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Qty</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>From → To</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B', minWidth: '280px' }}>Pipeline Status</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Tracking</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Duration</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #B8860B', color: '#B8860B' }}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {movements.filter(m => {
-                                            const matchSearch = !movementsSearch ||
-                                                (m.product_name || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
-                                                (m.part_number || '').toLowerCase().includes(movementsSearch.toLowerCase()) ||
-                                                (m.barcode || '').toLowerCase().includes(movementsSearch.toLowerCase());
-                                            const matchSource = !movementsSourceFilter || m.from_warehouse_name === movementsSourceFilter;
-                                            const matchDest = !movementsDestFilter || m.to_warehouse_name === movementsDestFilter;
-                                            const matchDate = !movementsDateFilter || (m.shipped_at || m.created_at || '').startsWith(movementsDateFilter);
-                                            return matchSearch && matchSource && matchDest && matchDate;
-                                        }).map(m => {
-                                            // Pipeline stages definition
-                                            const PIPELINE = [
-                                                { key: 'pending', label: 'Created', icon: '📋', ts: m.created_at },
-                                                { key: 'picked', label: 'Picked', icon: '🔍', ts: m.picked_at },
-                                                { key: 'packed', label: 'Packed', icon: '📦', ts: m.packed_at },
-                                                { key: 'customs_review', label: 'Customs', icon: '🛃', ts: m.customs_cleared_at },
-                                                { key: 'in_transit', label: 'In Transit', icon: '✈️', ts: m.shipped_at },
-                                                { key: 'arrived', label: 'Arrived', icon: '📥', ts: m.received_at },
-                                                { key: 'completed', label: 'Done', icon: '✅', ts: m.scanned_at }
-                                            ];
-                                            const statusIndex = PIPELINE.findIndex(s => s.key === m.status);
+                            {/* KPI Metrics Dashboard Cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="bg-[#242424] border border-blue-900/60 rounded-xl p-4 shadow-lg hover:border-blue-500/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-blue-400 font-semibold uppercase tracking-wider">📤 Total Sent</span>
+                                        <span className="text-lg">🚚</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#F5F0E1] mt-2 font-mono">{totalSentUnits} <span className="text-xs text-gray-400 font-sans">units</span></div>
+                                    <div className="text-[11px] text-gray-400 mt-1">{sentCount} outbound dispatches</div>
+                                </div>
 
-                                            // Duration calc
-                                            const shippedDate = m.shipped_at ? new Date(m.shipped_at) : new Date(m.created_at);
-                                            const receivedDate = m.received_at ? new Date(m.received_at) : null;
-                                            const endDate = m.status === 'completed' && m.received_at ? receivedDate : new Date();
-                                            const diffMs = endDate - shippedDate;
-                                            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                                            const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                                            const durationText = diffDays > 0 ? `${diffDays}d ${diffHours}h` : `${diffHours}h`;
+                                <div className="bg-[#242424] border border-emerald-900/60 rounded-xl p-4 shadow-lg hover:border-emerald-500/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">📥 Total Received</span>
+                                        <span className="text-lg">✅</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#F5F0E1] mt-2 font-mono">{totalReceivedUnits} <span className="text-xs text-gray-400 font-sans">units</span></div>
+                                    <div className="text-[11px] text-gray-400 mt-1">{receivedCount} verified deliveries</div>
+                                </div>
 
-                                            // Determine which country flags to show
-                                            const fromFlag = m.from_warehouse_country === 'CAN' ? '🇨🇦' : m.from_warehouse_country === 'IND' ? '🇮🇳' : '';
-                                            const toFlag = m.to_warehouse_country === 'CAN' ? '🇨🇦' : m.to_warehouse_country === 'IND' ? '🇮🇳' : '';
+                                <div className="bg-[#242424] border border-amber-900/60 rounded-xl p-4 shadow-lg hover:border-amber-500/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-amber-400 font-semibold uppercase tracking-wider">✈️ In Transit</span>
+                                        <span className="text-lg">📦</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#F5F0E1] mt-2 font-mono">{totalInTransitUnits} <span className="text-xs text-gray-400 font-sans">units</span></div>
+                                    <div className="text-[11px] text-gray-400 mt-1">{inTransitCount} active shipments</div>
+                                </div>
 
-                                            // Next valid status for advancement
-                                            const nextStatus = statusIndex < PIPELINE.length - 1 ? PIPELINE[statusIndex + 1] : null;
+                                <div className="bg-[#242424] border border-[#444] rounded-xl p-4 shadow-lg hover:border-gray-500/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">⏱️ Avg Transit Time</span>
+                                        <span className="text-lg">⏳</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#F5F0E1] mt-2 font-mono">{avgDaysText}</div>
+                                    <div className="text-[11px] text-gray-400 mt-1">Based on completed routes</div>
+                                </div>
+                            </div>
 
-                                            return (
-                                                <tr key={m.id} style={{ borderBottom: '1px solid rgba(184, 134, 11, 0.3)', background: '#1a1a1a' }}>
-                                                    <td style={{ padding: '12px', color: '#F5F0E1' }}>
-                                                        {m.product_name}
-                                                        {m.hs_code && <div style={{ fontSize: '10px', color: '#888' }}>HS: {m.hs_code}</div>}
-                                                    </td>
-                                                    <td style={{ padding: '12px', fontFamily: 'monospace', color: '#B8860B' }}>{m.part_number || m.barcode}</td>
-                                                    <td style={{ padding: '12px', textAlign: 'center', color: '#F5F0E1', fontWeight: 'bold' }}>{m.quantity || 1}</td>
-                                                    <td style={{ padding: '12px', color: '#F5F0E1', fontSize: '13px' }}>
-                                                        <span>{fromFlag} {m.from_warehouse_name}</span>
-                                                        <span style={{ color: '#B8860B', margin: '0 6px' }}>→</span>
-                                                        <span>{toFlag} {m.to_warehouse_name}</span>
-                                                        {m.from_bin_number && <div style={{ fontSize: '10px', color: '#888' }}>Bin: {m.from_bin_number}</div>}
-                                                    </td>
-                                                    {/* Pipeline Status Stepper */}
-                                                    <td style={{ padding: '12px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                            {PIPELINE.map((stage, i) => {
-                                                                const isDone = i < statusIndex;
-                                                                const isCurrent = i === statusIndex;
-                                                                const isPending = i > statusIndex;
-                                                                return (
-                                                                    <div key={stage.key} style={{ display: 'flex', alignItems: 'center' }} title={`${stage.label}${stage.ts ? ': ' + new Date(stage.ts).toLocaleString() : ''}`}>
-                                                                        <div style={{
-                                                                            width: isCurrent ? '24px' : '18px',
-                                                                            height: isCurrent ? '24px' : '18px',
-                                                                            borderRadius: '50%',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            justifyContent: 'center',
-                                                                            fontSize: isCurrent ? '12px' : '9px',
-                                                                            background: isDone ? '#4caf50' : isCurrent ? '#1976d2' : '#444',
-                                                                            color: 'white',
-                                                                            border: isCurrent ? '2px solid #64b5f6' : 'none',
-                                                                            fontWeight: 'bold',
-                                                                            transition: 'all 0.2s'
-                                                                        }}>
-                                                                            {isDone ? '✓' : stage.icon}
-                                                                        </div>
-                                                                        {i < PIPELINE.length - 1 && (
-                                                                            <div style={{
-                                                                                width: '12px',
-                                                                                height: '2px',
-                                                                                background: isDone ? '#4caf50' : '#444'
-                                                                            }} />
-                                                                        )}
+                            {/* Interactive Sent vs Received Time-Series Graph */}
+                            <WarehouseMovementChart
+                                movements={movements}
+                                selectedWarehouseId={movementWarehouseFilter}
+                                selectedWarehouseName={selectedWarehouseName}
+                            />
+
+                            {/* Sub-Tabs: All / Sent / Received / In-Transit */}
+                            <div className="border-b border-[#333] flex items-center gap-2 overflow-x-auto">
+                                <button
+                                    type="button"
+                                    onClick={() => setMovementLogTab('all')}
+                                    className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                                        movementLogTab === 'all'
+                                            ? 'border-[#B8860B] text-[#B8860B] bg-[#242424]'
+                                            : 'border-transparent text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    <span>📋 All Activity</span>
+                                    <span className="px-1.5 py-0.5 rounded-full bg-[#333] text-[10px] text-gray-300">{allCount}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setMovementLogTab('sent')}
+                                    className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                                        movementLogTab === 'sent'
+                                            ? 'border-blue-500 text-blue-400 bg-[#242424]'
+                                            : 'border-transparent text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    <span>📤 Sent Logs</span>
+                                    <span className="px-1.5 py-0.5 rounded-full bg-blue-950 text-blue-300 text-[10px] border border-blue-800/60">{sentCount}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setMovementLogTab('received')}
+                                    className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                                        movementLogTab === 'received'
+                                            ? 'border-emerald-500 text-emerald-400 bg-[#242424]'
+                                            : 'border-transparent text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    <span>📥 Received Logs</span>
+                                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 text-[10px] border border-emerald-800/60">{receivedCount}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setMovementLogTab('in_transit')}
+                                    className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                                        movementLogTab === 'in_transit'
+                                            ? 'border-amber-500 text-amber-400 bg-[#242424]'
+                                            : 'border-transparent text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    <span>✈️ In Transit</span>
+                                    <span className="px-1.5 py-0.5 rounded-full bg-amber-950 text-amber-300 text-[10px] border border-amber-800/60">{inTransitCount}</span>
+                                </button>
+                            </div>
+
+                            {/* Search & Filter Toolbar */}
+                            <div className="p-4 bg-gradient-to-r from-[#1a1a1a] to-[#252525] rounded-xl border border-[#333] shadow">
+                                <div className="flex flex-wrap gap-2.5 items-center">
+                                    <input
+                                        type="text"
+                                        placeholder="🔍 Search product name, part#, barcode, tracking#..."
+                                        value={movementsSearch}
+                                        onChange={(e) => setMovementsSearch(e.target.value)}
+                                        className="flex-1 min-w-[200px] p-2.5 rounded-lg border border-[#B8860B]/70 bg-[#1a1a1a] text-[#F5F0E1] text-xs focus:outline-none"
+                                    />
+                                    {movementWarehouseFilter === 'all' && (
+                                        <>
+                                            <select
+                                                value={movementsSourceFilter}
+                                                onChange={(e) => setMovementsSourceFilter(e.target.value)}
+                                                className="p-2.5 rounded-lg border border-[#444] bg-[#1a1a1a] text-[#F5F0E1] text-xs min-w-[140px] focus:outline-none"
+                                            >
+                                                <option value="">All Sources</option>
+                                                {warehouses.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
+                                            </select>
+                                            <select
+                                                value={movementsDestFilter}
+                                                onChange={(e) => setMovementsDestFilter(e.target.value)}
+                                                className="p-2.5 rounded-lg border border-[#444] bg-[#1a1a1a] text-[#F5F0E1] text-xs min-w-[140px] focus:outline-none"
+                                            >
+                                                <option value="">All Destinations</option>
+                                                {warehouses.map(w => <option key={w.id} value={w.name}>{w.name}</option>)}
+                                            </select>
+                                        </>
+                                    )}
+                                    <input
+                                        type="date"
+                                        value={movementsDateFilter}
+                                        onChange={(e) => setMovementsDateFilter(e.target.value)}
+                                        className="p-2.5 rounded-lg border border-[#444] bg-[#1a1a1a] text-[#F5F0E1] text-xs focus:outline-none"
+                                    />
+                                    {(movementsSearch || movementsSourceFilter || movementsDestFilter || movementsDateFilter) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setMovementsSearch(''); setMovementsSourceFilter(''); setMovementsDestFilter(''); setMovementsDateFilter(''); }}
+                                            className="px-3 py-2.5 bg-[#444] hover:bg-[#555] text-white rounded-lg text-xs font-medium transition-colors"
+                                        >
+                                            Clear Filters
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Detailed Movements Table */}
+                            {finalFilteredMovements.length === 0 ? (
+                                <div className="text-center py-12 bg-[#222] border border-[#333] rounded-xl text-gray-400">
+                                    <span className="text-3xl block mb-2">📦</span>
+                                    <p className="text-base font-semibold text-gray-300">No shipments or transfer logs found</p>
+                                    <p className="text-xs text-gray-500 mt-1">Try resetting the search or changing the warehouse / tab filter above.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto rounded-xl border border-[#333] shadow-lg">
+                                    <table className="w-full text-left border-collapse min-w-[1050px]">
+                                        <thead>
+                                            <tr className="bg-gradient-to-r from-[#1c1c1c] to-[#2b2b2b] text-[#B8860B] border-b-2 border-[#B8860B] text-xs uppercase tracking-wider font-bold">
+                                                <th className="p-3">Product / Part#</th>
+                                                <th className="p-3 text-center">Qty</th>
+                                                <th className="p-3">Route (From ➡️ To)</th>
+                                                <th className="p-3">📤 Dispatched (Sent)</th>
+                                                <th className="p-3">📥 Delivered (Received)</th>
+                                                <th className="p-3 min-w-[240px]">Pipeline Status</th>
+                                                <th className="p-3">Tracking</th>
+                                                <th className="p-3 text-center">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-[#333] bg-[#1a1a1a] text-xs">
+                                            {finalFilteredMovements.map(m => {
+                                                const PIPELINE = [
+                                                    { key: 'pending', label: 'Created', icon: '📋', ts: m.created_at },
+                                                    { key: 'picked', label: 'Picked', icon: '🔍', ts: m.picked_at },
+                                                    { key: 'packed', label: 'Packed', icon: '📦', ts: m.packed_at },
+                                                    { key: 'customs_review', label: 'Customs', icon: '🛃', ts: m.customs_cleared_at },
+                                                    { key: 'in_transit', label: 'In Transit', icon: '✈️', ts: m.shipped_at },
+                                                    { key: 'arrived', label: 'Arrived', icon: '📥', ts: m.received_at },
+                                                    { key: 'completed', label: 'Done', icon: '✅', ts: m.scanned_at }
+                                                ];
+                                                const statusIndex = PIPELINE.findIndex(s => s.key === m.status);
+
+                                                const shippedDate = m.shipped_at ? new Date(m.shipped_at) : new Date(m.created_at);
+                                                const receivedDate = m.received_at ? new Date(m.received_at) : null;
+                                                const endDate = m.status === 'completed' && m.received_at ? receivedDate : new Date();
+                                                const diffMs = endDate - shippedDate;
+                                                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                                                const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                                const durationText = diffDays > 0 ? `${diffDays}d ${diffHours}h` : `${diffHours}h`;
+
+                                                const fromFlag = m.from_warehouse_country === 'CAN' ? '🇨🇦' : m.from_warehouse_country === 'IND' ? '🇮🇳' : '';
+                                                const toFlag = m.to_warehouse_country === 'CAN' ? '🇨🇦' : m.to_warehouse_country === 'IND' ? '🇮🇳' : '';
+                                                const nextStatus = statusIndex < PIPELINE.length - 1 ? PIPELINE[statusIndex + 1] : null;
+
+                                                return (
+                                                    <tr key={m.id} className="hover:bg-[#252525] transition-colors">
+                                                        {/* Product & Part Number */}
+                                                        <td className="p-3 text-[#F5F0E1]">
+                                                            <div className="font-semibold text-sm">{m.product_name || 'Part ' + (m.part_number || m.product_id)}</div>
+                                                            <div className="font-mono text-amber-400 text-xs mt-0.5">{m.part_number || m.barcode || '—'}</div>
+                                                            {m.hs_code && <div className="text-[10px] text-gray-500">HS Code: {m.hs_code}</div>}
+                                                        </td>
+
+                                                        {/* Quantity */}
+                                                        <td className="p-3 text-center">
+                                                            <span className="font-bold text-sm px-2.5 py-1 rounded-md bg-[#252525] border border-[#444] text-[#F5F0E1] font-mono">
+                                                                {m.quantity || 1}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Route */}
+                                                        <td className="p-3 text-gray-200">
+                                                            <div className="flex items-center gap-1.5 font-medium">
+                                                                <span>{fromFlag} {m.from_warehouse_name || 'Unassigned'}</span>
+                                                                <span className="text-amber-500">➔</span>
+                                                                <span>{toFlag} {m.to_warehouse_name || 'Unassigned'}</span>
+                                                            </div>
+                                                            {m.from_bin_number && (
+                                                                <div className="text-[11px] text-gray-400 mt-0.5 font-mono">
+                                                                    Bin: {m.from_bin_number}
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Dispatched Date & Time */}
+                                                        <td className="p-3 text-gray-200 font-mono text-[11px]">
+                                                            {m.shipped_at || m.created_at ? (
+                                                                <div>
+                                                                    <div className="text-[#F5F0E1] font-semibold">
+                                                                        {new Date(m.shipped_at || m.created_at).toLocaleDateString('en-US', {
+                                                                            year: 'numeric',
+                                                                            month: 'short',
+                                                                            day: 'numeric'
+                                                                        })}
                                                                     </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                        <div style={{ marginTop: '4px', fontSize: '10px', color: statusIndex >= PIPELINE.length - 1 ? '#4caf50' : '#1976d2', fontWeight: 'bold' }}>
-                                                            {PIPELINE[statusIndex]?.icon} {PIPELINE[statusIndex]?.label || m.status}
-                                                            {m.customs_status && m.customs_status !== 'not_required' && (
-                                                                <span style={{ marginLeft: '6px', color: m.customs_status === 'cleared' ? '#4caf50' : '#ff9800' }}>
-                                                                    | 🛃 {m.customs_status}
+                                                                    <div className="text-gray-400 text-[10px]">
+                                                                        {new Date(m.shipped_at || m.created_at).toLocaleTimeString('en-US', {
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit'
+                                                                        })}
+                                                                    </div>
+                                                                    {m.created_by_name && (
+                                                                        <div className="text-[10px] text-blue-400 font-sans mt-0.5">by {m.created_by_name}</div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-500 italic">—</span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Delivered / Received Date & Time */}
+                                                        <td className="p-3 text-gray-200 font-mono text-[11px]">
+                                                            {m.received_at ? (
+                                                                <div>
+                                                                    <div className="text-emerald-400 font-semibold">
+                                                                        {new Date(m.received_at).toLocaleDateString('en-US', {
+                                                                            year: 'numeric',
+                                                                            month: 'short',
+                                                                            day: 'numeric'
+                                                                        })}
+                                                                    </div>
+                                                                    <div className="text-gray-400 text-[10px]">
+                                                                        {new Date(m.received_at).toLocaleTimeString('en-US', {
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit'
+                                                                        })}
+                                                                    </div>
+                                                                    {m.received_by_name && (
+                                                                        <div className="text-[10px] text-emerald-300 font-sans mt-0.5">rcvd by {m.received_by_name}</div>
+                                                                    )}
+                                                                </div>
+                                                            ) : m.status === 'in_transit' ? (
+                                                                <span className="px-2 py-0.5 rounded text-[10px] bg-amber-950/70 border border-amber-700/60 text-amber-300 font-sans">
+                                                                    ✈️ En Route ({durationText})
                                                                 </span>
+                                                            ) : (
+                                                                <span className="text-gray-500 italic">— Pending</span>
                                                             )}
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '11px', color: '#888' }}>
-                                                        {m.tracking_number || '-'}
-                                                    </td>
-                                                    <td style={{ padding: '12px', fontSize: '12px' }}>
-                                                        <span style={{
-                                                            color: m.status === 'completed' ? '#4caf50' : (diffDays > 3 ? '#f44336' : '#B8860B'),
-                                                            fontWeight: 'bold'
-                                                        }}>
-                                                            {durationText}
-                                                        </span>
-                                                        <div style={{ fontSize: '10px', color: '#666' }}>
-                                                            {m.created_by_name && <span>by {m.created_by_name}</span>}
-                                                        </div>
-                                                    </td>
-                                                    {/* Actions: Advance Status & View/Print Slip */}
-                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                                            {nextStatus && m.status !== 'completed' && m.status !== 'cancelled' && (
+                                                        </td>
+
+                                                        {/* Pipeline Status Stepper */}
+                                                        <td className="p-3">
+                                                            <div className="flex items-center gap-1">
+                                                                {PIPELINE.map((stage, i) => {
+                                                                    const isDone = i < statusIndex;
+                                                                    const isCurrent = i === statusIndex;
+                                                                    return (
+                                                                        <div key={stage.key} className="flex items-center" title={`${stage.label}${stage.ts ? ': ' + new Date(stage.ts).toLocaleString() : ''}`}>
+                                                                            <div
+                                                                                className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] transition-all ${
+                                                                                    isDone
+                                                                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                                                                        : isCurrent
+                                                                                            ? 'bg-blue-600 text-white ring-2 ring-blue-400 scale-110 shadow'
+                                                                                            : 'bg-[#333] text-gray-500'
+                                                                                }`}
+                                                                            >
+                                                                                {isDone ? '✓' : stage.icon}
+                                                                            </div>
+                                                                            {i < PIPELINE.length - 1 && (
+                                                                                <div className={`w-2.5 h-0.5 ${isDone ? 'bg-emerald-600' : 'bg-[#333]'}`} />
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            <div className="mt-1 text-[11px] font-semibold text-gray-300 flex items-center gap-1.5">
+                                                                <span>{PIPELINE[statusIndex]?.icon} {PIPELINE[statusIndex]?.label || m.status}</span>
+                                                                {m.customs_status && m.customs_status !== 'not_required' && (
+                                                                    <span className={`text-[10px] px-1.5 py-0.2 rounded ${m.customs_status === 'cleared' ? 'bg-emerald-950 text-emerald-300' : 'bg-amber-950 text-amber-300'}`}>
+                                                                        🛃 {m.customs_status}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Tracking Number */}
+                                                        <td className="p-3 font-mono text-gray-400 text-xs">
+                                                            {m.tracking_number ? (
+                                                                <span className="text-[#B8860B] font-semibold bg-[#262626] px-2 py-1 rounded border border-[#444]">
+                                                                    {m.tracking_number}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-gray-600">—</span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Actions */}
+                                                        <td className="p-3 text-center">
+                                                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                                {nextStatus && m.status !== 'completed' && m.status !== 'cancelled' && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={async () => {
+                                                                            if (!confirm(`Advance status to "${nextStatus.label}"?`)) return;
+                                                                            try {
+                                                                                await movementsAPI.updateStatus({
+                                                                                    movement_id: m.id,
+                                                                                    new_status: nextStatus.key
+                                                                                });
+                                                                                fetchMovements();
+                                                                                setMessage({ type: 'success', text: `✅ Status advanced to ${nextStatus.label}` });
+                                                                            } catch (err) {
+                                                                                setMessage({ type: 'error', text: 'Failed to update status' });
+                                                                            }
+                                                                        }}
+                                                                        className="px-2 py-1 text-[11px] bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white rounded font-medium shadow transition-colors whitespace-nowrap"
+                                                                        title={`Advance to: ${nextStatus.label}`}
+                                                                    >
+                                                                        → {nextStatus.icon} {nextStatus.label}
+                                                                    </button>
+                                                                )}
                                                                 <button
-                                                                    onClick={async () => {
-                                                                        if (!confirm(`Advance to "${nextStatus.label}"?`)) return;
-                                                                        try {
-                                                                            await movementsAPI.updateStatus({
-                                                                                movement_id: m.id,
-                                                                                new_status: nextStatus.key
-                                                                            });
-                                                                            fetchMovements();
-                                                                            setMessage({ type: 'success', text: `✅ Status advanced to ${nextStatus.label}` });
-                                                                        } catch (err) {
-                                                                            setMessage({ type: 'error', text: 'Failed to update status' });
-                                                                        }
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setReceiptModalData(m);
+                                                                        setReceiptModalType(m.status === 'completed' ? 'grn' : 'dispatch');
+                                                                        setReceiptModalOpen(true);
                                                                     }}
-                                                                    style={{
-                                                                        padding: '5px 10px',
-                                                                        fontSize: '11px',
-                                                                        background: 'linear-gradient(135deg, #1976d2, #1565c0)',
-                                                                        color: 'white',
-                                                                        border: 'none',
-                                                                        borderRadius: '4px',
-                                                                        cursor: 'pointer',
-                                                                        whiteSpace: 'nowrap'
-                                                                    }}
-                                                                    title={`Advance to: ${nextStatus.label}`}
+                                                                    className="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 rounded font-medium transition-colors flex items-center gap-1 whitespace-nowrap"
+                                                                    title="View / Print Official Packing Slip (BOL) or Goods Received Note (GRN)"
                                                                 >
-                                                                    → {nextStatus.icon} {nextStatus.label}
+                                                                    <span>📄</span>
+                                                                    <span>{m.status === 'completed' ? 'GRN' : 'Slip'}</span>
                                                                 </button>
-                                                            )}
-                                                            <button
-                                                                onClick={() => {
-                                                                    setReceiptModalData(m);
-                                                                    setReceiptModalType(m.status === 'completed' ? 'grn' : 'dispatch');
-                                                                    setReceiptModalOpen(true);
-                                                                }}
-                                                                style={{
-                                                                    padding: '5px 10px',
-                                                                    fontSize: '11px',
-                                                                    background: 'linear-gradient(135deg, #334155, #1e293b)',
-                                                                    color: '#f8fafc',
-                                                                    border: '1px solid #475569',
-                                                                    borderRadius: '4px',
-                                                                    cursor: 'pointer',
-                                                                    whiteSpace: 'nowrap',
-                                                                    display: 'inline-flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '4px'
-                                                                }}
-                                                                title="View / Print Movement Slip (BOL or GRN)"
-                                                            >
-                                                                📄 {m.status === 'completed' ? 'GRN' : 'Slip'}
-                                                            </button>
-                                                            {m.status === 'completed' && (
-                                                                <span style={{ fontSize: '11px', color: '#4caf50' }}>✅ Done</span>
-                                                            )}
-                                                            {m.status === 'cancelled' && (
-                                                                <span style={{ fontSize: '11px', color: '#ef4444' }}>❌</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                )}
+                                                                {m.status === 'completed' && (
+                                                                    <span className="text-[11px] text-emerald-400 font-bold ml-1">✅ Done</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* WAREHOUSE INVENTORY TAB - Multi-Warehouse Matrix & Bin/Product Catalog */}
                 {activeTab === 'warehouse-inventory' && (
@@ -3670,6 +3942,12 @@ const Inventory = () => {
                 onClose={() => setReceiptModalOpen(false)}
                 initialType={receiptModalType}
                 data={receiptModalData}
+            />
+
+            {/* Pipeline Stage Guide Modal */}
+            <PipelineGuideModal
+                isOpen={isPipelineGuideOpen}
+                onClose={() => setIsPipelineGuideOpen(false)}
             />
         </div>
     );

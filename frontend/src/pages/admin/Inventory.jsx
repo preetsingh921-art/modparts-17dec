@@ -78,6 +78,7 @@ const Inventory = () => {
     const [receiptModalOpen, setReceiptModalOpen] = useState(false);
     const [receiptModalData, setReceiptModalData] = useState(null);
     const [receiptModalType, setReceiptModalType] = useState('dispatch');
+    const [scanStationView, setScanStationView] = useState('pos'); // 'pos' or 'classic'
 
     // Bin Inventory View State
     const [binInventory, setBinInventory] = useState([]);
@@ -484,80 +485,66 @@ const Inventory = () => {
                     productInMyWarehouse = product;
                 }
 
-                if (productInMyWarehouse && (productInMyWarehouse.quantity > 0 || !isSuperAdmin)) {
+                // Check other warehouse stock for informative guidance (DO NOT auto-switch source warehouse)
+                const otherWarehouseMatches = matchingProducts.filter(p =>
+                    p.warehouse_id && String(p.warehouse_id) !== String(effectiveWarehouseId) && (parseInt(p.quantity) || 0) > 0
+                );
+                const otherStockDetails = otherWarehouseMatches.map(p =>
+                    `${p.warehouse_name || 'Warehouse ' + p.warehouse_id} (${p.quantity} in stock)`
+                ).join(', ');
+
+                if (productInMyWarehouse && (parseInt(productInMyWarehouse.quantity) || 0) > 0) {
+                    // Product exists in active warehouse with stock available
                     setScannedProduct(productInMyWarehouse);
                     setSendQuantity(1);
                     setOtherWarehouseProduct(null);
 
                     // Auto-select valid destination warehouse if not set or pointing to source
-                    const validDest = warehouses.find(w => String(w.id) !== String(productInMyWarehouse.warehouse_id));
-                    if (validDest && (!destinationWarehouse || String(destinationWarehouse) === String(productInMyWarehouse.warehouse_id))) {
+                    const validDest = warehouses.find(w => String(w.id) !== String(effectiveWarehouseId));
+                    if (validDest && (!destinationWarehouse || String(destinationWarehouse) === String(effectiveWarehouseId))) {
                         setDestinationWarehouse(String(validDest.id));
                     }
 
-                    if (productInMyWarehouse.quantity > 0) {
-                        setMessage({
-                            type: 'success',
-                            text: `Found: ${productInMyWarehouse.name} (${productInMyWarehouse.quantity} units in stock at ${activeWarehouseObj?.name || 'Active Warehouse'})`
-                        });
-                    } else {
-                        setMessage({
-                            type: 'warning',
-                            text: `Product is in active warehouse (${activeWarehouseObj?.name || 'Active Warehouse'}) but has 0 stock. Restock or receive before sending.`
-                        });
-                    }
+                    setMessage({
+                        type: 'success',
+                        text: `Found: ${productInMyWarehouse.name} (${productInMyWarehouse.quantity} units in stock at ${activeWarehouseObj?.name || 'Active Warehouse'})`
+                    });
+                } else if (productInMyWarehouse) {
+                    // Product exists in active warehouse BUT has 0 stock
+                    setScannedProduct(productInMyWarehouse);
+                    setSendQuantity(0);
+                    setOtherWarehouseProduct(null);
+
+                    setMessage({
+                        type: 'error',
+                        text: `❌ "${productInMyWarehouse.name}" has 0 stock at ${activeWarehouseObj?.name || 'Active Warehouse'}. Cannot dispatch from here.${otherStockDetails ? ` (Available at: ${otherStockDetails})` : ''}`
+                    });
+                } else if (matchingProducts.length > 0) {
+                    // Product exists in catalog or other warehouse, but has 0 units stocked in active warehouse
+                    const catalogItem = matchingProducts[0];
+                    const localUnstocked = {
+                        ...catalogItem,
+                        warehouse_id: effectiveWarehouseId,
+                        warehouse_name: activeWarehouseObj?.name || 'Active Warehouse',
+                        quantity: 0
+                    };
+                    setScannedProduct(localUnstocked);
+                    setSendQuantity(0);
+                    setOtherWarehouseProduct(null);
+
+                    setMessage({
+                        type: 'error',
+                        text: `❌ "${catalogItem.name}" is not stocked at ${activeWarehouseObj?.name || 'Active Warehouse'} (0 stock). Cannot dispatch from here.${otherStockDetails ? ` (Available at: ${otherStockDetails})` : ''}`
+                    });
                 } else {
-                    // Product is NOT in the active warehouse with stock. Check other warehouses:
-                    const inOtherWarehouses = matchingProducts.filter(p => p.warehouse_id && String(p.warehouse_id) !== String(effectiveWarehouseId));
-                    const bestOther = inOtherWarehouses.find(p => p.quantity > 0) || inOtherWarehouses[0];
-
-                    if (bestOther && isSuperAdmin && bestOther.quantity > 0) {
-                        // SUPERADMIN SMOOTH DISPATCH: Automatically align source warehouse so superadmin can dispatch immediately
-                        const targetWhId = String(bestOther.warehouse_id);
-                        setOperatingWarehouse(targetWhId);
-                        setScannedProduct(bestOther);
-                        setSendQuantity(1);
-                        setOtherWarehouseProduct(null);
-
-                        const originWhName = bestOther.warehouse_name || warehouses.find(w => String(w.id) === targetWhId)?.name || `Warehouse ${targetWhId}`;
-                        const validDest = warehouses.find(w => String(w.id) !== targetWhId);
-                        if (validDest) {
-                            setDestinationWarehouse(String(validDest.id));
-                        }
-
-                        setMessage({
-                            type: 'success',
-                            text: `⚡ Stock found at ${originWhName} (${bestOther.quantity} units available)! Source warehouse auto-aligned to ${originWhName}. Ready to dispatch.`
-                        });
-                    } else if (bestOther) {
-                        setScannedProduct(null);
-                        setOtherWarehouseProduct(bestOther);
-
-                        const otherWhName = bestOther.warehouse_name || warehouses.find(w => String(w.id) === String(bestOther.warehouse_id))?.name || `Warehouse ${bestOther.warehouse_id}`;
-
-                        setMessage({
-                            type: 'warning',
-                            text: `Product "${bestOther.name}" (${bestOther.part_number || barcode}) is located in ${otherWhName} (Stock: ${bestOther.quantity || 0}), not in your active warehouse (${activeWarehouseObj?.name || 'Selected'}).`
-                        });
-                    } else if (matchingProducts.length > 0) {
-                        // Product exists only in catalog template with no warehouse assigned
-                        const catalogItem = matchingProducts[0];
-                        setScannedProduct(null);
-                        setOtherWarehouseProduct(catalogItem);
-                        setMessage({
-                            type: 'warning',
-                            text: `Product "${catalogItem.name}" (${catalogItem.part_number || barcode}) has no warehouse stock assigned. Use Scan & Receive to add stock to ${activeWarehouseObj?.name || 'this warehouse'}.`
-                        });
-                    } else {
-                        // Not found in system
-                        setScannedProduct(null);
-                        setNotFoundBarcode(barcode);
-                        setOtherWarehouseProduct(null);
-                        setMessage({
-                            type: 'error',
-                            text: `No product found matching "${barcode}". Please verify the barcode or part number.`
-                        });
-                    }
+                    // Not found in system
+                    setScannedProduct(null);
+                    setNotFoundBarcode(barcode);
+                    setOtherWarehouseProduct(null);
+                    setMessage({
+                        type: 'error',
+                        text: `No product found matching "${barcode}". Please verify the barcode or part number.`
+                    });
                 }
             } else {
                 // RECEIVE MODE: Check pending movements FIRST, then look for products
@@ -1139,24 +1126,52 @@ const Inventory = () => {
 
             {/* Tab Content */}
             <div className="tab-content">
-                {/* BULK SCAN INTAKE TAB */}
-                {activeTab === 'bulk-intake' && (
-                    <BulkScanIntake
-                        warehouses={warehouses}
-                        activeWarehouseId={effectiveWarehouseId}
-                        bins={bins}
-                        onIntakeComplete={() => {
-                            fetchMovements();
-                            if (effectiveWarehouseId) {
-                                fetchWarehouseInventory(effectiveWarehouseId);
-                            }
-                        }}
-                    />
-                )}
+                {/* UNIFIED POS SCANNING STATION OR CLASSIC VIEW */}
+                {(activeTab === 'bulk-intake' || activeTab === 'scan-send' || activeTab === 'scan-receive') && (
+                    <div>
+                        {/* Switcher between Unified POS Batch Station and Classic Single-Item Scan */}
+                        {(activeTab === 'scan-send' || activeTab === 'scan-receive') && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setScanStationView(scanStationView === 'pos' ? 'classic' : 'pos')}
+                                    style={{
+                                        padding: '6px 14px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #475569',
+                                        background: scanStationView === 'pos' ? 'rgba(124, 58, 237, 0.25)' : 'rgba(30, 41, 59, 0.9)',
+                                        color: scanStationView === 'pos' ? '#c4b5fd' : '#cbd5e1',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <span>{scanStationView === 'pos' ? '⚡ POS Batch Station Active' : '🔍 Single-Item Scan Active'}</span>
+                                    <span style={{ color: '#94a3b8', fontSize: '10px' }}>
+                                        (Switch to {scanStationView === 'pos' ? 'Single Scan' : 'POS Batch'})
+                                    </span>
+                                </button>
+                            </div>
+                        )}
 
-                {/* SCAN & SEND / SCAN & RECEIVE TAB */}
-                {(activeTab === 'scan-send' || activeTab === 'scan-receive') && (
-                    <div className={activeTab === 'scan-send' ? 'scan-send-tab' : 'scan-receive-tab'}>
+                        {scanStationView === 'pos' || activeTab === 'bulk-intake' ? (
+                            <BulkScanIntake
+                                warehouses={warehouses}
+                                activeWarehouseId={effectiveWarehouseId}
+                                bins={bins}
+                                initialMode={activeTab === 'scan-send' ? 'send' : activeTab === 'scan-receive' ? 'receive' : 'intake'}
+                                onIntakeComplete={() => {
+                                    fetchMovements();
+                                    if (effectiveWarehouseId) {
+                                        fetchWarehouseInventory(effectiveWarehouseId);
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <div className={activeTab === 'scan-send' ? 'scan-send-tab' : 'scan-receive-tab'}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             {/* Scanner Section - Industrial Dark Frame */}
                             <div style={{
@@ -1701,34 +1716,44 @@ const Inventory = () => {
                                                     }
                                                     setLoading(false);
                                                 }}
-                                                disabled={loading || (activeTab === 'scan-send' && !destinationWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId)}
+                                                disabled={loading || (activeTab === 'scan-send' && (!destinationWarehouse || (scannedProduct?.quantity || 0) <= 0)) || (activeTab === 'scan-receive' && !effectiveWarehouseId)}
                                                 style={{
                                                     width: '100%',
                                                     padding: '16px',
-                                                    background: activeTab === 'scan-send'
-                                                        ? 'linear-gradient(135deg, #d97706, #b45309)'
-                                                        : 'linear-gradient(135deg, #059669, #047857)',
+                                                    background: (activeTab === 'scan-send' && (scannedProduct?.quantity || 0) <= 0)
+                                                        ? '#334155'
+                                                        : activeTab === 'scan-send'
+                                                            ? 'linear-gradient(135deg, #d97706, #b45309)'
+                                                            : 'linear-gradient(135deg, #059669, #047857)',
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '10px',
-                                                    cursor: loading || (activeTab === 'scan-send' && !destinationWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 'not-allowed' : 'pointer',
-                                                    opacity: loading || (activeTab === 'scan-send' && !destinationWarehouse) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 0.6 : 1,
+                                                    cursor: loading || (activeTab === 'scan-send' && (!destinationWarehouse || (scannedProduct?.quantity || 0) <= 0)) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 'not-allowed' : 'pointer',
+                                                    opacity: loading || (activeTab === 'scan-send' && (!destinationWarehouse || (scannedProduct?.quantity || 0) <= 0)) || (activeTab === 'scan-receive' && !effectiveWarehouseId) ? 0.6 : 1,
                                                     fontWeight: 'bold',
                                                     fontSize: '17px',
                                                     letterSpacing: '0.5px',
-                                                    boxShadow: activeTab === 'scan-send'
-                                                        ? '0 4px 15px rgba(217, 119, 6, 0.4)'
-                                                        : '0 4px 15px rgba(5, 150, 105, 0.4)',
+                                                    boxShadow: (activeTab === 'scan-send' && (scannedProduct?.quantity || 0) <= 0)
+                                                        ? 'none'
+                                                        : activeTab === 'scan-send'
+                                                            ? '0 4px 15px rgba(217, 119, 6, 0.4)'
+                                                            : '0 4px 15px rgba(5, 150, 105, 0.4)',
                                                     transition: 'all 0.15s',
                                                     WebkitTapHighlightColor: 'transparent'
                                                 }}
                                             >
                                                 {loading ? '⏳ Processing Transaction...' : (
                                                     activeTab === 'scan-send' ? (
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                            <ScanSendIcon className="w-5 h-5 text-white" />
-                                                            <span>DISPATCH 1 UNIT TO DESTINATION</span>
-                                                        </span>
+                                                        (scannedProduct?.quantity || 0) <= 0 ? (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                <span>⚠️ OUT OF STOCK AT ORIGIN - CANNOT SEND</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                <ScanSendIcon className="w-5 h-5 text-white" />
+                                                                <span>DISPATCH {sendQuantity || 1} UNIT(S) TO {warehouses.find(w => String(w.id) === String(destinationWarehouse))?.name?.toUpperCase() || 'DESTINATION'}</span>
+                                                            </span>
+                                                        )
                                                     ) : (
                                                         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                                             <ScanReceiveIcon className="w-5 h-5 text-white" />
@@ -1932,6 +1957,8 @@ const Inventory = () => {
                                 )}
                             </div>
                         </div>
+                    </div>
+                        )}
                     </div>
                 )}
 

@@ -18,7 +18,9 @@ const BarcodeScanner = ({
     height = 280,
     warehouseId = null,
     continuous = false,
-    autoStart = false
+    autoStart = false,
+    compact = false,
+    hideManualInput = false
 }) => {
     const [scanMode, setScanMode] = useState('device'); // 'device' (USB) or 'camera'
     const [scanning, setScanning] = useState(false);
@@ -647,7 +649,9 @@ const BarcodeScanner = ({
         setScanStatus(`🔍 Searching catalog for: ${barcodeValue}...`);
 
         try {
-            const searchParams = { search: barcodeValue, limit: 50 };
+            const searchParams = warehouseId
+                ? { search: barcodeValue, warehouse_id: warehouseId, global_catalog: 'true', limit: 50 }
+                : { search: barcodeValue, limit: 50 };
             const result = await getProducts(searchParams);
             const allProducts = result.products || [];
 
@@ -661,22 +665,32 @@ const BarcodeScanner = ({
             let product = null;
             if (exactMatches.length > 0) {
                 if (warehouseId) {
+                    // Match specifically in the active warehouse
                     product = exactMatches.find(p => String(p.warehouse_id) === String(warehouseId));
                 }
-                if (!product) {
-                    product = exactMatches.find(p => p.warehouse_id && (p.quantity > 0));
-                }
-                if (!product) {
+                if (!product && warehouseId) {
+                    // Product exists globally but has no row in this warehouse -> represent with 0 local quantity
+                    const tmpl = exactMatches[0];
+                    product = {
+                        ...tmpl,
+                        warehouse_id: warehouseId,
+                        quantity: tmpl.local_quantity !== undefined ? tmpl.local_quantity : 0,
+                    };
+                } else if (!product) {
                     product = exactMatches[0];
                 }
             } else if (allProducts.length > 0) {
                 if (warehouseId) {
                     product = allProducts.find(p => String(p.warehouse_id) === String(warehouseId));
                 }
-                if (!product) {
-                    product = allProducts.find(p => p.warehouse_id && (p.quantity > 0));
-                }
-                if (!product) {
+                if (!product && warehouseId) {
+                    const tmpl = allProducts[0];
+                    product = {
+                        ...tmpl,
+                        warehouse_id: warehouseId,
+                        quantity: tmpl.local_quantity !== undefined ? tmpl.local_quantity : 0,
+                    };
+                } else if (!product) {
                     product = allProducts[0];
                 }
             }
@@ -711,7 +725,9 @@ const BarcodeScanner = ({
 
         setIsSearching(true);
         try {
-            const searchParams = { search: query, limit: 30 };
+            const searchParams = warehouseId
+                ? { search: query, warehouse_id: warehouseId, global_catalog: 'true', limit: 30 }
+                : { search: query, limit: 30 };
             const result = await getProducts(searchParams);
             let products = result.products || [];
 
@@ -751,10 +767,23 @@ const BarcodeScanner = ({
         setShowDropdown(false);
         setSearchResults([]);
         setError(null);
-        setScanStatus(`✅ Selected: ${product.name}`);
+
+        // Ensure selected product reflects local active warehouse stock
+        const localQty = product.local_quantity !== undefined 
+            ? product.local_quantity 
+            : (warehouseId && String(product.warehouse_id) === String(warehouseId) ? (product.quantity || 0) : 0);
+
+        const localProduct = {
+            ...product,
+            warehouse_id: warehouseId || product.warehouse_id,
+            quantity: localQty,
+            local_quantity: localQty
+        };
+
+        setScanStatus(`✅ Selected: ${product.name} (Local Stock: ${localQty})`);
         playScanChime();
 
-        if (onScan) onScan(barcodeValue, product);
+        if (onScan) onScan(barcodeValue, localProduct);
     };
 
     const handleManualSubmit = (e) => {
@@ -807,6 +836,69 @@ const BarcodeScanner = ({
 
             {/* ===== USB HARDWARE SCANNER MODE ===== */}
             {scanMode === 'device' && (
+                compact ? (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px',
+                        padding: '10px 16px', borderRadius: '10px', marginBottom: '14px',
+                        background: deviceListening ? 'rgba(124, 58, 237, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                        border: `1px solid ${deviceListening ? 'rgba(124, 58, 237, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                        fontSize: '13px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{
+                                display: 'inline-block', width: '9px', height: '9px', borderRadius: '50%',
+                                background: deviceListening ? '#10b981' : '#ef4444',
+                                boxShadow: deviceListening ? '0 0 10px #10b981' : 'none'
+                            }} />
+                            <span style={{ color: deviceListening ? '#c4b5fd' : '#fca5a5', fontWeight: 'bold' }}>
+                                {deviceListening ? '🟢 USB Scanner Active & Auto-Listening' : '🔴 USB Scanner Paused'}
+                            </span>
+                            <span style={{ color: '#64748b', fontSize: '11px' }}>
+                                (Eyoyo / 1D / 2D Barcode Gun)
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {scanCount > 0 && (
+                                <span style={{
+                                    background: '#10b981', color: 'white', borderRadius: '12px',
+                                    padding: '2px 10px', fontSize: '11px', fontWeight: 'bold'
+                                }}>
+                                    {scanCount} scanned
+                                </span>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeviceListening(!deviceListening);
+                                    if (!deviceListening) {
+                                        setDeviceBuffer('');
+                                        deviceBufferRef.current = '';
+                                        setTimeout(() => deviceInputRef.current?.focus(), 100);
+                                    }
+                                }}
+                                style={{
+                                    padding: '5px 12px', borderRadius: '6px', border: 'none',
+                                    background: deviceListening ? '#334155' : '#7c3aed',
+                                    color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer'
+                                }}
+                            >
+                                {deviceListening ? 'Pause' : 'Resume'}
+                            </button>
+                        </div>
+
+                        <input
+                            ref={deviceInputRef}
+                            type="text"
+                            value={deviceBuffer}
+                            onChange={() => {}}
+                            style={{
+                                position: 'absolute', opacity: 0, width: '1px', height: '1px',
+                                pointerEvents: 'none'
+                            }}
+                            tabIndex={-1}
+                        />
+                    </div>
+                ) : (
                 <div style={{
                     padding: '20px', marginBottom: '16px',
                     background: deviceListening
@@ -963,6 +1055,7 @@ const BarcodeScanner = ({
                         </>
                     )}
                 </div>
+                )
             )}
 
             {/* ===== CAMERA SCANNER MODE ===== */}
@@ -1346,8 +1439,8 @@ const BarcodeScanner = ({
                 </div>
             )}
 
-            {/* Scan from Image File */}
-            {scanMode === 'camera' && (
+            {/* Scan from Image File (Hidden in compact mode) */}
+            {scanMode === 'camera' && !compact && (
                 <div style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <p style={{ margin: '0 0 8px 0', color: '#64748b', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
                         OR UPLOAD PHOTO OF BARCODE
@@ -1371,7 +1464,8 @@ const BarcodeScanner = ({
                 </div>
             )}
 
-            {/* Manual Input with Product Search Dropdown */}
+            {/* Manual Input with Product Search Dropdown (Hidden when parent provides Omni-Search bar) */}
+            {!hideManualInput && (
             <form onSubmit={handleManualSubmit} style={{ marginTop: '8px', position: 'relative' }}>
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                     <div style={{ position: 'relative', width: '340px', maxWidth: '100%' }}>
@@ -1415,6 +1509,14 @@ const BarcodeScanner = ({
                             }}>
                                 {searchResults.map((product) => {
                                     const isActiveWh = warehouseId && String(product.warehouse_id) === String(warehouseId);
+                                    const localQty = product.local_quantity !== undefined 
+                                        ? product.local_quantity 
+                                        : (isActiveWh ? (product.quantity || 0) : 0);
+                                    const otherWhs = Array.isArray(product.warehouse_stock)
+                                        ? product.warehouse_stock.filter(w => String(w.warehouse_id) !== String(warehouseId) && (w.quantity > 0))
+                                        : [];
+                                    const otherStockText = otherWhs.map(w => `${w.warehouse_name}: ${w.quantity}`).join(', ');
+
                                     return (
                                         <div
                                             key={product.id}
@@ -1432,13 +1534,19 @@ const BarcodeScanner = ({
                                                 <span style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '13px' }}>
                                                     {product.name}
                                                 </span>
-                                                {isActiveWh && (
+                                                {warehouseId ? (
                                                     <span style={{
-                                                        background: 'rgba(245, 158, 11, 0.25)', color: '#fbbf24',
-                                                        fontSize: '10px', padding: '1px 6px', borderRadius: '4px',
-                                                        border: '1px solid rgba(245, 158, 11, 0.5)', fontWeight: 'bold'
+                                                        background: localQty > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                                        color: localQty > 0 ? '#34d399' : '#f87171',
+                                                        fontSize: '11px', padding: '1px 8px', borderRadius: '4px',
+                                                        border: `1px solid ${localQty > 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                                                        fontWeight: 'bold'
                                                     }}>
-                                                        ⭐ Active WH
+                                                        {localQty > 0 ? `📦 In Stock: ${localQty}` : '⚠️ 0 in stock locally'}
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ color: '#94a3b8', fontSize: '11px' }}>
+                                                        Qty: {product.quantity || 0}
                                                     </span>
                                                 )}
                                             </div>
@@ -1450,18 +1558,14 @@ const BarcodeScanner = ({
                                                 }}>
                                                     {product.part_number || product.barcode || 'No Part #'}
                                                 </span>
-                                                <span style={{
-                                                    backgroundColor: 'rgba(51, 65, 85, 0.5)',
-                                                    padding: '1px 6px', borderRadius: '4px', color: '#cbd5e1'
-                                                }}>
-                                                    📍 {product.warehouse_name || 'No Warehouse'}
-                                                </span>
-                                                <span style={{
-                                                    color: (product.quantity || 0) > 0 ? '#34d399' : '#94a3b8',
-                                                    fontWeight: 'bold'
-                                                }}>
-                                                    Qty: {product.quantity || 0}
-                                                </span>
+                                                {otherStockText && (
+                                                    <span style={{
+                                                        backgroundColor: 'rgba(51, 65, 85, 0.5)',
+                                                        padding: '1px 6px', borderRadius: '4px', color: '#fcd34d', fontSize: '10px'
+                                                    }}>
+                                                        🌐 Other WH: {otherStockText}
+                                                    </span>
+                                                )}
                                                 <span style={{ color: '#64748b', marginLeft: 'auto' }}>
                                                     ${parseFloat(product.price || 0).toFixed(2)}
                                                 </span>
@@ -1494,6 +1598,7 @@ const BarcodeScanner = ({
                     💡 Tip: Search by part number (e.g. "360-14710-03-00"), barcode, or product name
                 </div>
             </form>
+            )}
         </div>
     );
 };

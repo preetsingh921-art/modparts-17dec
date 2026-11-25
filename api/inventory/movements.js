@@ -150,35 +150,104 @@ module.exports = async function handler(req, res) {
 
             const { action } = req.query;
 
-            // Ship products - decrease quantity at source
+            // Ship products - decrease quantity at source with strict warehouse & stock integrity checks
             if (action === 'ship') {
-                const { product_ids, from_warehouse_id, to_warehouse_id, notes, quantity = 1, from_bin_number, tracking_number } = req.body;
+                const { product_ids, items, from_warehouse_id, to_warehouse_id, notes, quantity = 1, from_bin_number, tracking_number } = req.body;
 
-                const movements = [];
-                for (const productId of product_ids) {
-                    // Create movement record with shipped_at timestamp, quantity, and tracking info
-                    const result = await db.query(`
-                        INSERT INTO inventory_movements 
-                        (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at, quantity, from_bin_number, tracking_number)
-                        VALUES ($1, $2, $3, 'transfer', 'in_transit', $4, $5, NOW(), $6, $7, $8)
-                        RETURNING *
-                    `, [productId, from_warehouse_id, to_warehouse_id, notes, decoded.id, quantity, from_bin_number || null, tracking_number || null]);
-                    movements.push(result.rows[0]);
-
-                    // Decrease quantity at source by specified amount (but don't go below 0)
-                    await db.query(`
-                        UPDATE products 
-                        SET quantity = GREATEST(0, quantity - $2)
-                        WHERE id = $1
-                    `, [productId, quantity]);
-
-                    console.log(`📤 Shipped ${quantity} of product ${productId}: decreased quantity at warehouse ${from_warehouse_id}`);
+                if (!from_warehouse_id || !to_warehouse_id) {
+                    return res.status(400).json({ message: 'Both source (from_warehouse_id) and destination (to_warehouse_id) are required.' });
                 }
 
-                return res.status(201).json({
-                    message: `${movements.length} products shipped successfully. Quantity decreased at source.`,
-                    movements
-                });
+                if (String(from_warehouse_id) === String(to_warehouse_id)) {
+                    return res.status(400).json({ message: 'Source and destination warehouses cannot be the same.' });
+                }
+
+                const itemsToShip = Array.isArray(items) && items.length > 0
+                    ? items.map(it => ({
+                        productId: it.product_id || it.id,
+                        qty: Math.max(1, parseInt(it.quantity) || 1),
+                        bin: it.from_bin_number || it.bin_number || from_bin_number || null
+                    }))
+                    : (Array.isArray(product_ids) && product_ids.length > 0
+                        ? product_ids.map(id => ({
+                            productId: id,
+                            qty: Math.max(1, parseInt(quantity) || 1),
+                            bin: from_bin_number || null
+                        }))
+                        : []);
+
+                if (itemsToShip.length === 0) {
+                    return res.status(400).json({ message: 'Either items array or product_ids array must be provided and non-empty.' });
+                }
+
+                const client = await db.pool.connect();
+
+                try {
+                    await client.query('BEGIN');
+                    const movements = [];
+
+                    for (const { productId, qty, bin } of itemsToShip) {
+                        // Check product exists and lock row with FOR UPDATE
+                        const prodCheck = await client.query(`
+                            SELECT id, name, part_number, barcode, quantity, warehouse_id, bin_number 
+                            FROM products WHERE id = $1 FOR UPDATE
+                        `, [productId]);
+
+                        if (prodCheck.rows.length === 0) {
+                            await client.query('ROLLBACK');
+                            return res.status(404).json({ message: `Product ID ${productId} not found.` });
+                        }
+
+                        const prod = prodCheck.rows[0];
+
+                        // Enforce warehouse ownership: product must belong to source warehouse
+                        if (String(prod.warehouse_id) !== String(from_warehouse_id)) {
+                            await client.query('ROLLBACK');
+                            return res.status(400).json({
+                                message: `Integrity error: Product "${prod.name}" (${prod.part_number}) belongs to warehouse ${prod.warehouse_id}, not the selected source warehouse ${from_warehouse_id}.`
+                            });
+                        }
+
+                        // Enforce available stock: cannot ship more than in stock
+                        if ((parseInt(prod.quantity) || 0) < qty) {
+                            await client.query('ROLLBACK');
+                            return res.status(400).json({
+                                message: `Insufficient stock for "${prod.name}" at source warehouse. Available: ${prod.quantity || 0}, requested: ${qty}.`
+                            });
+                        }
+
+                        // Decrease quantity at source
+                        await client.query(`
+                            UPDATE products 
+                            SET quantity = quantity - $1, updated_at = NOW()
+                            WHERE id = $2
+                        `, [qty, productId]);
+
+                        // Create movement record with shipped_at timestamp, quantity, and tracking info
+                        const result = await client.query(`
+                            INSERT INTO inventory_movements 
+                            (product_id, from_warehouse_id, to_warehouse_id, movement_type, status, notes, created_by, shipped_at, quantity, from_bin_number, tracking_number)
+                            VALUES ($1, $2, $3, 'transfer', 'in_transit', $4, $5, NOW(), $6, $7, $8)
+                            RETURNING *
+                        `, [productId, from_warehouse_id, to_warehouse_id, notes, decoded.id, qty, bin || prod.bin_number || null, tracking_number || null]);
+
+                        movements.push(result.rows[0]);
+                        console.log(`📤 Shipped ${qty} of product ${productId}: decreased quantity at warehouse ${from_warehouse_id}`);
+                    }
+
+                    await client.query('COMMIT');
+
+                    return res.status(201).json({
+                        success: true,
+                        message: `${movements.length} product(s) shipped successfully. Quantity decreased at source.`,
+                        movements
+                    });
+                } catch (txErr) {
+                    await client.query('ROLLBACK');
+                    throw txErr;
+                } finally {
+                    client.release();
+                }
             }
 
             // Update transfer status through pipeline: picked → packed → customs_review → in_transit → arrived
@@ -380,6 +449,113 @@ module.exports = async function handler(req, res) {
                 });
             }
 
+            // Bulk Receive: Inbound reception of multiple products or in-transit shipments into warehouse & bins
+            if (action === 'bulk-receive') {
+                const { warehouse_id, items, default_bin } = req.body;
+
+                if (!warehouse_id) {
+                    return res.status(400).json({ message: 'Destination warehouse ID is required' });
+                }
+
+                if (!Array.isArray(items) || items.length === 0) {
+                    return res.status(400).json({ message: 'Items array cannot be empty' });
+                }
+
+                const client = await db.pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    const processed = [];
+
+                    for (const item of items) {
+                        const qty = Math.max(1, parseInt(item.quantity) || 1);
+                        const bin = (item.bin_number || default_bin || null)?.trim() || null;
+                        const movementId = item.movement_id || null;
+                        const partNumber = (item.part_number || item.barcode || '').trim();
+                        const barcode = (item.barcode || partNumber).trim();
+                        const cleanCode = partNumber.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+                        // Check if item has a pending in-transit movement to this warehouse
+                        let targetMovement = null;
+                        if (movementId) {
+                            const mRes = await client.query('SELECT * FROM inventory_movements WHERE id = $1 AND status = $2', [movementId, 'in_transit']);
+                            if (mRes.rows.length > 0) targetMovement = mRes.rows[0];
+                        } else if (cleanCode) {
+                            const mRes = await client.query(`
+                                SELECT m.* FROM inventory_movements m
+                                JOIN products p ON m.product_id = p.id
+                                WHERE m.to_warehouse_id = $1 AND m.status = 'in_transit'
+                                  AND (p.part_number = $2 OR p.barcode = $3 OR REPLACE(REPLACE(COALESCE(p.barcode, ''), '-', ''), ' ', '') = $4)
+                                ORDER BY m.created_at ASC LIMIT 1
+                            `, [warehouse_id, partNumber, barcode, cleanCode]);
+                            if (mRes.rows.length > 0) targetMovement = mRes.rows[0];
+                        }
+
+                        // Check if product exists in destination warehouse
+                        const existingProd = await client.query(`
+                            SELECT id, quantity, name, part_number, barcode, bin_number 
+                            FROM products
+                            WHERE warehouse_id = $1 
+                              AND (part_number = $2 OR barcode = $3 OR REPLACE(REPLACE(part_number, '-', ''), ' ', '') = $4 OR REPLACE(REPLACE(barcode, '-', ''), ' ', '') = $4)
+                            LIMIT 1
+                        `, [warehouse_id, partNumber, barcode, cleanCode]);
+
+                        if (existingProd.rows.length > 0) {
+                            // Update existing product quantity
+                            const target = existingProd.rows[0];
+                            const newQty = target.quantity + qty;
+                            await client.query(`
+                                UPDATE products SET quantity = $1, bin_number = COALESCE($2, bin_number), updated_at = NOW()
+                                WHERE id = $3
+                            `, [newQty, bin, target.id]);
+                            processed.push({ id: target.id, part_number: target.part_number, name: target.name, quantity_added: qty, total_quantity: newQty });
+                        } else {
+                            // Fetch master product details if available
+                            const masterProd = await client.query(`
+                                SELECT name, description, price, category_id, barcode, image_url, condition_status
+                                FROM products
+                                WHERE part_number = $1 OR barcode = $2 OR REPLACE(REPLACE(part_number, '-', ''), ' ', '') = $3
+                                LIMIT 1
+                            `, [partNumber, barcode, cleanCode]);
+                            const mp = masterProd.rows[0] || {};
+                            const newProd = await client.query(`
+                                INSERT INTO products (
+                                    part_number, name, description, price, category_id, barcode, image_url,
+                                    warehouse_id, bin_number, quantity, condition_status, created_at, updated_at
+                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+                                RETURNING id, name, part_number, quantity
+                            `, [
+                                partNumber, mp.name || item.name || `Part ${partNumber}`, mp.description || null,
+                                parseFloat(mp.price || item.price) || 0.00, mp.category_id || item.category_id || null,
+                                barcode, mp.image_url || null, warehouse_id, bin, qty, mp.condition_status || 'New'
+                            ]);
+                            processed.push({ id: newProd.rows[0].id, part_number: newProd.rows[0].part_number, name: newProd.rows[0].name, quantity_added: qty, total_quantity: qty });
+                        }
+
+                        // If linked to in-transit movement, mark completed
+                        if (targetMovement) {
+                            await client.query(`
+                                UPDATE inventory_movements 
+                                SET status = 'completed', scanned_at = NOW(), received_at = NOW(), to_bin = $2, received_by = $3
+                                WHERE id = $1
+                            `, [targetMovement.id, bin, decoded.id]);
+                        }
+                    }
+
+                    await client.query('COMMIT');
+                    return res.json({
+                        success: true,
+                        message: `Successfully received ${processed.length} products (${processed.reduce((sum, it) => sum + it.quantity_added, 0)} units) into warehouse!`,
+                        items: processed
+                    });
+                } catch (err) {
+                    await client.query('ROLLBACK');
+                    console.error('Bulk receive error:', err);
+                    return res.status(500).json({ message: 'Bulk receive transaction failed: ' + err.message });
+                } finally {
+                    client.release();
+                }
+            }
+
             // Assign bin
             if (action === 'assign-bin') {
                 const { product_id, bin_number, warehouse_id } = req.body;
@@ -415,12 +591,51 @@ module.exports = async function handler(req, res) {
                 const currentQty = parseInt(sourceProd.quantity) || 0;
                 const moveQty = quantity ? Math.min(parseInt(quantity), currentQty) : currentQty;
 
-                // Update product's bin_number and warehouse_id
-                await db.query(`
-                    UPDATE products 
-                    SET bin_number = $1, warehouse_id = COALESCE($2, warehouse_id), updated_at = NOW() 
-                    WHERE id = $3
-                `, [to_bin, targetWhId, product_id]);
+                if (moveQty <= 0) {
+                    return res.status(400).json({ message: 'No available quantity to shift' });
+                }
+
+                if (moveQty < currentQty) {
+                    // PARTIAL BIN SHIFT: Deduct moveQty from source bin row
+                    await db.query(`
+                        UPDATE products 
+                        SET quantity = quantity - $1, updated_at = NOW() 
+                        WHERE id = $2
+                    `, [moveQty, product_id]);
+
+                    // Check if matching product already exists in destination bin
+                    const destCheck = await db.query(`
+                        SELECT id, quantity FROM products 
+                        WHERE part_number = $1 AND warehouse_id = $2 AND bin_number = $3
+                        LIMIT 1
+                    `, [sourceProd.part_number, targetWhId, to_bin]);
+
+                    if (destCheck.rows.length > 0) {
+                        await db.query(`
+                            UPDATE products 
+                            SET quantity = quantity + $1, updated_at = NOW()
+                            WHERE id = $2
+                        `, [moveQty, destCheck.rows[0].id]);
+                    } else {
+                        await db.query(`
+                            INSERT INTO products (
+                                part_number, name, description, price, category_id, barcode, 
+                                image_url, warehouse_id, bin_number, quantity, condition_status, created_at, updated_at
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+                        `, [
+                            sourceProd.part_number, sourceProd.name, sourceProd.description, 
+                            sourceProd.price, sourceProd.category_id, sourceProd.barcode, 
+                            sourceProd.image_url, targetWhId, to_bin, moveQty, sourceProd.condition_status || 'New'
+                        ]);
+                    }
+                } else {
+                    // FULL BIN SHIFT: All units moved to destination bin
+                    await db.query(`
+                        UPDATE products 
+                        SET bin_number = $1, warehouse_id = COALESCE($2, warehouse_id), updated_at = NOW() 
+                        WHERE id = $3
+                    `, [to_bin, targetWhId, product_id]);
+                }
 
                 // Log movement in inventory_movements
                 try {
@@ -455,6 +670,8 @@ module.exports = async function handler(req, res) {
                     return res.status(400).json({ message: 'Part number and warehouse ID required' });
                 }
 
+                const intakeQty = Math.max(1, parseInt(quantity) || 1);
+
                 // Check if product with this part_number exists in this warehouse
                 const existingProduct = await db.query(`
                     SELECT id, quantity FROM products 
@@ -462,17 +679,20 @@ module.exports = async function handler(req, res) {
                 `, [part_number, warehouse_id]);
 
                 let resultMessage;
+                let targetProductId;
+
                 if (existingProduct.rows.length > 0) {
+                    targetProductId = existingProduct.rows[0].id;
                     // Product exists - increase quantity
                     await db.query(`
                         UPDATE products 
-                        SET quantity = quantity + $1, bin_number = COALESCE($3, bin_number)
+                        SET quantity = quantity + $1, bin_number = COALESCE($3, bin_number), updated_at = NOW()
                         WHERE id = $2
-                    `, [quantity, existingProduct.rows[0].id, bin_number]);
+                    `, [intakeQty, targetProductId, bin_number]);
 
-                    const newQty = existingProduct.rows[0].quantity + quantity;
-                    resultMessage = `Added ${quantity} units to existing stock. Total now: ${newQty}`;
-                    console.log(`📦 Unexpected receive: Added ${quantity} of ${part_number} to existing stock`);
+                    const newQty = (parseInt(existingProduct.rows[0].quantity) || 0) + intakeQty;
+                    resultMessage = `Added ${intakeQty} units to existing stock. Total now: ${newQty}`;
+                    console.log(`📦 Unexpected receive: Added ${intakeQty} of ${part_number} to existing stock`);
                 } else {
                     // Need to get product details from any warehouse
                     const productDetails = await db.query(`
@@ -487,9 +707,10 @@ module.exports = async function handler(req, res) {
                     const details = productDetails.rows[0];
 
                     // Create new entry in warehouse
-                    await db.query(`
-                        INSERT INTO products (part_number, name, description, price, category_id, barcode, image_url, warehouse_id, bin_number, quantity, condition_status)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                    const insertRes = await db.query(`
+                        INSERT INTO products (part_number, name, description, price, category_id, barcode, image_url, warehouse_id, bin_number, quantity, condition_status, created_at, updated_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+                        RETURNING id
                     `, [
                         part_number,
                         details.name,
@@ -500,12 +721,31 @@ module.exports = async function handler(req, res) {
                         details.image_url,
                         warehouse_id,
                         bin_number,
-                        quantity,
+                        intakeQty,
                         details.condition_status || 'New'
                     ]);
 
-                    resultMessage = `Created new inventory entry with ${quantity} units.`;
-                    console.log(`📦 Unexpected receive: Created new entry for ${part_number} with ${quantity} units`);
+                    targetProductId = insertRes.rows[0].id;
+                    resultMessage = `Created new inventory entry with ${intakeQty} units.`;
+                    console.log(`📦 Unexpected receive: Created new entry for ${part_number} with ${intakeQty} units`);
+                }
+
+                // Log inventory movement for audit integrity
+                try {
+                    await db.query(`
+                        INSERT INTO inventory_movements 
+                        (product_id, to_warehouse_id, to_bin, movement_type, status, notes, created_by, received_at, scanned_at, quantity, created_at, updated_at)
+                        VALUES ($1, $2, $3, 'intake', 'completed', $4, $5, NOW(), NOW(), $6, NOW(), NOW())
+                    `, [
+                        targetProductId,
+                        warehouse_id,
+                        bin_number || null,
+                        `Direct intake of ${intakeQty} units (${part_number})`,
+                        decoded.id,
+                        intakeQty
+                    ]);
+                } catch (logErr) {
+                    console.warn('⚠️ Could not log unexpected receive in inventory_movements:', logErr.message);
                 }
 
                 return res.json({ message: resultMessage });

@@ -318,6 +318,42 @@ export const movementsAPI = {
     return data;
   },
 
+  // Bulk Ship (Scan & Send): Dispatch multiple products from source to destination warehouse in batch
+  bulkShip: async ({ fromWarehouseId, toWarehouseId, items, notes = null, trackingNumber = null }) => {
+    const payload = {
+      from_warehouse_id: fromWarehouseId,
+      to_warehouse_id: toWarehouseId,
+      items,
+      notes,
+      tracking_number: trackingNumber,
+    };
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=ship`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to dispatch shipment');
+    return data;
+  },
+
+  // Bulk Receive (Scan & Receive): Receive multiple products/shipments into warehouse & bins in batch
+  bulkReceive: async ({ warehouseId, items, defaultBin = null }) => {
+    const payload = {
+      warehouse_id: warehouseId,
+      items,
+      default_bin: defaultBin,
+    };
+    const response = await fetch(`${API_BASE_URL}/inventory/movements?action=bulk-receive`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to receive products');
+    return data;
+  },
+
   // Update movement status through pipeline (picked → packed → customs_review → in_transit → arrived → completed)
   updateStatus: async ({ movement_id, new_status, tracking_number, customs_status, notes }) => {
     const response = await fetch(`${API_BASE_URL}/inventory/movements?action=update-status`, {
